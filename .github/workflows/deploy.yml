@@ -1,0 +1,125 @@
+name: Deploy to Production
+
+# Build dilakukan di GitHub runner, bukan di VPS.
+# Alasan: `npm run build` (Vite + React) rutin memakai >1 GB RAM. Di VPS kecil
+# (1-2 GB) itu sering kena OOM-kill di tengah deploy dan meninggalkan
+# public/build dalam kondisi rusak. Build di CI membuat VPS tidak perlu Node
+# sama sekali.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  # Cegah dua deploy jalan bersamaan dan saling menimpa file di server.
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # --- PHP -------------------------------------------------------------
+      # Harus cocok dengan PHP di VPS. composer.json meminta ^8.2.
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, ctype, curl, bcmath, pdo_mysql, zip, gd, intl
+          coverage: none
+          tools: composer:v2
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install PHP dependencies
+        run: |
+          composer install \
+            --no-dev \
+            --prefer-dist \
+            --no-interaction \
+            --no-progress \
+            --optimize-autoloader
+
+      # --- Node ------------------------------------------------------------
+      # Vite 7 butuh Node >= 20.19 / 22.12. Pakai 22 LTS.
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: npm run build
+
+      - name: Verify build output
+        run: |
+          test -f public/build/manifest.json \
+            || { echo "::error::public/build/manifest.json tidak ada - build gagal diam-diam"; exit 1; }
+
+      # --- Transfer ---------------------------------------------------------
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${{ secrets.SSH_PORT }}" -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Rsync to server
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          # --delete membersihkan file yang sudah dihapus dari repo.
+          # Semua --exclude di bawah OTOMATIS terlindungi dari penghapusan
+          # (karena --delete-excluded TIDAK dipakai). Ini yang menjaga .env,
+          # storage/, dan public/storage tetap aman di server.
+          rsync -az --delete \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.env' \
+            --exclude='node_modules' \
+            --exclude='storage' \
+            --exclude='public/storage' \
+            --exclude='bootstrap/cache/*.php' \
+            --exclude='tests' \
+            --exclude='phpunit.xml' \
+            -e "ssh -p ${SSH_PORT} -o StrictHostKeyChecking=yes" \
+            ./ "${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/"
+
+      # --- Aktivasi ---------------------------------------------------------
+      - name: Run deploy script on server
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          ssh -p "${SSH_PORT}" "${SSH_USER}@${SSH_HOST}" \
+            "chmod +x ${DEPLOY_PATH}/deploy/deploy.sh && APP_DIR=${DEPLOY_PATH} ${DEPLOY_PATH}/deploy/deploy.sh"
+
+      - name: Smoke test
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+        run: |
+          # Beri jeda agar PHP-FPM selesai reload.
+          sleep 5
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "${APP_URL}")
+          echo "HTTP ${code} dari ${APP_URL}"
+          [ "$code" = "200" ] || { echo "::error::Smoke test gagal (HTTP ${code})"; exit 1; }

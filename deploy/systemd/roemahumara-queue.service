@@ -1,0 +1,50 @@
+# =============================================================================
+# systemd unit untuk Laravel queue worker.
+#
+# Pasang:
+#   sudo cp deploy/systemd/roemahumara-queue.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now roemahumara-queue
+#   sudo systemctl status roemahumara-queue
+#
+# Log:  journalctl -u roemahumara-queue -f
+#
+# Kenapa systemd dan bukan Supervisor: Ubuntu 22/24 sudah bawa systemd, tidak
+# perlu paket tambahan, dan restart-nya lebih dapat diprediksi.
+# =============================================================================
+
+[Unit]
+Description=Roemah Umara - Laravel Queue Worker
+After=network.target mysql.service
+Requires=mysql.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/roemahumara
+
+# --stop-when-empty JANGAN dipakai di sini: worker harus terus hidup.
+# --max-time=3600 membuat worker restart tiap jam supaya memory leak tidak menumpuk.
+ExecStart=/usr/bin/php8.3 /var/www/roemahumara/artisan queue:work \
+    --queue=default \
+    --sleep=3 \
+    --tries=3 \
+    --backoff=10 \
+    --max-time=3600 \
+    --max-jobs=1000
+
+Restart=always
+RestartSec=5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=roemahumara-queue
+
+# Hardening dasar
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
