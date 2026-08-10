@@ -4,25 +4,47 @@
 
 **Goal:** Membangun sistem reservasi internal Roemah Umara yang menggantikan spreadsheet, dengan data ternormalisasi, jejak audit per perubahan, dan pencegahan duplikat di level database.
 
-**Architecture:** Laravel 12 monolith dengan Inertia 2 + React 18 sebagai lapisan tampilan. Seluruh data satu bulan dikirim sekaligus sebagai props Inertia, lalu difilter dan disortir di klien — tidak ada endpoint API terpisah, tidak ada pagination. Integritas data dijaga oleh constraint database (UNIQUE pada generated column, optimistic lock lewat kolom `version`), bukan oleh pengecekan di kode aplikasi.
+**Architecture:** Laravel 12 monolith dengan **Filament v5** (Livewire v4) sebagai satu-satunya lapisan tampilan. Integritas data dijaga oleh constraint database — UNIQUE pada generated column dan optimistic lock lewat kolom `version` — bukan oleh pengecekan di kode aplikasi. Penulisan reservasi tidak diserahkan ke Filament, melainkan melewati `ReservationWriter` lewat hook `handleRecordCreation()` dan `handleRecordUpdate()`.
 
-**Tech Stack:** PHP 8.2, Laravel 12, Inertia.js 2, React 18, Tailwind 3, Vite 7, MySQL 8, PHPUnit 11, `spatie/laravel-activitylog`.
+**Tech Stack (terverifikasi di mesin pengembang, 10 Agustus 2026):** PHP 8.3.1, Laravel 12.65.0, Filament v5.7.6, Livewire v4.3.5, MySQL 8, PHPUnit 11, `spatie/laravel-activitylog`.
 
 **Spec:** `docs/superpowers/specs/2026-08-10-reservasi-roemah-umara-design.md`
 
 ## Global Constraints
 
 - **MySQL 8 wajib**, termasuk untuk menjalankan test. `dedupe_key` memakai generated stored column dengan `IF()`, `CONCAT_WS()`, `DATE_FORMAT()`, `TIME_FORMAT()` — tidak satu pun tersedia di SQLite. Menjalankan test di SQLite akan melewati constraint terpenting dalam sistem ini tanpa memberi tanda apa pun.
+- **Filament v5 adalah satu-satunya UI.** Tidak ada Inertia, React, Breeze, atau Ziggy. Panel berada di `/admin`, dan `/` diarahkan ke sana.
+- **Autentikasi memakai panel Filament**, bukan Breeze. Tidak ada `routes/auth.php`.
+- **Otorisasi memakai Model Policy**, bukan middleware. Filament membaca `viewAny`, `view`, `create`, `update`, `delete`, dan `deleteAny` secara otomatis.
+- **Role dan permission memakai `spatie/laravel-permission` v8.** Tidak ada kolom `role` di tabel `users`.
+- **Policy WAJIB mengecek permission, bukan role.** Menulis `$user->hasRole('admin')` di dalam Policy membatalkan seluruh alasan memakai spatie — menambah role baru akan tetap memerlukan perubahan kode. Yang benar adalah `$user->can(Ability::DeleteReservation->value)`. Role hanyalah wadah yang memuat permission.
+- **Permission dinamai menurut kemampuan bisnis, bukan per-CRUD-per-Resource.** Ada delapan, didefinisikan di `App\Enums\Ability`. Jangan memakai Filament Shield, yang meng-generate sekitar empat puluh permission per-Resource dan memaksa aturan sederhana diekspresikan lewat puluhan checkbox.
+- **Nama permission adalah kode, isi role adalah data.** Daftar `Ability` hanya berubah lewat commit. Role dan pemetaannya ke permission boleh diubah lewat UI oleh admin.
 - **Tidak ada migrasi data lama.** Database dimulai kosong. Tidak ada command import.
-- **Tidak ada Filament.** Seluruh UI memakai Inertia + React.
-- **Tidak ada pustaka kalender.** Grid bulanan memakai CSS Grid.
+- **Tidak ada pustaka kalender.** Grid bulanan memakai CSS Grid di dalam custom Filament Page.
 - **Tidak ada pagination, caching, queue.** Volume ± 15 reservasi per bulan.
-- **Remark selalu ditampilkan penuh.** Dilarang memotong teks, menyembunyikan di balik hover, atau di balik tombol. Satu-satunya pengecualian adalah chip kalender, yang menggantinya dengan panel detail.
+- **Remark selalu ditampilkan penuh.** Dilarang memotong teks, menyembunyikan di balik hover, atau di balik tombol. Di tabel, remark memakai `Panel` layout **tanpa** `->collapsible()`. Di kalender, chip menggantinya dengan panel detail.
 - **Update model wajib lewat `$model->save()`**, tidak boleh `Model::where(...)->update(...)`. Update massal tidak memicu event Eloquent, sehingga `activity_log` tidak tercatat dan audit trail bolong tanpa error.
 - **Optimistic lock memakai kolom `version` (integer)**, bukan `updated_at`. TIMESTAMP MySQL berpresisi detik.
 - **Durasi asumsi reservasi tanpa `end_time` adalah 2 jam**, dibaca dari `config('reservation.default_duration_minutes')`.
 - **Kunci duplikat:** `reservation_date` + `LOWER(TRIM(guest_name))` + `start_time`.
-- Nama tabel, kolom, dan route memakai bahasa Inggris. Label yang terlihat pengguna memakai bahasa Indonesia.
+- Nama tabel, kolom, dan class memakai bahasa Inggris. Label yang terlihat pengguna memakai bahasa Indonesia.
+
+## Catatan API Filament v5
+
+Diverifikasi dari dokumentasi resmi 5.x. Jangan memakai pola dari Filament v3 — banyak yang berubah:
+
+| Hal | v5 |
+|---|---|
+| Form | `public static function form(Schema $schema): Schema` memakai `Filament\Schemas\Schema` dan `->components([...])` |
+| Field | tetap di `Filament\Forms\Components\*` |
+| Layout form | `Filament\Schemas\Components\*` |
+| Table actions | `Filament\Actions\*`, bukan `Filament\Tables\Actions\*` |
+| Method table | `->recordActions([...])` dan `->toolbarActions([...])` |
+| Layout tabel | `Filament\Tables\Columns\Layout\{Split, Stack, Grid, Panel}` |
+| Struktur berkas | `app/Filament/Resources/<Plural>/` berisi `Pages/`, `Schemas/`, `Tables/` |
+| Navigation icon | `protected static string \| BackedEnum \| null $navigationIcon` |
+| Navigation group | `protected static string \| UnitEnum \| null $navigationGroup` |
 
 ## File Structure
 
@@ -58,39 +80,180 @@
 | `app/Services/ConflictChecker.php` | Deteksi tumpang tindih area |
 | `app/Services/ReservationWriter.php` | Transaksi, optimistic lock, idempotency |
 
-**HTTP layer**
+**Otorisasi**
 
 | File | Tanggung jawab |
 |---|---|
-| `app/Http/Requests/StoreReservationRequest.php` | Validasi + normalisasi input baru |
-| `app/Http/Requests/UpdateReservationRequest.php` | Sama, ditambah `version` |
-| `app/Http/Controllers/ReservationController.php` | CRUD reservasi |
-| `app/Http/Controllers/Master/*Controller.php` | Tiga master CRUD |
-| `app/Http/Controllers/UserController.php` | CRUD pengguna |
-| `app/Policies/ReservationPolicy.php` | Hak akses per aksi |
-| `app/Http/Middleware/HandleInertiaRequests.php` | Diubah: bagikan `auth.user.role` |
-| `routes/web.php` | Diubah: seluruh route |
+| `app/Policies/ReservationPolicy.php` | Hak akses per aksi, dibaca Filament otomatis |
+| `app/Policies/MasterPolicy.php` | Basis policy untuk tiga master, admin saja |
+| `app/Policies/UserPolicy.php` | Admin saja |
 
-**Frontend**
+**Filament**
 
 | File | Tanggung jawab |
 |---|---|
-| `resources/js/Utils/formatTimeRange.js` | Satu-satunya sumber format jam |
-| `resources/js/Pages/Reservations/Index.jsx` | Layout, state filter, toggle mode |
-| `resources/js/Pages/Reservations/Form.jsx` | Dipakai Create dan Edit |
-| `resources/js/Pages/Reservations/Show.jsx` | Detail + timeline audit |
-| `resources/js/Components/ReservationTable.jsx` | Mode tabel |
-| `resources/js/Components/RemarkRow.jsx` | Baris remark selebar tabel |
-| `resources/js/Components/MonthGrid.jsx` | Mode kalender |
-| `resources/js/Components/ReservationChip.jsx` | Chip di sel tanggal |
-| `resources/js/Components/ReservationDetailPanel.jsx` | Detail di bawah kalender |
-| `resources/js/Components/FilterBar.jsx` | Pencarian dan filter |
-| `resources/js/Components/PicCombobox.jsx` | Dropdown PIC dengan pencarian |
-| `resources/js/Components/StatusBadge.jsx` | Badge status |
-| `resources/js/Components/TimeRangeField.jsx` | Jam mulai + checkbox "sampai jam" |
-| `resources/js/Pages/Master/SimpleMasterPage.jsx` | Dipakai bersama tiga master |
+| `app/Providers/Filament/AdminPanelProvider.php` | Diubah: judul, warna, urutan navigasi |
+| `app/Filament/Resources/Reservations/ReservationResource.php` | Titik masuk resource |
+| `app/Filament/Resources/Reservations/Schemas/ReservationForm.php` | Skema form |
+| `app/Filament/Resources/Reservations/Schemas/ReservationInfolist.php` | Skema halaman View |
+| `app/Filament/Resources/Reservations/Tables/ReservationsTable.php` | Kolom, filter, aksi, `Panel` remark |
+| `app/Filament/Resources/Reservations/Pages/ListReservations.php` | Daftar |
+| `app/Filament/Resources/Reservations/Pages/CreateReservation.php` | Override `handleRecordCreation()` |
+| `app/Filament/Resources/Reservations/Pages/EditReservation.php` | Override `handleRecordUpdate()` |
+| `app/Filament/Resources/Reservations/Pages/ViewReservation.php` | Detail + riwayat |
+| `app/Filament/Pages/ReservationCalendar.php` | Custom page kalender |
+| `resources/views/filament/pages/reservation-calendar.blade.php` | Grid bulanan CSS Grid |
+| `resources/views/filament/audit-timeline.blade.php` | Riwayat perubahan |
+| `app/Filament/Resources/Areas/*` | Simple resource |
+| `app/Filament/Resources/EventTypes/*` | Simple resource |
+| `app/Filament/Resources/MenuStyles/*` | Simple resource |
+| `app/Filament/Resources/Users/*` | Resource pengguna |
 
-**Alasan pemisahan `TimeInput`, `ConflictChecker`, dan `ReservationWriter` dari controller:** ketiganya berisi logika yang paling mudah salah dan paling perlu diuji berulang. Menaruhnya di controller memaksa setiap test melewati lapisan HTTP, yang membuat test lambat dan pesan kegagalannya kabur.
+**Alasan `TimeInput`, `ReservationInput`, `ConflictChecker`, dan `ReservationWriter` berada di luar Filament:** keempatnya berisi logika yang paling mudah salah dan paling perlu diuji berulang. Menaruhnya di dalam Resource memaksa setiap test melewati Livewire, yang membuat test lambat dan pesan kegagalannya kabur. Dengan dipisah, Task 1 sampai 11 bisa diselesaikan dan diuji sepenuhnya sebelum satu baris UI dibuat.
+
+---
+
+## Task 0: Bersihkan Breeze dan siapkan panel Filament
+
+**Files:**
+- Delete: `resources/js/`, `resources/views/app.blade.php`, `routes/auth.php`, `app/Http/Controllers/ProfileController.php`, `app/Http/Requests/ProfileUpdateRequest.php`, `app/Http/Middleware/HandleInertiaRequests.php`, `app/View/Components/AppLayout.php`, `app/View/Components/GuestLayout.php`
+- Modify: `composer.json`, `package.json`, `routes/web.php`, `bootstrap/app.php`, `vite.config.js`
+- Modify: `app/Providers/Filament/AdminPanelProvider.php`
+
+**Interfaces:**
+- Consumes: tidak ada
+- Produces: aplikasi yang hanya punya satu sistem autentikasi, yaitu panel Filament di `/admin`
+
+Kondisi awal yang sudah diverifikasi: `resources/js`, `routes/auth.php`, dan `resources/js/Pages` semuanya ada; `composer.json` masih memuat `inertiajs/inertia-laravel`, `tightenco/ziggy`, dan `laravel/breeze`; `package.json` masih memuat React dan Inertia. Filament sudah terpasang lewat `filament:install --panels`.
+
+Membiarkan Breeze berdampingan dengan Filament menghasilkan **dua halaman login** yang memakai guard `web` yang sama — `/login` dan `/admin/login`. Ini tidak langsung menimbulkan error, sehingga mudah lolos ke produksi dan baru terasa saat ada yang bingung harus login di mana.
+
+- [ ] **Step 1: Buat cabang kerja**
+
+```bash
+git checkout -b feat/filament-reservation
+git status
+```
+
+Expected: working tree bersih selain instalasi Filament yang sudah dilakukan. Commit dulu instalasi Filament jika belum.
+
+- [ ] **Step 2: Hapus paket Breeze, Inertia, dan Ziggy**
+
+```bash
+composer remove laravel/breeze inertiajs/inertia-laravel tightenco/ziggy
+npm remove @inertiajs/react @headlessui/react @vitejs/plugin-react react react-dom @tailwindcss/forms
+```
+
+- [ ] **Step 3: Hapus berkas scaffolding**
+
+```bash
+rm -rf resources/js
+rm -f resources/views/app.blade.php
+rm -f routes/auth.php
+rm -f app/Http/Controllers/ProfileController.php
+rm -f app/Http/Requests/ProfileUpdateRequest.php
+rm -f app/Http/Middleware/HandleInertiaRequests.php
+rm -rf app/View/Components
+rm -rf tests/Feature/Auth
+rm -f tests/Feature/ProfileTest.php
+```
+
+Test bawaan Breeze ikut dihapus karena menguji route yang sudah tidak ada.
+
+- [ ] **Step 4: Sederhanakan routes/web.php**
+
+Ganti seluruh isi `routes/web.php` dengan:
+
+```php
+<?php
+
+use Illuminate\Support\Facades\Route;
+
+Route::redirect('/', '/admin');
+```
+
+Seluruh route lain dihasilkan oleh panel Filament.
+
+- [ ] **Step 5: Bersihkan middleware Inertia**
+
+Buka `bootstrap/app.php`. Di dalam `->withMiddleware(...)`, hapus setiap baris yang menyebut `HandleInertiaRequests` atau `AddLinkHeadersForPreloadedAssets`. Jika blok `withMiddleware` menjadi kosong, biarkan closure-nya kosong.
+
+- [ ] **Step 6: Sederhanakan vite.config.js**
+
+Ganti seluruh isi `vite.config.js` dengan:
+
+```js
+import { defineConfig } from 'vite';
+import laravel from 'laravel-vite-plugin';
+
+export default defineConfig({
+    plugins: [
+        laravel({
+            input: ['resources/css/app.css', 'resources/js/app.js'],
+            refresh: true,
+        }),
+    ],
+});
+```
+
+Lalu buat dua berkas kosong yang dirujuk di atas, karena Filament tidak memakainya tetapi Vite tetap membutuhkannya agar build tidak gagal:
+
+```bash
+mkdir -p resources/js
+printf '' > resources/js/app.js
+```
+
+Pastikan `resources/css/app.css` masih ada. Jika Breeze menghapusnya, buat berkas kosong.
+
+- [ ] **Step 7: Buktikan tidak ada sisa Inertia**
+
+```bash
+grep -rn "Inertia\|inertia\|ziggy\|Ziggy" app/ routes/ config/ bootstrap/ resources/views/ 2>/dev/null
+```
+
+Expected: tidak ada hasil. Perbaiki setiap kemunculan yang tersisa.
+
+- [ ] **Step 8: Atur panel Filament**
+
+Buka `app/Providers/Filament/AdminPanelProvider.php`. Di dalam rantai `$panel`, pastikan tiga hal berikut ada. Jangan hapus konfigurasi lain yang sudah dihasilkan installer.
+
+```php
+->id('admin')
+->path('admin')
+->login()
+->brandName('Roemah Umara')
+->navigationGroups([
+    'Reservasi',
+    'Master',
+    'Pengaturan',
+])
+```
+
+`->login()` memasang halaman login milik Filament. Jangan tambahkan `->registration()` — pendaftaran mandiri tidak diinginkan pada sistem internal.
+
+- [ ] **Step 9: Verifikasi aplikasi hidup**
+
+```bash
+php artisan optimize:clear
+php artisan route:list --path=admin
+npm run build
+php artisan serve
+```
+
+Expected: `route:list` menampilkan route panel Filament termasuk `filament.admin.auth.login`. Build selesai tanpa error.
+
+Buka `http://localhost:8000/` di browser — harus otomatis berpindah ke `/admin/login` dan menampilkan halaman login Filament.
+
+Buka `http://localhost:8000/login` — harus menghasilkan 404, membuktikan Breeze benar-benar hilang.
+
+- [ ] **Step 10: Commit**
+
+```bash
+git add -A
+git commit -m "chore: hapus Breeze, Inertia, dan React; siapkan panel Filament"
+```
+
+---
 
 ---
 
@@ -98,7 +261,7 @@
 
 **Files:**
 - Create: `config/reservation.php`
-- Create: `app/Enums/UserRole.php`
+- Create: `app/Enums/Ability.php`
 - Create: `app/Enums/ReservationStatus.php`
 - Modify: `phpunit.xml`
 - Modify: `.env.example`
@@ -106,7 +269,10 @@
 
 **Interfaces:**
 - Consumes: tidak ada, ini task pertama
-- Produces: `UserRole::Admin`, `UserRole::Staff`, `ReservationStatus::Tentative`, `ReservationStatus::Confirmed` (keduanya backed enum bertipe string); `config('reservation.default_duration_minutes')` mengembalikan `int`
+- Produces: `Ability` (backed enum, delapan case) dengan `Ability::values(): array` dan `label()`; `ReservationStatus::Tentative`, `ReservationStatus::Confirmed`; `config('reservation.default_duration_minutes')` mengembalikan `int`
+
+`Ability` diberi nama demikian, bukan `Permission`, agar tidak bentrok dengan
+`Spatie\Permission\Models\Permission` yang akan dipakai di Task 2.
 
 - [ ] **Step 1: Buat database test di MySQL**
 
@@ -159,24 +325,65 @@ RESERVATION_DEFAULT_DURATION=120
 
 - [ ] **Step 5: Buat enum**
 
-`app/Enums/UserRole.php`:
+`app/Enums/Ability.php`:
 
 ```php
 <?php
 
 namespace App\Enums;
 
-enum UserRole: string
+/**
+ * Daftar kemampuan yang dikenali sistem.
+ *
+ * Ini adalah KODE, bukan data. Menambah kemampuan baru selalu lewat commit,
+ * karena setiap kemampuan harus punya Policy yang memakainya. Yang boleh
+ * diubah admin lewat UI adalah role dan kemampuan apa saja yang dimuatnya.
+ *
+ * Sengaja dinamai menurut kemampuan bisnis, bukan per-CRUD-per-Resource.
+ * Delapan baris di sini menggantikan sekitar empat puluh permission yang
+ * akan di-generate Filament Shield.
+ */
+enum Ability: string
 {
-    case Admin = 'admin';
-    case Staff = 'staff';
+    case ViewReservation = 'reservation.view';
+    case CreateReservation = 'reservation.create';
+    case UpdateReservation = 'reservation.update';
+    case DeleteReservation = 'reservation.delete';
+    case ConfirmReservation = 'reservation.confirm';
+    case ManageMaster = 'master.manage';
+    case ManageUser = 'user.manage';
+    case ManageRole = 'role.manage';
 
     public function label(): string
     {
         return match ($this) {
-            self::Admin => 'Admin',
-            self::Staff => 'Staf',
+            self::ViewReservation => 'Lihat reservasi',
+            self::CreateReservation => 'Tambah reservasi',
+            self::UpdateReservation => 'Ubah reservasi',
+            self::DeleteReservation => 'Hapus reservasi',
+            self::ConfirmReservation => 'Tetapkan status CONFIRMED',
+            self::ManageMaster => 'Kelola master area, event, menu',
+            self::ManageUser => 'Kelola pengguna',
+            self::ManageRole => 'Kelola role dan hak akses',
         };
+    }
+
+    /** @return array<int, string> */
+    public static function values(): array
+    {
+        return array_column(self::cases(), 'value');
+    }
+
+    /** @return array<string, string> untuk dipakai sebagai opsi form */
+    public static function options(): array
+    {
+        $options = [];
+
+        foreach (self::cases() as $case) {
+            $options[$case->value] = $case->label();
+        }
+
+        return $options;
     }
 }
 ```
@@ -212,8 +419,8 @@ enum ReservationStatus: string
 
 namespace Tests\Unit;
 
+use App\Enums\Ability;
 use App\Enums\ReservationStatus;
-use App\Enums\UserRole;
 use Tests\TestCase;
 
 class ConfigTest extends TestCase
@@ -223,10 +430,21 @@ class ConfigTest extends TestCase
         $this->assertSame(120, config('reservation.default_duration_minutes'));
     }
 
-    public function test_user_roles_are_admin_and_staff(): void
+    public function test_abilities_are_named_by_business_capability(): void
     {
-        $this->assertSame('admin', UserRole::Admin->value);
-        $this->assertSame('staff', UserRole::Staff->value);
+        $this->assertSame('reservation.delete', Ability::DeleteReservation->value);
+        $this->assertSame('master.manage', Ability::ManageMaster->value);
+        $this->assertCount(8, Ability::cases());
+    }
+
+    public function test_ability_values_and_options_stay_in_sync(): void
+    {
+        $this->assertCount(8, Ability::values());
+        $this->assertSame(
+            Ability::values(),
+            array_keys(Ability::options()),
+            'Setiap Ability wajib punya label.'
+        );
     }
 
     public function test_reservation_statuses_render_uppercase_labels(): void
@@ -256,25 +474,38 @@ git commit -m "feat: config, enum, dan test berjalan di MySQL"
 
 ---
 
-## Task 2: Kolom role dan is_active pada users
+## Task 2: Role dan permission dengan spatie
 
 **Files:**
-- Create: `database/migrations/2026_08_10_000001_add_role_and_is_active_to_users_table.php`
+- Modify: `composer.json` (lewat composer require)
+- Create: `database/migrations/2026_08_10_000001_add_is_active_to_users_table.php`
+- Create: `database/migrations/*_create_permission_tables.php` (dari vendor publish)
 - Modify: `app/Models/User.php`
 - Modify: `database/factories/UserFactory.php`
-- Test: `tests/Feature/UserRoleTest.php`
+- Create: `database/seeders/RolePermissionSeeder.php`
+- Modify: `database/seeders/DatabaseSeeder.php`
+- Test: `tests/Feature/RolePermissionTest.php`
 
 **Interfaces:**
-- Consumes: `UserRole` dari Task 1
-- Produces: `User::isAdmin(): bool`; `User::$role` bertipe `UserRole`; `User::$is_active` bertipe `bool`; scope `User::query()->active()`; state factory `UserFactory::new()->admin()` dan `->inactive()`
+- Consumes: `Ability` dari Task 1
+- Produces: `User` memakai trait `HasRoles`; `User::$is_active` bertipe `bool`; scope `User::query()->active()`; state factory `UserFactory::new()->admin()` dan `->inactive()`; role `admin` dan `staff` tersedia setelah `RolePermissionSeeder`
 
-- [ ] **Step 1: Buat migration**
+**Tidak ada kolom `role` di tabel `users`.** Role disimpan spatie di `model_has_roles`.
+Menyimpannya di dua tempat sekaligus akan menghasilkan dua sumber kebenaran yang
+bisa berbeda tanpa ketahuan.
+
+`is_active` **bukan** permission, melainkan status akun: boleh login atau tidak.
+Karena itu tetap menjadi kolom biasa dan diperiksa terpisah di setiap Policy.
+
+- [ ] **Step 1: Pasang paket dan buat migration**
 
 ```bash
-php artisan make:migration add_role_and_is_active_to_users_table
+composer require spatie/laravel-permission
+php artisan vendor:publish --provider="Spatie\Permission\PermissionServiceProvider"
+php artisan make:migration add_is_active_to_users_table
 ```
 
-Ganti isinya:
+Ganti isi migration `add_is_active_to_users_table`:
 
 ```php
 <?php
@@ -288,53 +519,108 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('role', 20)->default('staff')->after('password');
-            $table->boolean('is_active')->default(true)->after('role');
+            $table->boolean('is_active')->default(true)->after('password');
         });
     }
 
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn(['role', 'is_active']);
+            $table->dropColumn('is_active');
         });
     }
 };
 ```
 
+Jalankan `php artisan migrate` dan pastikan lima tabel spatie terbentuk: `roles`,
+`permissions`, `model_has_roles`, `model_has_permissions`, `role_has_permissions`.
+
 - [ ] **Step 2: Tulis test yang gagal**
 
-`tests/Feature/UserRoleTest.php`:
+`tests/Feature/RolePermissionTest.php`:
 
 ```php
 <?php
 
 namespace Tests\Feature;
 
-use App\Enums\UserRole;
+use App\Enums\Ability;
 use App\Models\User;
+use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
-class UserRoleTest extends TestCase
+class RolePermissionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_new_user_defaults_to_staff_and_active(): void
+    protected function setUp(): void
     {
-        $user = User::factory()->create();
-
-        $this->assertSame(UserRole::Staff, $user->role);
-        $this->assertTrue($user->is_active);
-        $this->assertFalse($user->isAdmin());
+        parent::setUp();
+        $this->seed(RolePermissionSeeder::class);
     }
 
-    public function test_admin_is_detected(): void
+    public function test_every_ability_exists_as_a_permission(): void
     {
-        $user = User::factory()->admin()->create();
+        $this->assertSame(
+            Ability::values(),
+            Permission::orderByRaw('FIELD(name, "'.implode('","', Ability::values()).'")')
+                ->pluck('name')
+                ->all()
+        );
+    }
 
-        $this->assertSame(UserRole::Admin, $user->role);
-        $this->assertTrue($user->isAdmin());
+    public function test_two_roles_are_seeded(): void
+    {
+        $this->assertSame(['admin', 'staff'], Role::orderBy('name')->pluck('name')->all());
+    }
+
+    public function test_staff_can_read_and_write_but_not_delete(): void
+    {
+        $staff = User::factory()->create();
+        $staff->assignRole('staff');
+
+        $this->assertTrue($staff->can(Ability::ViewReservation->value));
+        $this->assertTrue($staff->can(Ability::CreateReservation->value));
+        $this->assertTrue($staff->can(Ability::UpdateReservation->value));
+
+        $this->assertFalse($staff->can(Ability::DeleteReservation->value));
+        $this->assertFalse($staff->can(Ability::ConfirmReservation->value));
+        $this->assertFalse($staff->can(Ability::ManageMaster->value));
+        $this->assertFalse($staff->can(Ability::ManageUser->value));
+        $this->assertFalse($staff->can(Ability::ManageRole->value));
+    }
+
+    public function test_admin_has_every_ability(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        foreach (Ability::cases() as $ability) {
+            $this->assertTrue(
+                $admin->can($ability->value),
+                "Admin seharusnya punya {$ability->value}."
+            );
+        }
+    }
+
+    public function test_a_new_role_can_be_created_without_touching_code(): void
+    {
+        $manager = Role::create(['name' => 'manajer']);
+        $manager->givePermissionTo([
+            Ability::ViewReservation->value,
+            Ability::CreateReservation->value,
+            Ability::UpdateReservation->value,
+            Ability::ConfirmReservation->value,
+        ]);
+
+        $user = User::factory()->create();
+        $user->assignRole('manajer');
+
+        $this->assertTrue($user->can(Ability::ConfirmReservation->value));
+        $this->assertFalse($user->can(Ability::DeleteReservation->value));
+        $this->assertFalse($user->can(Ability::ManageUser->value));
     }
 
     public function test_active_scope_excludes_inactive_users(): void
@@ -342,58 +628,124 @@ class UserRoleTest extends TestCase
         User::factory()->create(['name' => 'Ira']);
         User::factory()->inactive()->create(['name' => 'Mantan Staf']);
 
-        $names = User::query()->active()->pluck('name')->all();
-
-        $this->assertSame(['Ira'], $names);
+        $this->assertSame(['Ira'], User::query()->active()->pluck('name')->all());
     }
 }
 ```
 
+Test `test_a_new_role_can_be_created_without_touching_code` adalah alasan seluruh
+paket ini dipasang. Jika suatu saat test itu gagal karena Policy diam-diam kembali
+mengecek nama role, kerugiannya baru akan terasa saat role ketiga benar-benar
+dibutuhkan.
+
 - [ ] **Step 3: Jalankan test untuk memastikan gagal**
 
-Run: `php artisan test --filter=UserRoleTest`
-Expected: FAIL dengan "Call to undefined method App\Models\User::isAdmin()"
+Run: `php artisan test --filter=RolePermissionTest`
+Expected: FAIL dengan "Class Database\Seeders\RolePermissionSeeder not found"
 
 - [ ] **Step 4: Perbarui model User**
 
-Di `app/Models/User.php`, tambahkan import dan tiga anggota berikut. Jangan hapus isi yang sudah ada dari Breeze.
+Di `app/Models/User.php`, tambahkan dua import:
 
 ```php
-use App\Enums\UserRole;
 use Illuminate\Database\Eloquent\Builder;
+use Spatie\Permission\Traits\HasRoles;
 ```
 
-Tambahkan `'role'` dan `'is_active'` ke array `$fillable` yang sudah ada.
-
-Di dalam method `casts()` yang sudah ada, tambahkan dua baris:
+Tambahkan trait di samping trait yang sudah ada:
 
 ```php
-'role' => UserRole::class,
+use HasFactory, Notifiable, HasRoles;
+```
+
+Tambahkan `'is_active'` ke array `$fillable` yang sudah ada, dan tambahkan satu baris
+di dalam method `casts()`:
+
+```php
 'is_active' => 'boolean',
 ```
 
-Tambahkan dua method di akhir class:
+Tambahkan satu method di akhir class:
 
 ```php
-public function isAdmin(): bool
-{
-    return $this->role === UserRole::Admin;
-}
-
 public function scopeActive(Builder $query): void
 {
     $query->where('is_active', true);
 }
 ```
 
-- [ ] **Step 5: Tambahkan state ke factory**
+**Jangan menambahkan method `isAdmin()`.** Godaannya besar, tetapi setiap
+pemanggilannya di Policy akan mengunci aturan ke nama role dan membatalkan alasan
+memakai spatie. Yang dipakai di Policy adalah `$user->can(Ability::X->value)`.
+
+- [ ] **Step 5: Buat seeder role dan permission**
+
+`database/seeders/RolePermissionSeeder.php`:
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use App\Enums\Ability;
+use Illuminate\Database\Seeder;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
+
+class RolePermissionSeeder extends Seeder
+{
+    public function run(): void
+    {
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        foreach (Ability::values() as $name) {
+            Permission::findOrCreate($name, 'web');
+        }
+
+        $admin = Role::findOrCreate('admin', 'web');
+        $admin->syncPermissions(Ability::values());
+
+        $staff = Role::findOrCreate('staff', 'web');
+        $staff->syncPermissions([
+            Ability::ViewReservation->value,
+            Ability::CreateReservation->value,
+            Ability::UpdateReservation->value,
+        ]);
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+    }
+}
+```
+
+`forgetCachedPermissions()` dipanggil di awal **dan** akhir. Cache permission spatie
+adalah sumber bug paling umum saat memakai paket ini: permission berubah di database
+tetapi aplikasi masih memakai nilai lama. Memanggilnya di seeder membuat masalah itu
+tidak pernah muncul saat pengembangan.
+
+`syncPermissions()` dipakai, bukan `givePermissionTo()`, agar menjalankan seeder ulang
+setelah menghapus sebuah `Ability` benar-benar mencabut permission itu dari role.
+
+- [ ] **Step 6: Daftarkan seeder**
+
+Di `database/seeders/DatabaseSeeder.php`, di dalam `run()`:
+
+```php
+$this->call([
+    RolePermissionSeeder::class,
+]);
+```
+
+Seeder master dari Task 3 akan ditambahkan ke array yang sama.
+
+- [ ] **Step 7: Tambahkan state ke factory**
 
 Di `database/factories/UserFactory.php`, tambahkan dua method di akhir class:
 
 ```php
 public function admin(): static
 {
-    return $this->state(fn () => ['role' => 'admin']);
+    return $this->afterCreating(fn (\App\Models\User $user) => $user->assignRole('admin'));
 }
 
 public function inactive(): static
@@ -402,16 +754,21 @@ public function inactive(): static
 }
 ```
 
-- [ ] **Step 6: Jalankan test**
+`admin()` memakai `afterCreating()`, bukan `state()`, karena role bukan lagi kolom —
+penugasannya baru bisa dilakukan setelah baris user punya id. Konsekuensinya, setiap
+test yang memakai `->admin()` **wajib** menjalankan `RolePermissionSeeder` lebih dulu,
+kalau tidak role `admin` belum ada dan spatie akan melempar `RoleDoesNotExist`.
 
-Run: `php artisan test --filter=UserRoleTest`
-Expected: 3 test PASS
+- [ ] **Step 8: Jalankan test**
 
-- [ ] **Step 7: Commit**
+Run: `php artisan test --filter=RolePermissionTest`
+Expected: 6 test PASS
+
+- [ ] **Step 9: Commit**
 
 ```bash
-git add database/migrations app/Models/User.php database/factories/UserFactory.php tests/Feature/UserRoleTest.php
-git commit -m "feat: tambahkan role dan is_active pada users"
+git add composer.json composer.lock database app/Models/User.php tests/Feature/RolePermissionTest.php
+git commit -m "feat: role dan permission dengan spatie/laravel-permission"
 ```
 
 ---
@@ -1519,75 +1876,72 @@ git commit -m "feat: jejak audit perubahan reservasi"
 
 ---
 
-## Task 8: Validasi dan normalisasi input reservasi
+## Task 8: Normalisasi input reservasi
 
 **Files:**
-- Create: `app/Http/Requests/StoreReservationRequest.php`
-- Test: `tests/Unit/StoreReservationRequestTest.php`
+- Create: `app/Support/ReservationInput.php`
+- Test: `tests/Unit/ReservationInputTest.php`
 
 **Interfaces:**
-- Consumes: `TimeInput` (Task 6), `ReservationStatus` (Task 1)
-- Produces: `StoreReservationRequest` dengan `rules(): array` dan `prepareForValidation(): void`. Setelah validasi, `$request->validated()` berisi kunci: `reservation_date`, `guest_name`, `company`, `phone`, `email`, `pic_id`, `event_type_id`, `menu_style_id`, `area_id`, `start_time`, `end_time`, `pax`, `status`, `remark`. Nilai `phone` hanya digit, `start_time` dan `end_time` berformat `H:i`.
+- Consumes: `TimeInput` (Task 6)
+- Produces: `ReservationInput::normalize(array $data): array` — mengembalikan array dengan kunci yang sama, dengan `phone` hanya digit atau `null`, `email` huruf kecil atau `null`, `guest_name` dan `company` ter-trim, `start_time` dan `end_time` berformat `H:i` atau `null`, `status` dan `remark` kosong menjadi `null`
 
-Normalisasi berjalan di `prepareForValidation()` sehingga aturan validasi bekerja pada nilai yang sudah bersih. Ini yang membuat `NA` ditolak oleh `required` alih-alih lolos sebagai string dua huruf.
+Karena UI memakai Filament, **tidak ada `FormRequest`**. Aturan wajib dan panjang maksimum ditulis langsung pada field Filament di Task 12 (`->required()`, `->maxLength()`). Yang tidak bisa dilakukan field Filament adalah membersihkan nilai sebelum divalidasi — itulah tugas kelas ini, yang dipanggil dari `mutateFormDataBeforeCreate()` dan `mutateFormDataBeforeSave()`.
+
+Memisahkannya sebagai kelas murni membuat aturan `NA` menjadi `null`, pemecahan `12.00-15.00`, dan normalisasi nomor telepon bisa diuji tanpa menjalankan Livewire sama sekali.
 
 - [ ] **Step 1: Tulis test yang gagal**
 
-`tests/Unit/StoreReservationRequestTest.php`:
+`tests/Unit/ReservationInputTest.php`:
 
 ```php
 <?php
 
 namespace Tests\Unit;
 
-use App\Http\Requests\StoreReservationRequest;
-use Illuminate\Support\Facades\Validator;
+use App\Support\ReservationInput;
 use PHPUnit\Framework\TestCase;
 
-class StoreReservationRequestTest extends TestCase
+class ReservationInputTest extends TestCase
 {
-    private function prepared(array $input): array
+    private function normalize(array $input): array
     {
-        $request = new StoreReservationRequest();
-        $request->merge($input);
-        $request->prepareForValidationPublic();
-
-        return $request->all();
+        return ReservationInput::normalize($input);
     }
 
     public function test_na_phone_becomes_null(): void
     {
-        $this->assertNull($this->prepared(['phone' => 'NA'])['phone']);
+        $this->assertNull($this->normalize(['phone' => 'NA'])['phone']);
     }
 
     public function test_phone_is_reduced_to_digits(): void
     {
-        $this->assertSame('082249803564', $this->prepared(['phone' => '0822-4980-3564'])['phone']);
+        $this->assertSame('082249803564', $this->normalize(['phone' => '0822-4980-3564'])['phone']);
     }
 
     public function test_phone_with_spaces_is_reduced_to_digits(): void
     {
-        $this->assertSame('081294489888', $this->prepared(['phone' => '0812 9448 9888'])['phone']);
+        $this->assertSame('081294489888', $this->normalize(['phone' => '0812 9448 9888'])['phone']);
     }
 
     public function test_na_email_becomes_null(): void
     {
-        $this->assertNull($this->prepared(['email' => 'NA'])['email']);
+        $this->assertNull($this->normalize(['email' => 'NA'])['email']);
     }
 
     public function test_email_is_lowercased_and_trimmed(): void
     {
-        $this->assertSame('ira@umara.id', $this->prepared(['email' => '  IRA@Umara.ID '])['email']);
+        $this->assertSame('ira@umara.id', $this->normalize(['email' => '  IRA@Umara.ID '])['email']);
     }
 
     public function test_guest_name_is_trimmed(): void
     {
-        $this->assertSame('Bapak Wanda', $this->prepared(['guest_name' => '  Bapak Wanda  '])['guest_name']);
+        $this->assertSame('Bapak Wanda', $this->normalize(['guest_name' => '  Bapak Wanda  '])['guest_name']);
     }
 
     public function test_single_start_time_is_normalized(): void
     {
-        $out = $this->prepared(['start_time' => '11.00']);
+        $out = $this->normalize(['start_time' => '11.00']);
 
         $this->assertSame('11:00', $out['start_time']);
         $this->assertNull($out['end_time']);
@@ -1595,7 +1949,7 @@ class StoreReservationRequestTest extends TestCase
 
     public function test_range_typed_into_start_time_is_split(): void
     {
-        $out = $this->prepared(['start_time' => '12.00-15.00']);
+        $out = $this->normalize(['start_time' => '12.00-15.00']);
 
         $this->assertSame('12:00', $out['start_time']);
         $this->assertSame('15:00', $out['end_time']);
@@ -1603,123 +1957,98 @@ class StoreReservationRequestTest extends TestCase
 
     public function test_explicit_end_time_wins_over_split_result(): void
     {
-        $out = $this->prepared(['start_time' => '12.00', 'end_time' => '14.30']);
+        $out = $this->normalize(['start_time' => '12.00', 'end_time' => '14.30']);
 
         $this->assertSame('12:00', $out['start_time']);
         $this->assertSame('14:30', $out['end_time']);
     }
 
+    public function test_time_from_a_time_picker_is_accepted(): void
+    {
+        $out = $this->normalize(['start_time' => '12:00:00']);
+
+        $this->assertSame('12:00', $out['start_time']);
+    }
+
     public function test_blank_status_becomes_null(): void
     {
-        $this->assertNull($this->prepared(['status' => ''])['status']);
+        $this->assertNull($this->normalize(['status' => ''])['status']);
     }
 
-    public function test_end_time_must_be_after_start_time(): void
+    public function test_blank_remark_becomes_null(): void
     {
-        $rules = (new StoreReservationRequest())->rules();
-
-        $validator = Validator::make(
-            ['start_time' => '15:00', 'end_time' => '12:00'],
-            ['end_time' => $rules['end_time']]
-        );
-
-        $this->assertTrue($validator->errors()->has('end_time'));
+        $this->assertNull($this->normalize(['remark' => '   '])['remark']);
     }
 
-    public function test_pax_must_be_at_least_one(): void
+    public function test_missing_keys_are_left_untouched(): void
     {
-        $rules = (new StoreReservationRequest())->rules();
+        $out = $this->normalize(['pax' => 5, 'pic_id' => 3]);
 
-        $validator = Validator::make(['pax' => 0], ['pax' => $rules['pax']]);
+        $this->assertSame(5, $out['pax']);
+        $this->assertSame(3, $out['pic_id']);
+    }
 
-        $this->assertTrue($validator->errors()->has('pax'));
+    public function test_unknown_keys_pass_through(): void
+    {
+        $out = $this->normalize(['area_id' => 2]);
+
+        $this->assertSame(2, $out['area_id']);
     }
 }
 ```
 
 - [ ] **Step 2: Jalankan test untuk memastikan gagal**
 
-Run: `php artisan test --filter=StoreReservationRequestTest`
-Expected: FAIL dengan "Class App\Http\Requests\StoreReservationRequest not found"
+Run: `php artisan test --filter=ReservationInputTest`
+Expected: FAIL dengan "Class App\Support\ReservationInput not found"
 
-- [ ] **Step 3: Buat FormRequest**
+- [ ] **Step 3: Buat normalizer**
 
-`app/Http/Requests/StoreReservationRequest.php`:
+`app/Support/ReservationInput.php`:
 
 ```php
 <?php
 
-namespace App\Http\Requests;
+namespace App\Support;
 
-use App\Enums\ReservationStatus;
-use App\Support\TimeInput;
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
-
-class StoreReservationRequest extends FormRequest
+class ReservationInput
 {
-    public function authorize(): bool
-    {
-        return true; // Otorisasi ditangani Policy di controller.
-    }
-
-    public function rules(): array
-    {
-        return [
-            'reservation_date' => ['required', 'date'],
-            'guest_name' => ['required', 'string', 'max:150'],
-            'company' => ['nullable', 'string', 'max:150'],
-            'phone' => ['required', 'string', 'max:30'],
-            'email' => ['nullable', 'email', 'max:150'],
-            'pic_id' => ['required', Rule::exists('users', 'id')->where('is_active', true)],
-            'event_type_id' => ['nullable', 'exists:event_types,id'],
-            'menu_style_id' => ['nullable', 'exists:menu_styles,id'],
-            'area_id' => ['nullable', 'exists:areas,id'],
-            'start_time' => ['required', 'date_format:H:i'],
-            'end_time' => ['nullable', 'date_format:H:i', 'after:start_time'],
-            'pax' => ['required', 'integer', 'min:1'],
-            'status' => ['nullable', Rule::enum(ReservationStatus::class)],
-            'remark' => ['nullable', 'string'],
-            'idempotency_key' => ['required', 'uuid'],
-        ];
-    }
-
-    public function attributes(): array
-    {
-        return [
-            'reservation_date' => 'tanggal',
-            'guest_name' => 'nama tamu',
-            'phone' => 'nomor HP',
-            'pic_id' => 'PIC',
-            'start_time' => 'jam mulai',
-            'end_time' => 'jam selesai',
-            'pax' => 'jumlah tamu',
-        ];
-    }
-
-    protected function prepareForValidation(): void
-    {
-        $this->merge([
-            'guest_name' => $this->cleanText($this->input('guest_name')),
-            'company' => $this->cleanText($this->input('company')),
-            'phone' => $this->cleanPhone($this->input('phone')),
-            'email' => $this->cleanEmail($this->input('email')),
-            'remark' => $this->cleanText($this->input('remark')),
-            'status' => $this->blankToNull($this->input('status')),
-            ...$this->cleanTimes(),
-        ]);
-    }
-
     /**
-     * Dipanggil oleh test unit. Laravel memanggil prepareForValidation()
-     * secara otomatis saat request nyata diproses.
+     * Bersihkan data form sebelum disimpan.
+     * Kunci yang tidak dikenal dibiarkan apa adanya.
      */
-    public function prepareForValidationPublic(): void
+    public static function normalize(array $data): array
     {
-        $this->prepareForValidation();
+        foreach (['guest_name', 'company', 'remark'] as $key) {
+            if (array_key_exists($key, $data)) {
+                $data[$key] = self::text($data[$key]);
+            }
+        }
+
+        if (array_key_exists('phone', $data)) {
+            $data['phone'] = self::phone($data['phone']);
+        }
+
+        if (array_key_exists('email', $data)) {
+            $data['email'] = self::email($data['email']);
+        }
+
+        if (array_key_exists('status', $data)) {
+            $data['status'] = self::text($data['status']);
+        }
+
+        if (array_key_exists('start_time', $data)) {
+            $split = TimeInput::split($data['start_time']);
+            $explicitEnd = TimeInput::normalize($data['end_time'] ?? null);
+
+            $data['start_time'] = $split['start'];
+            $data['end_time'] = $explicitEnd ?? $split['end'];
+        }
+
+        return $data;
     }
 
-    private function cleanText(mixed $value): ?string
+    private static function text(mixed $value): ?string
     {
         if (! is_string($value)) {
             return null;
@@ -1730,14 +2059,7 @@ class StoreReservationRequest extends FormRequest
         return $value === '' ? null : $value;
     }
 
-    private function blankToNull(mixed $value): ?string
-    {
-        $value = is_string($value) ? trim($value) : null;
-
-        return ($value === '' || $value === null) ? null : $value;
-    }
-
-    private function cleanPhone(mixed $value): ?string
+    private static function phone(mixed $value): ?string
     {
         if (! is_string($value)) {
             return null;
@@ -1748,49 +2070,33 @@ class StoreReservationRequest extends FormRequest
         return $digits === '' ? null : $digits;
     }
 
-    private function cleanEmail(mixed $value): ?string
+    private static function email(mixed $value): ?string
     {
         if (! is_string($value)) {
             return null;
         }
 
-        $value = strtolower(trim($value));
+        $value = mb_strtolower(trim($value));
 
-        if ($value === '' || $value === 'na' || $value === '-') {
-            return null;
-        }
-
-        return $value;
-    }
-
-    /**
-     * @return array{start_time: ?string, end_time: ?string}
-     */
-    private function cleanTimes(): array
-    {
-        $split = TimeInput::split($this->input('start_time'));
-        $explicitEnd = TimeInput::normalize($this->input('end_time'));
-
-        return [
-            'start_time' => $split['start'],
-            'end_time' => $explicitEnd ?? $split['end'],
-        ];
+        return ($value === '' || $value === 'na' || $value === '-') ? null : $value;
     }
 }
 ```
 
-`cleanPhone` mengubah `NA` menjadi `null` sebagai efek samping yang diinginkan: tidak ada digit di dalamnya, sehingga hasilnya string kosong lalu menjadi `null`, lalu ditolak oleh aturan `required`.
+`phone()` mengubah `NA` menjadi `null` sebagai efek samping yang diinginkan: tidak ada digit di dalamnya, sehingga hasilnya string kosong lalu menjadi `null`, lalu ditolak oleh `->required()` pada field Filament.
+
+Pemrosesan `start_time` juga mengisi `end_time`, sehingga keduanya selalu konsisten walau pengguna mengetik rentang di satu kolom.
 
 - [ ] **Step 4: Jalankan test**
 
-Run: `php artisan test --filter=StoreReservationRequestTest`
-Expected: 12 test PASS
+Run: `php artisan test --filter=ReservationInputTest`
+Expected: 14 test PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app/Http/Requests/StoreReservationRequest.php tests/Unit/StoreReservationRequestTest.php
-git commit -m "feat: validasi dan normalisasi input reservasi"
+git add app/Support/ReservationInput.php tests/Unit/ReservationInputTest.php
+git commit -m "feat: normalisasi input reservasi"
 ```
 
 ---
@@ -2359,13 +2665,30 @@ git commit -m "feat: deteksi tumpang tindih area sebagai peringatan"
 
 **Files:**
 - Create: `app/Policies/ReservationPolicy.php`
-- Create: `app/Http/Middleware/EnsureUserIsAdmin.php`
-- Modify: `bootstrap/app.php`
+- Create: `app/Policies/AreaPolicy.php`
+- Create: `app/Policies/EventTypePolicy.php`
+- Create: `app/Policies/MenuStylePolicy.php`
+- Create: `app/Policies/UserPolicy.php`
 - Test: `tests/Feature/ReservationPolicyTest.php`
 
 **Interfaces:**
-- Consumes: `User::isAdmin()` (Task 2), `Reservation` (Task 4)
-- Produces: `ReservationPolicy` dengan method `viewAny`, `view`, `create`, `update`, `delete`, `confirm` — semuanya menerima `User` dan mengembalikan `bool`; alias middleware `admin` terdaftar di `bootstrap/app.php`
+- Consumes: `Ability` (Task 1), `HasRoles` pada `User` (Task 2), `Reservation` (Task 4)
+- Produces: `ReservationPolicy` dengan method `viewAny`, `view`, `create`, `update`, `delete`, `deleteAny`, `confirm`; empat policy master dan pengguna
+
+**Aturan yang tidak boleh dilanggar: Policy mengecek `Ability`, tidak pernah nama role.**
+Menulis `$user->hasRole('admin')` di sini akan membuat role baru tetap memerlukan
+perubahan kode, sehingga seluruh alasan memasang spatie hilang. Yang benar adalah
+`$user->can(Ability::DeleteReservation->value)`.
+
+Setiap method tetap memeriksa `is_active` secara terpisah. Status akun bukan
+permission — pengguna nonaktif tidak boleh melakukan apa pun meski rolenya masih
+memuat permission.
+
+**Tidak ada middleware `admin`.** Filament membaca Model Policy secara otomatis dan
+menyembunyikan resource dari menu navigasi ketika `viewAny()` mengembalikan `false`.
+
+`deleteAny()` **wajib ada**. Filament memakainya untuk `DeleteBulkAction`, dan tanpa
+method itu tombol hapus massal akan muncul untuk staf meski `delete()` menolaknya.
 
 - [ ] **Step 1: Tulis test yang gagal**
 
@@ -2376,10 +2699,17 @@ git commit -m "feat: deteksi tumpang tindih area sebagai peringatan"
 
 namespace Tests\Feature;
 
+use App\Enums\Ability;
 use App\Models\Reservation;
 use App\Models\User;
+use App\Policies\AreaPolicy;
+use App\Policies\EventTypePolicy;
+use App\Policies\MenuStylePolicy;
 use App\Policies\ReservationPolicy;
+use App\Policies\UserPolicy;
+use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class ReservationPolicyTest extends TestCase
@@ -2391,12 +2721,22 @@ class ReservationPolicyTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->seed(RolePermissionSeeder::class);
         $this->policy = new ReservationPolicy();
+    }
+
+    private function staff(): User
+    {
+        $user = User::factory()->create();
+        $user->assignRole('staff');
+
+        return $user;
     }
 
     public function test_active_staff_can_read_and_write(): void
     {
-        $staff = User::factory()->create();
+        $staff = $this->staff();
         $r = Reservation::factory()->create();
 
         $this->assertTrue($this->policy->viewAny($staff));
@@ -2407,10 +2747,11 @@ class ReservationPolicyTest extends TestCase
 
     public function test_staff_cannot_delete_or_confirm(): void
     {
-        $staff = User::factory()->create();
+        $staff = $this->staff();
         $r = Reservation::factory()->create();
 
         $this->assertFalse($this->policy->delete($staff, $r));
+        $this->assertFalse($this->policy->deleteAny($staff));
         $this->assertFalse($this->policy->confirm($staff, $r));
     }
 
@@ -2420,12 +2761,25 @@ class ReservationPolicyTest extends TestCase
         $r = Reservation::factory()->create();
 
         $this->assertTrue($this->policy->delete($admin, $r));
+        $this->assertTrue($this->policy->deleteAny($admin));
         $this->assertTrue($this->policy->confirm($admin, $r));
+    }
+
+    public function test_master_and_user_policies_follow_abilities(): void
+    {
+        $staff = $this->staff();
+        $admin = User::factory()->admin()->create();
+
+        foreach ([new AreaPolicy(), new EventTypePolicy(), new MenuStylePolicy(), new UserPolicy()] as $policy) {
+            $this->assertFalse($policy->viewAny($staff), $policy::class.' seharusnya menolak staf.');
+            $this->assertTrue($policy->viewAny($admin), $policy::class.' seharusnya mengizinkan admin.');
+        }
     }
 
     public function test_inactive_user_can_do_nothing(): void
     {
         $inactive = User::factory()->inactive()->create();
+        $inactive->assignRole('staff');
         $r = Reservation::factory()->create();
 
         $this->assertFalse($this->policy->viewAny($inactive));
@@ -2440,6 +2794,29 @@ class ReservationPolicyTest extends TestCase
 
         $this->assertFalse($this->policy->delete($inactive, $r));
         $this->assertFalse($this->policy->confirm($inactive, $r));
+    }
+
+    /**
+     * Inilah alasan spatie dipasang. Role baru dengan kombinasi permission
+     * yang belum pernah ada harus langsung bekerja tanpa menyentuh Policy.
+     */
+    public function test_a_new_role_works_without_changing_any_policy(): void
+    {
+        $manager = Role::create(['name' => 'manajer']);
+        $manager->givePermissionTo([
+            Ability::ViewReservation->value,
+            Ability::UpdateReservation->value,
+            Ability::ConfirmReservation->value,
+        ]);
+
+        $user = User::factory()->create();
+        $user->assignRole('manajer');
+
+        $r = Reservation::factory()->create();
+
+        $this->assertTrue($this->policy->confirm($user, $r), 'Manajer seharusnya boleh confirm.');
+        $this->assertFalse($this->policy->delete($user, $r), 'Manajer seharusnya tidak boleh hapus.');
+        $this->assertFalse((new UserPolicy())->viewAny($user), 'Manajer seharusnya tidak boleh kelola pengguna.');
     }
 }
 ```
@@ -2458,112 +2835,233 @@ Expected: FAIL dengan "Class App\Policies\ReservationPolicy not found"
 
 namespace App\Policies;
 
+use App\Enums\Ability;
 use App\Models\Reservation;
 use App\Models\User;
 
 class ReservationPolicy
 {
+    /**
+     * Aturan dasar: akun harus aktif, DAN rolenya harus memuat kemampuan
+     * yang diminta.
+     *
+     * Perhatikan bahwa nama role tidak pernah disebut di berkas ini.
+     * Menambah role baru cukup memberinya kemampuan lewat UI.
+     */
+    private function allows(User $user, Ability $ability): bool
+    {
+        return $user->is_active && $user->can($ability->value);
+    }
+
     public function viewAny(User $user): bool
     {
-        return $user->is_active;
+        return $this->allows($user, Ability::ViewReservation);
     }
 
     public function view(User $user, Reservation $reservation): bool
     {
-        return $user->is_active;
+        return $this->allows($user, Ability::ViewReservation);
     }
 
     public function create(User $user): bool
     {
-        return $user->is_active;
+        return $this->allows($user, Ability::CreateReservation);
     }
 
     public function update(User $user, Reservation $reservation): bool
     {
-        return $user->is_active;
+        return $this->allows($user, Ability::UpdateReservation);
     }
 
     public function delete(User $user, Reservation $reservation): bool
     {
-        return $user->is_active && $user->isAdmin();
+        return $this->allows($user, Ability::DeleteReservation);
     }
 
     /**
-     * Hanya admin yang boleh mengubah status menjadi confirmed.
-     *
+     * Dipakai Filament untuk DeleteBulkAction. Tanpa method ini, tombol
+     * hapus massal tetap muncul untuk staf.
+     */
+    public function deleteAny(User $user): bool
+    {
+        return $this->allows($user, Ability::DeleteReservation);
+    }
+
+    /**
      * $reservation bernilai null saat status confirmed dipilih pada form
      * pembuatan, ketika barisnya belum ada.
      */
     public function confirm(User $user, ?Reservation $reservation = null): bool
     {
-        return $user->is_active && $user->isAdmin();
+        return $this->allows($user, Ability::ConfirmReservation);
     }
 }
 ```
 
 Parameter `$reservation` pada `confirm()` **wajib** nullable dengan nilai bawaan.
-Controller memanggil `authorize('confirm', Reservation::class)` saat membuat reservasi
-baru berstatus confirmed, dan pada pemanggilan itu Laravel tidak mengoper instance.
+Halaman Create memanggil `can('confirm', Reservation::class)` saat status confirmed
+dipilih untuk reservasi baru, dan pada pemanggilan itu Laravel tidak mengoper instance.
 
-Pemeriksaan `is_active` diulang di setiap method, bukan diringkas lewat `before()`,
-karena `before()` yang mengembalikan `false` akan memblokir seluruh gate di aplikasi
-termasuk yang tidak berkaitan dengan reservasi.
+Pemeriksaan `is_active` disatukan di `allows()`, bukan di `before()`, karena `before()`
+yang mengembalikan `false` akan memblokir seluruh gate di aplikasi termasuk yang tidak
+berkaitan dengan reservasi.
 
-- [ ] **Step 4: Buat middleware admin**
+**Jangan mengganti `$user->can(...)` menjadi `$user->hasRole('admin')`** meski terlihat
+lebih ringkas. Itu akan membuat penambahan role baru memerlukan perubahan kode di
+berkas ini, dan test `test_a_new_role_works_without_changing_any_policy` akan gagal.
 
-`app/Http/Middleware/EnsureUserIsAdmin.php`:
+- [ ] **Step 4: Buat empat policy master dan pengguna**
+
+Keempatnya berbagi bentuk yang sama, hanya berbeda pada `Ability` yang diperiksa.
+Isi `app/Policies/AreaPolicy.php`:
 
 ```php
 <?php
 
-namespace App\Http\Middleware;
+namespace App\Policies;
 
-use Closure;
-use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
+use App\Enums\Ability;
+use App\Models\User;
 
-class EnsureUserIsAdmin
+class AreaPolicy
 {
-    public function handle(Request $request, Closure $next): Response
+    protected function ability(): Ability
     {
-        $user = $request->user();
+        return Ability::ManageMaster;
+    }
 
-        abort_unless($user && $user->is_active && $user->isAdmin(), 403);
+    private function allowed(User $user): bool
+    {
+        return $user->is_active && $user->can($this->ability()->value);
+    }
 
-        return $next($request);
+    public function viewAny(User $user): bool
+    {
+        return $this->allowed($user);
+    }
+
+    public function view(User $user): bool
+    {
+        return $this->allowed($user);
+    }
+
+    public function create(User $user): bool
+    {
+        return $this->allowed($user);
+    }
+
+    public function update(User $user): bool
+    {
+        return $this->allowed($user);
+    }
+
+    public function delete(User $user): bool
+    {
+        return $this->allowed($user);
+    }
+
+    public function deleteAny(User $user): bool
+    {
+        return $this->allowed($user);
     }
 }
 ```
 
-- [ ] **Step 5: Daftarkan alias middleware**
+Salin isi yang sama ke `app/Policies/EventTypePolicy.php` dan
+`app/Policies/MenuStylePolicy.php` dengan mengganti nama class saja — ketiganya
+memakai `Ability::ManageMaster`, karena master area, event, dan menu adalah satu
+kemampuan yang sama secara bisnis. Memecahnya menjadi tiga permission terpisah
+menambah checkbox tanpa menambah kendali yang benar-benar dipakai.
 
-Di `bootstrap/app.php`, di dalam `->withMiddleware(function (Middleware $middleware) { ... })`, tambahkan:
+Untuk `app/Policies/UserPolicy.php`, ganti nama class dan kembalikan
+`Ability::ManageUser` pada `ability()`.
+
+Pada `UserPolicy`, ganti `delete()` dan `deleteAny()` menjadi:
 
 ```php
-$middleware->alias([
-    'admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,
-]);
+public function delete(User $user): bool
+{
+    return false;
+}
+
+public function deleteAny(User $user): bool
+{
+    return false;
+}
 ```
 
-Jika blok `withMiddleware` sudah berisi pemanggilan lain seperti
-`$middleware->web(append: [...])` untuk Inertia, biarkan dan tambahkan `alias`
-sesudahnya.
+Pengguna tidak pernah boleh dihapus. Kolom `reservations.pic_id` dan `created_by`
+memakai `restrictOnDelete`, sehingga penghapusan akan selalu gagal di level database.
+Menonaktifkan lewat `is_active` adalah jalur yang benar, dan menutupnya di policy
+membuat tombol Hapus tidak pernah muncul.
+
+- [ ] **Step 5: Verifikasi Laravel menemukan policy**
+
+Laravel 12 menemukan policy secara otomatis selama namanya `App\Policies\<Model>Policy`.
+Buktikan dengan data nyata, bukan model yang belum tersimpan — spatie memerlukan baris
+user yang punya id untuk membaca rolenya:
+
+```bash
+php artisan migrate:fresh --seed
+php artisan tinker --execute="
+\$staff = \App\Models\User::factory()->create(); \$staff->assignRole('staff');
+\$admin = \App\Models\User::factory()->admin()->create();
+echo 'staff area  : ' . var_export(\Illuminate\Support\Facades\Gate::forUser(\$staff)->allows('viewAny', \App\Models\Area::class), true) . PHP_EOL;
+echo 'admin area  : ' . var_export(\Illuminate\Support\Facades\Gate::forUser(\$admin)->allows('viewAny', \App\Models\Area::class), true) . PHP_EOL;
+echo 'staff create: ' . var_export(\Illuminate\Support\Facades\Gate::forUser(\$staff)->allows('create', \App\Models\Reservation::class), true) . PHP_EOL;
+echo 'staff delete: ' . var_export(\Illuminate\Support\Facades\Gate::forUser(\$staff)->allows('deleteAny', \App\Models\Reservation::class), true) . PHP_EOL;
+"
+```
+
+Expected:
+
+```
+staff area  : false
+admin area  : true
+staff create: true
+staff delete: false
+```
+
+Jika `staff area` bernilai `true`, policy belum terhubung — daftarkan manual di
+`AppServiceProvider::boot()` memakai `Gate::policy(Area::class, AreaPolicy::class)`.
+
+Jika semuanya `false` termasuk untuk admin, kemungkinan besar cache permission spatie
+masih memegang nilai lama. Jalankan
+`php artisan permission:cache-reset` lalu ulangi.
 
 - [ ] **Step 6: Jalankan test**
 
 Run: `php artisan test --filter=ReservationPolicyTest`
-Expected: 5 test PASS
+Expected: 7 test PASS, termasuk `test_a_new_role_works_without_changing_any_policy`
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add app/Policies app/Http/Middleware/EnsureUserIsAdmin.php bootstrap/app.php tests/Feature/ReservationPolicyTest.php
-git commit -m "feat: policy reservasi dan middleware admin"
+git add app/Policies tests/Feature/ReservationPolicyTest.php
+git commit -m "feat: policy reservasi, master, dan pengguna"
 ```
 
 ---
 
-## Task 12: Controller reservasi — simpan, ubah, hapus
+# ⛔ BATAS DOKUMEN INI — BERHENTI DI SINI
+
+**Task 0 sampai 11 di atas adalah bagian yang berlaku.** Seluruhnya adalah backend
+dan tidak bergantung pada pilihan UI.
+
+**Semua yang ada DI BAWAH garis ini sudah USANG.** Isinya ditulis ketika UI masih
+direncanakan memakai Inertia + React, sebelum keputusan berpindah ke Filament. Jangan
+dikerjakan — controller HTTP, komponen React, dan route manual di bawah tidak lagi
+berlaku sama sekali.
+
+**Lanjutkan ke:** `2026-08-10-reservasi-roemah-umara-plan-ui.md`, yang berisi Task 12
+sampai 17 versi Filament v5.
+
+Bagian di bawah sengaja tidak dihapus agar keputusan yang sudah diambil dan alasannya
+tetap bisa ditelusuri. Hapus saja saat menyalin rencana ini ke repositori.
+
+---
+
+## ~~Task 12: Controller reservasi — simpan, ubah, hapus~~ (USANG)
 
 **Files:**
 - Create: `app/Http/Requests/UpdateReservationRequest.php`
