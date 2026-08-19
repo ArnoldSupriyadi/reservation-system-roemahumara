@@ -36,46 +36,76 @@ Dipilih oleh pemilik sistem dari daftar kandidat:
 
 Karena volume hanya ± 15 baris per bulan, seluruh pertimbangan performa dianggap
 tidak relevan: tidak ada pagination, tidak ada caching, tidak ada queue, tidak ada
-endpoint API terpisah. Satu bulan data dikirim sekaligus sebagai props Inertia dan
-difilter di sisi klien.
+endpoint API terpisah.
 
 ---
 
 ## 2. Keputusan arsitektur
 
-### 2.1 Stack: Laravel 12 + Inertia 2 + React 18 + MySQL
+### 2.1 Stack: Laravel 12 + Filament v5 + MySQL
 
-Repositori saat ini adalah starter Laravel 12 + Breeze (varian React/Inertia) tanpa
+Terverifikasi di mesin pengembang pada 10 Agustus 2026: PHP 8.3.1, Laravel 12.65.0,
+Filament v5.7.6, Livewire v4.3.5.
+
+Repositori awalnya adalah starter Laravel 12 + Breeze varian React/Inertia tanpa
 modifikasi — `routes/web.php` masih berisi halaman Welcome dan Dashboard bawaan, dan
 belum ada model maupun migration reservasi. Praktis greenfield.
 
-**Filament tidak dipakai.** Filament berjalan di atas Livewire + Blade, yang merupakan
-rendering stack berbeda dari Inertia + React. Menjalankan keduanya berarti dua layout,
-dua design system, dan dua tempat pengaturan auth untuk satu aplikasi internal tanpa
-audiens kedua. Opsi "Filament saja" sempat direkomendasikan karena memberi tabel,
-filter, dan form builder secara gratis, tetapi ditolak oleh pemilik sistem.
+**Filament v5 adalah satu-satunya lapisan tampilan.** Breeze, Inertia, React, dan
+Ziggy dihapus seluruhnya. Autentikasi memakai halaman login bawaan panel Filament di
+`/cms`, dan `/` diarahkan ke sana.
 
-Konsekuensi yang diterima: tabel, filter, sorting, dan komponen form dibangun manual.
-Konsekuensi ini diperkecil oleh keputusan skala di atas — tanpa pagination dan tanpa
-filter server-side, pekerjaan yang tersisa relatif kecil.
+**Riwayat keputusan ini, agar tidak diulang.** Awalnya direncanakan memakai Inertia +
+React karena itulah yang sudah terpasang. Keputusan tersebut dibalik setelah disadari
+bahwa Task 1 sampai 11 — seluruh backend — identik untuk kedua pilihan, sehingga
+perdebatannya hanya menyangkut lapisan tampilan. Untuk CRUD dengan dua role dan volume
+sekecil ini, Filament memberi tabel, filter, form builder, dan otorisasi berbasis
+Policy secara gratis. Faktor penentunya bukan kecepatan pembuatan melainkan perawatan:
+setiap baris UI yang ditulis sendiri harus dirawat sendiri selamanya, sementara
+Filament merawat sebagian besar UI-nya lewat pembaruan paket.
 
-Paket tambahan: `spatie/laravel-activitylog`.
+Menjalankan Filament berdampingan dengan Inertia ditolak karena tidak ada audiens
+kedua — hasilnya hanya dua UI internal, dua design system, dan dua sistem autentikasi
+yang harus dijaga bersamaan.
+
+**Satu-satunya bagian yang tidak dibantu Filament adalah kalender**, yang dibangun
+sebagai custom Page dengan CSS Grid. Biayanya sama saja di kedua pilihan.
+
+Paket tambahan: `spatie/laravel-activitylog`, `spatie/laravel-permission`.
 
 ### 2.2 Semua di balik login
 
-Tidak ada halaman untuk tamu. Tidak ada form booking publik. Seluruh rute berada di
-belakang middleware `auth`.
+Tidak ada halaman untuk tamu. Tidak ada form booking publik. Seluruh halaman berada di
+dalam panel Filament yang sudah dilindungi autentikasi.
 
-### 2.3 Dua peran: `admin` dan `staff`
+### 2.3 Dua peran awal: `admin` dan `staff`
 
-| Kemampuan | staff | admin |
+Role dan permission memakai `spatie/laravel-permission`. Dua role di bawah adalah isi
+awal dari seeder, **bukan daftar tertutup** — admin dapat menambah role baru lewat UI
+tanpa perubahan kode.
+
+| Kemampuan (`Ability`) | staff | admin |
 |---|---|---|
-| Lihat daftar & detail reservasi | ya | ya |
-| Buat & ubah reservasi | ya | ya |
-| Hapus reservasi (soft delete) | tidak | ya |
-| Ubah status menjadi `confirmed` | tidak | ya |
-| CRUD master (areas, event types, menu styles) | tidak | ya |
-| CRUD pengguna | tidak | ya |
+| `reservation.view` | ya | ya |
+| `reservation.create` | ya | ya |
+| `reservation.update` | ya | ya |
+| `reservation.delete` | tidak | ya |
+| `reservation.confirm` | tidak | ya |
+| `master.manage` | tidak | ya |
+| `user.manage` | tidak | ya |
+| `role.manage` | tidak | ya |
+
+**Aturan yang mengikat: Policy mengecek `Ability`, tidak pernah nama role.** Menulis
+`hasRole('admin')` di Policy akan membuat penambahan role tetap memerlukan perubahan
+kode, sehingga seluruh alasan memakai spatie hilang.
+
+Nama permission adalah kode — `Ability` hanya berubah lewat commit, karena setiap
+kemampuan harus punya Policy yang memakainya. Yang boleh diubah admin lewat UI adalah
+role dan kemampuan apa saja yang dimuatnya.
+
+**Filament Shield tidak dipakai.** Shield meng-generate permission per-CRUD-per-Resource,
+yang untuk lima resource menghasilkan sekitar empat puluh permission. Delapan kemampuan
+di atas dinamai menurut fungsi bisnis dan mengekspresikan aturan yang sama.
 
 ### 2.4 PIC diambil dari tabel `users`
 
@@ -126,11 +156,22 @@ membongkar tabel `reservations`.
 | `name` | varchar(100) | |
 | `email` | varchar(150) unique | |
 | `password` | varchar(255) | |
-| `role` | enum(`admin`,`staff`) | default `staff` |
 | `is_active` | boolean | default `true`. `false` berarti staf sudah tidak bekerja: tidak bisa login dan tidak muncul di dropdown PIC untuk reservasi baru. Reservasi lama yang menunjuk user tersebut tetap menampilkan namanya. |
 | `timestamps` | | |
 
-Tabel bawaan Breeze, ditambah `role` dan `is_active`.
+**Tidak ada kolom `role`.** Role disimpan `spatie/laravel-permission` di
+`model_has_roles`. Menyimpannya di dua tempat akan menghasilkan dua sumber kebenaran
+yang bisa berbeda tanpa ketahuan.
+
+`is_active` **bukan** permission melainkan status akun, karena itu tetap kolom biasa
+dan diperiksa terpisah di setiap Policy. Pengguna nonaktif tidak boleh melakukan apa
+pun meski rolenya masih memuat kemampuan.
+
+### 3.1.1 Tabel spatie
+
+Lima tabel dari `vendor:publish` paket: `roles`, `permissions`, `model_has_roles`,
+`model_has_permissions`, `role_has_permissions`. Isi awalnya dibuat
+`RolePermissionSeeder` dari daftar `App\Enums\Ability`.
 
 ### 3.2 `areas`
 
@@ -235,104 +276,90 @@ memerlukan asumsi durasi.
 
 ## 4. Halaman dan rute
 
+Seluruh halaman berada di dalam panel Filament di `/cms`. Tidak ada route manual
+selain pengalihan dari `/`.
+
 ```
-GET    /login                        Breeze (sudah ada)
+GET  /                    redirect ke /cms
+     /cms/login         halaman login bawaan panel Filament
 
-GET    /                             redirect ke /reservations
-GET    /reservations                 Index — satu bulan, filter di klien
-GET    /reservations/create          Form baru
-POST   /reservations                 Simpan
-GET    /reservations/{id}            Detail + riwayat perubahan
-GET    /reservations/{id}/edit       Form edit
-PUT    /reservations/{id}            Perbarui
-DELETE /reservations/{id}            Soft delete            [admin]
+     /cms/reservations              ListReservations, tab per bulan
+     /cms/reservations/create       CreateReservation
+     /cms/reservations/{id}         ViewReservation, detail + riwayat
+     /cms/reservations/{id}/edit    EditReservation
 
-Route::resource('master/areas')        // index, create, store, edit, update, destroy
-Route::resource('master/event-types')  // idem
-Route::resource('master/menu-styles')  // idem
-Route::resource('users')               // idem
-                                       // keempatnya di belakang middleware admin
-```
+     /cms/reservation-calendar      custom Page, grid bulanan
 
-Ketiga master memakai controller dan komponen React yang berbeda tetapi berbagi
-struktur identik (`name`, `sort_order`, `is_active`). Satu komponen
-`Pages/Master/SimpleMasterPage.jsx` dipakai bersama oleh ketiganya, dengan judul dan
-endpoint sebagai props.
-
-### 4.1 Halaman Index
-
-Props yang dikirim controller:
-
-```php
-[
-  'month'        => '2026-08',
-  'reservations' => [...],   // ± 15 baris, sudah di-eager load relasi
-  'picOptions'   => [...],   // users aktif
-  'areas'        => [...],
-  'eventTypes'   => [...],
-  'menuStyles'   => [...],
-]
+     /cms/areas                     simple resource   [master.manage]
+     /cms/event-types               simple resource   [master.manage]
+     /cms/menu-styles               simple resource   [master.manage]
+     /cms/users                     resource          [user.manage]
+     /cms/roles                     simple resource   [role.manage]
 ```
 
-Filter, sorting, dan pencarian seluruhnya dijalankan di React memakai `useMemo`.
-Tidak ada pagination. Ganti bulan memakai link Inertia `?month=2026-09`, yang memicu
-request baru ke server.
+Ketiga master berbagi struktur kolom yang identik (`name`, `sort_order`, `is_active`)
+dan memakai **simple resource** — seluruh CRUD terjadi lewat modal pada satu halaman.
+Halaman Create dan Edit terpisah hanya menambah klik tanpa memberi manfaat untuk tabel
+sekecil ini.
 
-### 4.1.1 Dua mode tampilan
+Resource tidak muncul di navigasi bila `viewAny()` pada Policy-nya menolak. Tidak ada
+middleware tambahan; Filament membaca Model Policy secara otomatis.
 
-Halaman Index punya dua mode yang **berbagi props yang sama persis**. Berpindah mode
-adalah state React biasa — tidak ada request ke server, tidak ada endpoint tambahan.
-Ini dimungkinkan karena seluruh data satu bulan sudah ada di klien.
+### 4.1 Daftar reservasi
 
-**Mode Tabel** — mode default. Satu baris per reservasi berisi Tanggal, Jam, Nama, HP,
-PIC, Event, Area, Pax, Status, ditambah baris REMARK selebar tabel di bawahnya sesuai
-aturan di bagian 4.3. Cocok untuk membaca banyak reservasi sekaligus, membandingkan
-kolom, dan menyisir catatan.
+`ListReservations` memakai **tab bulan** — tiga bulan ke belakang sampai tiga bulan ke
+depan, ditambah tab "Semua". Bulan berjalan aktif secara bawaan, dan pilihan tab
+tersimpan di URL sehingga bisa ditautkan.
 
-**Mode Kalender** — grid bulanan tujuh kolom, minggu dimulai Senin. Tiap sel tanggal
-berisi chip ringkas bertuliskan jam mulai dan nama tamu, diurutkan menurut jam. Warna
-garis kiri chip menandai status: penuh untuk `CONFIRMED`, putus-putus untuk
-`TENTATIVE`, abu-abu untuk yang belum ditentukan. Cocok untuk melihat kepadatan hari
-dan mencari tanggal kosong.
+Tidak ada pagination (`->paginated(false)`), sesuai keputusan skala pada bagian 1.
 
-Chip di kalender sengaja dibuat ringkas karena ruang sel terbatas — dan karena remark
-tidak boleh dipotong, remark **tidak** ditampilkan di dalam chip. Sebagai gantinya,
-mengklik chip membuka **panel detail** di bawah kalender yang menampilkan seluruh
-field reservasi beserta remark utuh. Panel ini memenuhi aturan bagian 4.3 tanpa
-merusak keterbacaan grid.
+### 4.1.1 Dua tampilan
 
-Panel detail juga menjadi jalan masuk ke halaman edit dan ke riwayat perubahan.
+**Tabel** — `ListReservations`. Satu baris per reservasi berisi Tanggal, Jam, Nama,
+PIC, HP, Event, Area, Pax, Status, ditambah baris REMARK selebar tabel di bawahnya
+sesuai aturan bagian 4.3. Cocok untuk membaca banyak reservasi sekaligus dan menyisir
+catatan.
 
-**Kalender dibuat sendiri dengan CSS Grid, bukan memakai FullCalendar.** Kebutuhannya
-hanya menempatkan chip pada grid bulanan dan menangani klik. Data satu bulan sudah ada
-di klien, jadi tidak ada penjadwalan, drag-drop, maupun sinkronisasi yang perlu
-ditangani pustaka. Menambahkan FullCalendar berarti menambah dependency besar untuk
-kemampuan yang tidak dipakai.
+**Kalender** — halaman tersendiri `ReservationCalendar`, grid bulanan tujuh kolom
+dengan minggu dimulai Senin. Tiap sel berisi chip ringkas bertuliskan jam mulai dan
+nama tamu, diurutkan menurut jam. Garis kiri chip menandai status: penuh untuk
+`CONFIRMED`, putus-putus untuk `TENTATIVE`, abu-abu untuk yang belum ditentukan.
 
-### 4.2 Komponen React
+Chip sengaja ringkas karena ruang sel terbatas — dan karena remark tidak boleh
+dipotong, remark **tidak** ditampilkan di dalam chip. Mengklik chip membuka **panel
+detail** di bawah grid yang menampilkan seluruh field beserta remark utuh, sekaligus
+menjadi jalan masuk ke halaman detail dan edit.
 
-| Komponen | Tanggung jawab |
+Keduanya adalah halaman terpisah, bukan toggle dalam satu halaman. Filament memuat
+datanya sendiri per halaman lewat Livewire, sehingga berbagi state antar mode tidak
+memberi keuntungan seperti pada arsitektur klien.
+
+**Kalender dibuat sendiri dengan CSS Grid, bukan memakai pustaka.** Yang dibutuhkan
+hanya menempatkan chip pada grid bulanan dan menangani klik — tidak ada penjadwalan,
+drag-drop, maupun sinkronisasi yang memerlukan pustaka.
+
+### 4.2 Berkas Filament
+
+| Berkas | Tanggung jawab |
 |---|---|
-| `Pages/Reservations/Index.jsx` | susun layout, pegang state filter |
-| `Pages/Reservations/Form.jsx` | dipakai bersama oleh Create dan Edit |
-| `Pages/Reservations/Show.jsx` | detail + timeline audit |
-| `Components/ReservationTable.jsx` | render tabel, sorting kolom |
-| `Components/FilterBar.jsx` | pencarian teks, filter PIC/status/event type |
-| `Components/PicCombobox.jsx` | dropdown PIC dengan pencarian (Headless UI) |
-| `Components/StatusBadge.jsx` | badge CONFIRMED / TENTATIVE / belum ditentukan |
-| `Components/MonthNav.jsx` | navigasi bulan sebelumnya/berikutnya |
-| `Components/ConflictBanner.jsx` | peringatan bentrok area |
-| `Components/RemarkRow.jsx` | baris remark selebar tabel |
-| `Components/ViewToggle.jsx` | pindah antara mode Tabel dan Kalender |
-| `Components/MonthGrid.jsx` | grid kalender bulanan (CSS Grid) |
-| `Components/DayCell.jsx` | satu sel tanggal berisi chip |
-| `Components/ReservationChip.jsx` | chip ringkas: jam mulai + nama tamu |
-| `Components/ReservationDetailPanel.jsx` | detail lengkap + remark utuh |
-| `Utils/formatTimeRange.js` | satu-satunya tempat format jam dibuat |
+| `Resources/Reservations/ReservationResource.php` | Titik masuk resource |
+| `Resources/Reservations/Schemas/ReservationForm.php` | Skema form |
+| `Resources/Reservations/Schemas/ReservationInfolist.php` | Skema halaman View |
+| `Resources/Reservations/Tables/ReservationsTable.php` | Kolom, filter, `Panel` remark |
+| `Resources/Reservations/Pages/ListReservations.php` | Tab bulan |
+| `Resources/Reservations/Pages/CreateReservation.php` | Override `handleRecordCreation()` |
+| `Resources/Reservations/Pages/EditReservation.php` | Override `handleRecordUpdate()` |
+| `Resources/Reservations/Pages/ViewReservation.php` | Detail + riwayat |
+| `Pages/ReservationCalendar.php` + Blade | Grid bulanan |
+| `views/filament/audit-timeline.blade.php` | Riwayat perubahan |
+| `Resources/{Areas,EventTypes,MenuStyles}/*` | Simple resource master |
+| `Resources/Users/*`, `Resources/Roles/*` | Pengguna dan role |
 
-`formatTimeRange.js` sengaja dipisah sebagai satu fungsi kecil karena dipakai di
-tabel, chip kalender, panel detail, dan halaman detail. Menduplikasi logikanya di
-empat tempat adalah cara paling mudah menghasilkan format yang tidak konsisten.
+**Penyimpanan reservasi tidak diserahkan ke Filament.** `CreateReservation` dan
+`EditReservation` meng-override `handleRecordCreation()` dan `handleRecordUpdate()`
+agar melewati `ReservationWriter`. Tanpa override itu, Filament menyimpan langsung ke
+model dan seluruh perlindungan pada bagian 9 — idempotency, optimistic lock, penolakan
+duplikat — terlewati tanpa menghasilkan error apa pun.
 
 ### 4.3 Penanganan REMARK
 
@@ -373,14 +400,13 @@ sekaligus tetap terbaca.
 `PicCombobox` memakai `@headlessui/react` yang sudah ada di `package.json` — tidak
 perlu dependency baru.
 
-Form memakai `useForm` dari `@inertiajs/react`. Error validasi diambil dari
-`errors` yang dikirim Laravel; aturan validasi tidak diduplikasi di React.
-
 ---
 
 ## 5. Validasi
 
-Sumber kebenaran tunggal: `StoreReservationRequest` dan `UpdateReservationRequest`.
+Karena UI memakai Filament, **tidak ada `FormRequest`**. Aturan wajib dan panjang
+maksimum ditulis langsung pada field Filament (`->required()`, `->maxLength()`,
+`->numeric()`, `->minValue()`), yang setara dengan daftar berikut:
 
 ```php
 'reservation_date' => ['required', 'date'],
@@ -399,39 +425,63 @@ Sumber kebenaran tunggal: `StoreReservationRequest` dan `UpdateReservationReques
 'remark'           => ['nullable', 'string'],
 ```
 
-Normalisasi sebelum validasi, di `prepareForValidation()`:
+Normalisasi berjalan di `App\Support\ReservationInput::normalize()`, sebuah kelas
+murni tanpa framework yang dipanggil dari `mutateFormDataBeforeCreate()` dan
+`mutateFormDataBeforeSave()`:
 
-- `phone` — buang semua karakter selain digit dan tanda `+` di awal. String `NA`,
-  `-`, atau kosong setelah normalisasi ditolak oleh aturan `required`.
-- `guest_name`, `company` — `trim`.
-- `email` — `trim` dan huruf kecil; string `NA` diubah menjadi `null`.
+- `phone` — buang semua karakter selain digit. String `NA`, `-`, atau kosong menjadi
+  `null` dan kemudian ditolak oleh `->required()` pada field.
+- `guest_name`, `company`, `remark` — `trim`, kosong menjadi `null`.
+- `email` — `trim` dan huruf kecil; string `NA` menjadi `null`.
+- `start_time` — dinormalkan ke `H:i`, dan bila berisi rentang `12.00-15.00` dipecah
+  menjadi `start_time` dan `end_time`.
 
-Ubah status menjadi `confirmed` divalidasi di Policy, bukan di FormRequest.
+Memisahkannya sebagai kelas murni membuat seluruh aturan di atas bisa diuji tanpa
+menjalankan Livewire.
+
+Ubah status menjadi `confirmed` divalidasi di Policy, bukan di lapisan form.
 
 ---
 
 ## 6. Hak akses
 
-`ReservationPolicy`:
+`ReservationPolicy` — setiap method memeriksa dua hal: akun aktif, dan role memuat
+`Ability` yang diminta.
 
 ```php
-viewAny(User $u)                    => $u->is_active
-view(User $u, Reservation $r)       => $u->is_active
-create(User $u)                     => $u->is_active
-update(User $u, Reservation $r)     => $u->is_active
-delete(User $u, Reservation $r)     => $u->isAdmin()
-confirm(User $u, Reservation $r)    => $u->isAdmin()
+private function allows(User $u, Ability $a): bool
+{
+    return $u->is_active && $u->can($a->value);
+}
+
+viewAny(User $u)                    => allows($u, Ability::ViewReservation)
+view(User $u, Reservation $r)       => allows($u, Ability::ViewReservation)
+create(User $u)                     => allows($u, Ability::CreateReservation)
+update(User $u, Reservation $r)     => allows($u, Ability::UpdateReservation)
+delete(User $u, Reservation $r)     => allows($u, Ability::DeleteReservation)
+deleteAny(User $u)                  => allows($u, Ability::DeleteReservation)
+confirm(User $u, ?Reservation $r)   => allows($u, Ability::ConfirmReservation)
 ```
 
-`confirm` dipanggil dari controller ketika `status` pada request bernilai
-`confirmed` dan berbeda dari nilai tersimpan. Jika ditolak, request gagal dengan 403
-dan tidak ada perubahan lain yang tersimpan.
+**Nama role tidak pernah disebut di Policy.** Ini yang membuat role baru langsung
+bekerja tanpa perubahan kode, dan dikunci oleh test
+`test_a_new_role_works_without_changing_any_policy`.
 
-Halaman master dan users dilindungi middleware `can:admin` melalui Gate sederhana.
+`deleteAny()` wajib ada karena Filament memakainya untuk `DeleteBulkAction`; tanpa
+method itu tombol hapus massal tetap muncul bagi yang tidak berhak.
 
-Frontend menerima `auth.user.role` lewat `HandleInertiaRequests` dan menyembunyikan
-tombol yang tidak diizinkan. Ini murni kosmetik — otorisasi sebenarnya tetap di
-server.
+`confirm` menerima `?Reservation` nullable karena halaman Create memanggilnya untuk
+reservasi yang barisnya belum ada.
+
+`AreaPolicy`, `EventTypePolicy`, dan `MenuStylePolicy` memakai `Ability::ManageMaster`;
+`UserPolicy` memakai `Ability::ManageUser`; `RolePolicy` memakai `Ability::ManageRole`.
+`UserPolicy::delete()` selalu mengembalikan `false` — pengguna dinonaktifkan, tidak
+dihapus.
+
+Tidak ada middleware otorisasi. Filament membaca Model Policy secara otomatis dan
+menyembunyikan resource dari navigasi ketika `viewAny()` menolak. Satu pengecualian:
+`Spatie\Permission\Models\Role` berada di luar `App\Models`, sehingga `RolePolicy`
+harus didaftarkan manual lewat `Gate::policy()` di `AppServiceProvider`.
 
 ---
 
@@ -454,7 +504,8 @@ Arif membuat reservasi                      08 Agu 2026, 16:20
 ```
 
 Untuk kolom foreign key, nilai lama dan baru ditampilkan sebagai nama, bukan id.
-Pemetaan id ke nama dilakukan di controller saat menyusun props halaman detail.
+Riwayat dirender oleh `resources/views/filament/audit-timeline.blade.php` yang
+disisipkan ke halaman View lewat komponen `View` pada infolist.
 
 ---
 
@@ -617,8 +668,10 @@ per bulan, kontensi praktis nol.
 
 ### 9.5 Menerjemahkan pelanggaran constraint menjadi pesan
 
-`QueryException` dengan SQLSTATE 23000 ditangkap di controller dan dipetakan
-berdasarkan nama index:
+`QueryException` dengan SQLSTATE 23000 ditangkap di `ReservationWriter`, diubah
+menjadi `DuplicateReservationException`, lalu diterjemahkan menjadi
+`ValidationException` oleh halaman Create dan Edit Filament. Pemetaannya berdasarkan
+nama index:
 
 | Index | Respons |
 |---|---|
@@ -722,7 +775,9 @@ manfaat yang realistis.
 | Satu area per reservasi | Sudah diketahui tidak menampung event multi-area seperti DHARMADI. Diterima sebagai batasan v1. |
 | Data lama tidak diimpor | Riwayat sebelum go-live hanya ada di Excel. |
 | Nama PIC sebagai user | Mengasumsikan IBU MARLUCE dan nama sejenis memang orang, bukan label peran. Jika ternyata label, perlu penyesuaian. |
-| Tabel dan filter dibangun manual | Konsekuensi memilih Inertia + React di atas Filament. Menambah waktu pengerjaan dibanding Filament. |
+| Ketergantungan pada Filament | Kustomisasi di luar jalur yang disediakan Filament menjadi mahal. Sejauh ini hanya kalender yang keluar jalur, dan itu dibangun sebagai custom Page. |
+| Cache permission spatie | Perubahan hak akses tidak berlaku sampai cache dibersihkan. Ditangani dengan memanggil `forgetCachedPermissions()` setiap kali role disimpan. Kalau terlewat, gejalanya terlihat seperti "sistem tidak menyimpan perubahan". |
+| Verifikasi API Filament | Dua pemanggilan belum diverifikasi langsung: `Panel::make()->visible()` dengan closure `$record`, dan namespace `Tabs\Tab` untuk tab bulan. Keduanya ditandai di rencana beserta jalur cadangannya. |
 | Versi MySQL produksi | `dedupe_key` memerlukan generated stored column, tersedia sejak MySQL 5.7. **Harus dipastikan sebelum implementasi.** Jika server memakai versi lebih lama, kolom diisi lewat model event dan keunikan tetap dijaga UNIQUE index — sedikit lebih rapuh karena bergantung pada kode aplikasi untuk mengisi nilai. |
 | Kunci duplikat menolak reservasi sah | Satu tamu dengan dua grup berbeda pada tanggal dan jam mulai sama akan ditolak. Penanganan: bedakan nama. Perlu diberitahukan ke staf saat pelatihan agar tidak dianggap bug. |
 

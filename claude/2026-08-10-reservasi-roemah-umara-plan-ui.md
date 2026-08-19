@@ -318,10 +318,10 @@ php artisan optimize:clear
 php artisan serve
 ```
 
-Login sebagai admin, buka `/admin`. Periksa:
+Login sebagai admin, buka `/cms`. Periksa:
 
 1. Menu "Reservasi" muncul di navigasi dengan ikon kalender.
-2. Membuka `/admin/reservations/create` menampilkan tiga section: Tamu, Detail acara, Catatan.
+2. Membuka `/cms/reservations/create` menampilkan tiga section: Tamu, Detail acara, Catatan.
 3. Toggle "Sampai jam tertentu" mati secara bawaan, dan kolom Jam selesai tersembunyi.
 4. Menyalakan toggle memunculkan kolom Jam selesai; mematikannya kembali menyembunyikan dan mengosongkannya.
 5. Login sebagai staf — dropdown Status hanya berisi "Belum ditentukan" dan TENTATIVE, tanpa CONFIRMED.
@@ -605,7 +605,7 @@ php artisan tinker --execute="
 
 - [ ] **Step 4: Periksa di browser**
 
-Login sebagai `ira@umara.test` / `password`, buka `/admin/reservations`. Periksa:
+Login sebagai `ira@umara.test` / `password`, buka `/cms/reservations`. Periksa:
 
 1. Tab bulan muncul, dan bulan berjalan aktif secara bawaan.
 2. Baris Ibu There menampilkan jam `12:00` tanpa tanda hubung.
@@ -1356,7 +1356,7 @@ git commit -m "feat: halaman detail reservasi dan riwayat perubahan"
 
 **Interfaces:**
 - Consumes: `Reservation` (Task 4), `ReservationResource` (Task 12)
-- Produces: halaman `/admin/reservation-calendar` dengan grid bulanan dan panel detail
+- Produces: halaman `/cms/reservation-calendar` dengan grid bulanan dan panel detail
 
 Grid dibangun dengan CSS Grid, tanpa pustaka kalender. Yang dibutuhkan hanya
 menempatkan chip pada sel tanggal dan menangani klik — tidak ada penjadwalan,
@@ -1680,21 +1680,21 @@ class MasterResourceTest extends TestCase
     public function test_staff_cannot_open_master_pages(): void
     {
         $this->actingAs(User::factory()->create())
-            ->get('/admin/areas')
+            ->get('/cms/areas')
             ->assertForbidden();
     }
 
     public function test_admin_can_open_master_pages(): void
     {
         $this->actingAs(User::factory()->admin()->create())
-            ->get('/admin/areas')
+            ->get('/cms/areas')
             ->assertOk();
     }
 
     public function test_staff_cannot_open_user_management(): void
     {
         $this->actingAs(User::factory()->create())
-            ->get('/admin/users')
+            ->get('/cms/users')
             ->assertForbidden();
     }
 
@@ -1986,7 +1986,7 @@ Expected: semua PASS
 - [ ] **Step 7: Periksa di browser**
 
 1. Sebagai admin, grup Master berisi Area, Event, Menu style; grup Pengaturan berisi Pengguna.
-2. Sebagai staf, keempatnya **tidak muncul** di navigasi, dan membuka `/admin/areas` langsung menghasilkan 403.
+2. Sebagai staf, keempatnya **tidak muncul** di navigasi, dan membuka `/cms/areas` langsung menghasilkan 403.
 3. Tambahkan area `vip 3`. Tersimpan sebagai `VIP 3` huruf kapital.
 4. Tambahkan `VIP 3` lagi — muncul error nama sudah dipakai.
 5. Hapus area yang sedang dipakai reservasi — muncul notifikasi merah yang menyarankan menonaktifkan, bukan error 500.
@@ -2015,7 +2015,7 @@ git commit -m "feat: resource master dan pengguna"
 
 **Interfaces:**
 - Consumes: `Ability` (Task 1), `spatie/laravel-permission` (Task 2)
-- Produces: halaman `/admin/roles` tempat admin membuat role baru dan memilih kemampuannya
+- Produces: halaman `/cms/roles` tempat admin membuat role baru dan memilih kemampuannya
 
 Inilah task yang membuat seluruh keputusan memakai spatie berbuah. Setelah task ini
 selesai, menambahkan role "Manajer" yang boleh menetapkan CONFIRMED tetapi tidak boleh
@@ -2129,13 +2129,13 @@ class RoleResourceTest extends TestCase
         $staff = User::factory()->create();
         $staff->assignRole('staff');
 
-        $this->actingAs($staff)->get('/admin/roles')->assertForbidden();
+        $this->actingAs($staff)->get('/cms/roles')->assertForbidden();
     }
 
     public function test_admin_can_open_role_page(): void
     {
         $this->actingAs(User::factory()->admin()->create())
-            ->get('/admin/roles')
+            ->get('/cms/roles')
             ->assertOk();
     }
 
@@ -2171,7 +2171,7 @@ class RoleResourceTest extends TestCase
 - [ ] **Step 4: Jalankan test untuk memastikan gagal**
 
 Run: `php artisan test --filter=RoleResourceTest`
-Expected: FAIL — route `/admin/roles` belum ada
+Expected: FAIL — route `/cms/roles` belum ada
 
 - [ ] **Step 5: Buat resource**
 
@@ -2424,5 +2424,5 @@ Ringkasan agar mudah ditelusuri saat mengerjakan:
 | Policy | `$user->isAdmin()` | `$user->can(Ability::X->value)` |
 | Factory `->admin()` | `state(['role' => 'admin'])` | `afterCreating(assignRole('admin'))` |
 | Test yang memakai `->admin()` | Tidak perlu seeder | **Wajib** `seed(RolePermissionSeeder::class)` dulu |
-| Menambah role baru | Ubah kode + deploy | Satu form di `/admin/roles` |
+| Menambah role baru | Ubah kode + deploy | Satu form di `/cms/roles` |
 | Filament Shield | — | **Tidak dipakai.** 8 Ability, bukan ~40 permission per-Resource |
