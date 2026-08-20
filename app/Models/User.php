@@ -16,6 +16,20 @@ class User extends Authenticatable
     use HasFactory, HasRoles, Notifiable;
 
     /**
+     * Mencerminkan default(true) pada kolom is_active di database.
+     *
+     * Tanpa baris ini, instance User yang baru dibuat bernilai null pada
+     * is_active sampai dimuat ulang dari database. Setiap Policy memeriksa
+     * $user->is_active lebih dulu, sehingga null membuat pengguna yang baru
+     * dibuat ditolak melakukan apa pun tanpa pesan kesalahan apa pun.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'is_active' => true,
+    ];
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
