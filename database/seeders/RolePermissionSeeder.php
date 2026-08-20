@@ -18,6 +18,16 @@ class RolePermissionSeeder extends Seeder
             Permission::findOrCreate($name, 'web');
         }
 
+        // Spatie hanya membatalkan cache permission lewat model event saved/deleted.
+        // DatabaseSeeder memakai WithoutModelEvents, sehingga delapan permission di
+        // atas tercipta tanpa cache pernah dibersihkan, dan syncPermissions() di bawah
+        // akan membaca cache kosong lalu melempar PermissionDoesNotExist.
+        // Spatie hanya membatalkan cache permission lewat model event saved/deleted.
+        // DatabaseSeeder memakai WithoutModelEvents, sehingga delapan permission di
+        // atas tercipta tanpa cache pernah dibersihkan, dan syncPermissions() di bawah
+        // akan membaca cache kosong lalu melempar PermissionDoesNotExist.
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
         $admin = Role::findOrCreate('admin', 'web');
         $admin->syncPermissions(Ability::values());
 
