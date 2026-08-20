@@ -18,6 +18,8 @@ class ReservationWriter
 
     private const IDEMPOTENCY_INDEX = 'reservations_idempotency_key_unique';
 
+    public function __construct(private readonly NumberSequence $sequence) {}
+
     public function create(array $data, string $idempotencyKey, User $actor): Reservation
     {
         $existing = Reservation::where('idempotency_key', $idempotencyKey)->first();
@@ -30,6 +32,8 @@ class ReservationWriter
             return DB::transaction(function () use ($data, $idempotencyKey, $actor) {
                 $reservation = new Reservation();
                 $reservation->fill($data);
+                $reservation->reservation_number = Reservation::NUMBER_PREFIX
+                    .$this->sequence->next('reservation');
                 $reservation->idempotency_key = $idempotencyKey;
                 $reservation->created_by = $actor->id;
                 $reservation->version = 1;

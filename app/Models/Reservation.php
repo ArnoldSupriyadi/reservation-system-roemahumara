@@ -16,6 +16,12 @@ class Reservation extends Model
     use LogsActivity;
     use SoftDeletes;
 
+    /**
+     * Prefiks nomor reservasi. Ditulis sekali di sini, bukan disebar sebagai
+     * literal di beberapa berkas.
+     */
+    public const NUMBER_PREFIX = 'RU-R';
+
     protected $fillable = [
         'reservation_date',
         'guest_name',
