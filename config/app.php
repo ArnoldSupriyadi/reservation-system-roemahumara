@@ -65,7 +65,13 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    /*
+     * Sistem ini internal untuk satu venue di Indonesia. Dengan UTC, riwayat
+     * perubahan menampilkan jam tujuh jam lebih lambat daripada jam dinding —
+     * "mengubah pukul 04:45" untuk perubahan yang terjadi pukul 11:45 WIB.
+     * Indonesia tidak menerapkan DST, sehingga tidak ada pergeseran musiman.
+     */
+    'timezone' => env('APP_TIMEZONE', 'Asia/Jakarta'),
 
     /*
     |--------------------------------------------------------------------------
