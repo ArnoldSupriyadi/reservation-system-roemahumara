@@ -8,6 +8,8 @@ use App\Models\Area;
 use App\Models\EventType;
 use App\Models\MenuStyle;
 use App\Models\User;
+use App\Support\TimeInput;
+use Closure;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
@@ -94,7 +96,22 @@ class ReservationForm
                         ->required()
                         ->maxLength(20)
                         ->placeholder('11.00')
-                        ->helperText('Boleh 11, 11.00, atau 11:00. Menulis 12.00-15.00 di sini akan otomatis terpecah.'),
+                        ->helperText('Boleh 11, 11.00, atau 11:00. Menulis 12.00-15.00 di sini akan otomatis terpecah.')
+                        ->rules([
+                            fn (): Closure => function (string $attribute, $value, Closure $fail) {
+                                $split = TimeInput::split($value);
+
+                                if ($split['start'] === null) {
+                                    $fail('Jam mulai tidak dikenali. Contoh yang benar: 11, 11.00, atau 11:00.');
+
+                                    return;
+                                }
+
+                                if ($split['end'] !== null && $split['end'] <= $split['start']) {
+                                    $fail('Pada rentang yang diketik di sini, jam selesai harus lebih lambat daripada jam mulai.');
+                                }
+                            },
+                        ]),
 
                     Toggle::make('has_end_time')
                         ->label('Sampai jam tertentu')
@@ -111,7 +128,24 @@ class ReservationForm
                         ->label('Jam selesai')
                         ->maxLength(20)
                         ->placeholder('15.00')
-                        ->visible(fn (callable $get) => (bool) $get('has_end_time')),
+                        ->visible(fn (callable $get) => (bool) $get('has_end_time'))
+                        ->rules([
+                            fn (callable $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                $end = TimeInput::normalize($value);
+
+                                if ($end === null) {
+                                    $fail('Jam selesai tidak dikenali. Contoh yang benar: 15, 15.00, atau 15:00.');
+
+                                    return;
+                                }
+
+                                $start = TimeInput::split($get('start_time'))['start'];
+
+                                if ($start !== null && $end <= $start) {
+                                    $fail('Jam selesai harus lebih lambat daripada jam mulai.');
+                                }
+                            },
+                        ]),
 
                     Select::make('status')
                         ->label('Status')
