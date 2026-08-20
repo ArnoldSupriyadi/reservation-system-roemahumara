@@ -28,6 +28,12 @@ class CmsPanelProvider extends PanelProvider
             ->id('cms')
             ->path('cms')
             ->login()
+            ->brandName('Roemah Umara')
+            ->navigationGroups([
+                'Reservasi',
+                'Master',
+                'Pengaturan',
+            ])
             ->colors([
                 'primary' => Color::Amber,
             ])
