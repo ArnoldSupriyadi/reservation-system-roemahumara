@@ -36,6 +36,13 @@ class ReservationsTable
             ->paginated(false)
             ->columns([
                 Split::make([
+                    TextColumn::make('reservation_number')
+                        ->label('No.')
+                        ->searchable()
+                        ->weight(FontWeight::Bold)
+                        ->color('gray')
+                        ->grow(false),
+
                     TextColumn::make('reservation_date')
                         ->label('Tanggal')
                         ->date('d M Y')

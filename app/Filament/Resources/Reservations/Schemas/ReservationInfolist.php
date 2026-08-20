@@ -17,6 +17,8 @@ class ReservationInfolist
             Section::make('Reservasi')
                 ->columns(4)
                 ->schema([
+                    TextEntry::make('reservation_number')->label('No. reservasi'),
+
                     TextEntry::make('reservation_date')->label('Tanggal')->date('d M Y'),
 
                     TextEntry::make('start_time')
