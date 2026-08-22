@@ -120,6 +120,93 @@ class ConflictCheckerTest extends TestCase
         $this->assertCount(0, $this->checker->check($this->area->id, '2026-08-09', '13:00', '14:00'));
     }
 
+    // ---------------------------------------------------------------------
+    // Area yang saling meliputi. ALL BALLROOM adalah BALLROOM 1-4 dengan sekat
+    // dibuka, jadi memesan salah satunya membuat yang lain ikut terpakai.
+    // ---------------------------------------------------------------------
+
+    /** @return array{0: Area, 1: Area, 2: Area} ALL BALLROOM, BALLROOM 1, BALLROOM 2 */
+    private function ballrooms(): array
+    {
+        $all = Area::create(['name' => 'ALL BALLROOM']);
+        $satu = Area::create(['name' => 'BALLROOM 1']);
+        $dua = Area::create(['name' => 'BALLROOM 2']);
+
+        $all->overlapWith($satu);
+        $all->overlapWith($dua);
+
+        return [$all, $satu, $dua];
+    }
+
+    private function bookedIn(Area $area, string $start, ?string $end = null): Reservation
+    {
+        return Reservation::factory()->create([
+            'area_id' => $area->id,
+            'reservation_date' => '2026-08-09',
+            'start_time' => $start,
+            'end_time' => $end,
+            'guest_name' => 'Penghuni '.$area->name,
+        ]);
+    }
+
+    public function test_booking_the_whole_ballroom_clashes_with_a_part_of_it(): void
+    {
+        [$all, $satu] = $this->ballrooms();
+        $this->bookedIn($satu, '10:00:00', '14:00:00');
+
+        $this->assertCount(1, $this->checker->check($all->id, '2026-08-09', '11:00', '13:00'));
+    }
+
+    /** Arah sebaliknya harus sama, itu sebabnya relasinya disimpan dua arah. */
+    public function test_booking_a_part_clashes_with_the_whole_ballroom(): void
+    {
+        [$all, $satu] = $this->ballrooms();
+        $this->bookedIn($all, '10:00:00', '14:00:00');
+
+        $this->assertCount(1, $this->checker->check($satu->id, '2026-08-09', '11:00', '13:00'));
+    }
+
+    /**
+     * Dua bagian yang berbeda TIDAK saling meliputi. Kalau ini ikut dianggap
+     * bentrok, ballroom praktis hanya bisa dipakai satu acara sekali waktu dan
+     * pemisahannya jadi sia-sia.
+     */
+    public function test_two_different_parts_do_not_clash_with_each_other(): void
+    {
+        [, $satu, $dua] = $this->ballrooms();
+        $this->bookedIn($satu, '10:00:00', '14:00:00');
+
+        $this->assertCount(0, $this->checker->check($dua->id, '2026-08-09', '11:00', '13:00'));
+    }
+
+    public function test_an_unrelated_area_is_untouched_by_the_overlap(): void
+    {
+        [$all] = $this->ballrooms();
+        $this->bookedIn($all, '10:00:00', '14:00:00');
+
+        $this->assertCount(0, $this->checker->check($this->area->id, '2026-08-09', '11:00', '13:00'));
+    }
+
+    /** Jam tetap diperhitungkan; meliputi ruangnya, bukan seharian penuh. */
+    public function test_the_overlap_still_respects_the_clock(): void
+    {
+        [$all, $satu] = $this->ballrooms();
+        $this->bookedIn($satu, '10:00:00', '14:00:00');
+
+        $this->assertCount(0, $this->checker->check($all->id, '2026-08-09', '15:00', '17:00'));
+    }
+
+    /** Bagian yang batal tidak memakai ruang, termasuk lewat jalur meliputi. */
+    public function test_a_cancelled_part_does_not_block_the_whole(): void
+    {
+        [$all, $satu] = $this->ballrooms();
+        $r = $this->bookedIn($satu, '10:00:00', '14:00:00');
+        $r->status = ReservationStatus::Cancelled;
+        $r->save();
+
+        $this->assertCount(0, $this->checker->check($all->id, '2026-08-09', '11:00', '13:00'));
+    }
+
     public function test_confirmed_and_undetermined_rows_still_block_the_area(): void
     {
         $confirmed = $this->existing('12:00:00', '15:00:00');

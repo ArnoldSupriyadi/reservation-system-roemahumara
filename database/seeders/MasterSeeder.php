@@ -35,5 +35,27 @@ class MasterSeeder extends Seeder
         foreach ($menuStyles as $name) {
             MenuStyle::firstOrCreate(['name' => $name]);
         }
+
+        $this->linkBallrooms();
+    }
+
+    /**
+     * ALL BALLROOM adalah BALLROOM 1-4 dengan sekat dibuka.
+     *
+     * Tanpa hubungan ini ConflictChecker memperlakukan kelimanya sebagai ruangan
+     * yang tidak berkaitan, sehingga seluruh ballroom bisa dipesan di atas acara
+     * yang sudah ada di salah satu bagiannya tanpa peringatan apa pun.
+     */
+    private function linkBallrooms(): void
+    {
+        $all = Area::where('name', 'ALL BALLROOM')->first();
+
+        if ($all === null) {
+            return;
+        }
+
+        Area::whereIn('name', ['BALLROOM 1', 'BALLROOM 2', 'BALLROOM 3', 'BALLROOM 4'])
+            ->get()
+            ->each(fn (Area $bagian) => $all->overlapWith($bagian));
     }
 }

@@ -159,6 +159,14 @@ jadi idempotency-nya mencegah data kembar.
     membuat tapi tidak saat mengubah. Pemeriksaannya berjalan **sebelum**
     penulisan; `warnAboutConflicts()` sesudahnya.
 
+    **Area bisa saling meliputi.** ALL BALLROOM adalah BALLROOM 1–4 dengan sekat
+    dibuka, dicatat di tabel `area_overlaps` dan dipakai `ConflictChecker` lewat
+    `Area::occupiedAreaIds()`. Relasinya disimpan **dua arah**; selalu memakai
+    `Area::overlapWith()`, jangan `attach()` langsung — kalau hanya satu arah,
+    bentroknya cuma terdeteksi ketika pengguna kebetulan memesan dari sisi yang
+    benar dan diam dari sisi sebaliknya. Dua bagian yang berbeda (BALLROOM 1 dan
+    BALLROOM 2) sengaja TIDAK saling meliputi.
+
     Duplikat persis dikecualikan: ia juga terbaca sebagai bentrok area, tapi
     pesan "sudah ada reservasi atas nama X" lebih menolong daripada "isi Remark".
     Penjaga ini memanggil `ReservationWriter::findDuplicate()` lalu menyingkir —

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\ReservationStatus;
+use App\Models\Area;
 use App\Models\Reservation;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -27,9 +28,15 @@ class ConflictChecker
 
         [$start, $end] = $this->window($startTime, $endTime);
 
+        // Bukan hanya area yang dipilih, tapi juga yang secara fisik meliputinya.
+        // ALL BALLROOM memakai ruang BALLROOM 1-4, jadi memesan salah satunya
+        // membuat yang lain ikut terpakai. Tanpa ini sistem diam saat seluruh
+        // ballroom dipesan di atas acara yang sudah ada di salah satu bagiannya.
+        $areaIds = Area::find($areaId)?->occupiedAreaIds() ?? [$areaId];
+
         return Reservation::query()
             ->with(['pic:id,name'])
-            ->where('area_id', $areaId)
+            ->whereIn('area_id', $areaIds)
             ->whereDate('reservation_date', $date)
             ->when($ignoreId, fn ($q) => $q->whereKeyNot($ignoreId))
             // Reservasi yang sudah dibatalkan tidak memakai tempat. Ikut
