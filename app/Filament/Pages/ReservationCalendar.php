@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\Reservation;
+use App\Support\MonthGrid;
 use BackedEnum;
 use Filament\Pages\Page;
 use Illuminate\Support\Carbon;
@@ -40,9 +41,7 @@ class ReservationCalendar extends Page
 
     public function shiftMonth(int $delta): void
     {
-        $this->month = Carbon::createFromFormat('Y-m-d', $this->month.'-01')
-            ->addMonths($delta)
-            ->format('Y-m');
+        $this->month = MonthGrid::shift($this->month, $delta);
 
         $this->selectedId = null;
     }
@@ -79,25 +78,11 @@ class ReservationCalendar extends Page
      */
     public function getCellsProperty(): array
     {
-        $first = Carbon::createFromFormat('Y-m-d', $this->month.'-01')->startOfMonth();
-
-        // dayOfWeek: 0 = Minggu. Geser agar Senin menjadi 0.
-        $lead = ($first->dayOfWeek + 6) % 7;
-
-        $cells = array_fill(0, $lead, ['day' => null, 'iso' => null]);
-
-        for ($day = 1; $day <= $first->daysInMonth; $day++) {
-            $cells[] = [
-                'day' => $day,
-                'iso' => sprintf('%s-%02d', $this->month, $day),
-            ];
-        }
-
-        return $cells;
+        return MonthGrid::cells($this->month);
     }
 
     public function getMonthLabelProperty(): string
     {
-        return Carbon::createFromFormat('Y-m-d', $this->month.'-01')->translatedFormat('F Y');
+        return MonthGrid::label($this->month);
     }
 }
