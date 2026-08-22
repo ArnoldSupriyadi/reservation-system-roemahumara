@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\PublicCalendarController;
 use Illuminate\Support\Facades\Route;
 
-Route::redirect('/', '/cms');
+// `/` tidak lagi mengalihkan ke /cms. Staf masuk lewat /cms langsung.
+Route::get('/', PublicCalendarController::class)->name('public.calendar');
