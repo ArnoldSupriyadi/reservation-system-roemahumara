@@ -17,7 +17,14 @@
             <thead>
                 <tr>
                     @foreach (['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'] as $name)
-                        <th scope="col" class="border-[2px] border-ink bg-ink py-2 text-[11px] font-black uppercase tracking-widest text-white">
+                        <th
+                            scope="col"
+                            @class([
+                                'border-[2px] border-ink bg-ink py-2 text-[11px] font-black uppercase tracking-widest',
+                                'text-white' => ! $loop->last,
+                                'text-sunday-ink' => $loop->last,
+                            ])
+                        >
                             {{ $name }}
                         </th>
                     @endforeach
@@ -29,7 +36,13 @@
                         @foreach ($week as $cell)
                             <td class="h-24 border-[2px] border-ink p-1 align-top {{ $cell['day'] === null ? 'bg-black/5' : '' }}">
                                 @if ($cell['day'] !== null)
-                                    <span class="mb-1 block text-xs font-black">{{ $cell['day'] }}</span>
+                                    {{-- Kolom ke-6 selalu Minggu karena grid dimulai Senin. Memakai
+                                         $loop->last akan salah: baris terakhir bisa pendek bila bulannya
+                                         tidak berakhir pada hari Minggu. --}}
+                                    <span @class([
+                                        'mb-1 block text-xs font-black',
+                                        'text-sunday' => $loop->index === 6,
+                                    ])>{{ $cell['day'] }}</span>
 
                                     @foreach (($byDate[$cell['iso']] ?? collect()) as $r)
                                         <a

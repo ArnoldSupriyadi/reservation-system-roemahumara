@@ -32,12 +32,34 @@ Kata `admin` di dalam proyek ini **selalu berarti nama role**, tidak pernah nama
 
 ## Database
 
-Development dan test memakai database yang sama: **`ru_reservation`**.
+Development dan test memakai database **terpisah**:
 
-Konsekuensinya: `php artisan test` memakai `RefreshDatabase`, yang menjalankan
-`migrate:fresh` dan **menghapus seluruh data uji coba manual**. Ini keputusan yang
-diambil sadar. Kalau nanti mengganggu, pindahkan ke database terpisah dengan mengubah
-`DB_DATABASE` di `phpunit.xml` — tidak ada perubahan kode lain yang diperlukan.
+- Development: `ru_reservation` (dari `.env`)
+- Test: `ru_reservation_test` (dari `phpunit.xml`)
+
+Sebelumnya keduanya satu database, dan `RefreshDatabase` menghapus seluruh data uji
+coba manual setiap kali `php artisan test` dijalankan. Itu memang keputusan sadar
+pada awalnya, tapi terbukti mengganggu, jadi dipisah pada 2026-08-22 persis seperti
+yang diantisipasi catatan lama ini — hanya `DB_DATABASE` di `phpunit.xml` yang
+berubah, tidak ada perubahan kode.
+
+Database test dibuat sekali dengan:
+
+```sql
+CREATE DATABASE ru_reservation_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+Kalau mesin lain menjalankan test dan gagal menyambung, itu sebabnya.
+
+**Data contoh** untuk melihat tampilan berisi:
+
+```
+php artisan db:seed --class=ReservationDemoSeeder
+```
+
+Seeder itu sengaja tidak ikut `db:seed` polos, supaya sistem yang baru dipasang tidak
+berisi tamu palsu. Aman dijalankan berulang: penulisannya lewat `ReservationWriter`,
+jadi idempotency-nya mencegah data kembar.
 
 ## Aturan yang tidak boleh dilanggar
 
