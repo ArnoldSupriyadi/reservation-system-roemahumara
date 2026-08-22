@@ -3,10 +3,12 @@
 namespace App\Services;
 
 use App\Exceptions\DuplicateReservationException;
+use App\Exceptions\InvalidReservationException;
 use App\Exceptions\StaleReservationException;
 use App\Models\Reservation;
 use App\Models\User;
 use App\Support\TimeInput;
+use Carbon\CarbonInterface;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
@@ -27,6 +29,8 @@ class ReservationWriter
         if ($existing) {
             return $existing;
         }
+
+        $this->guardRules($data, null);
 
         try {
             return DB::transaction(function () use ($data, $idempotencyKey, $actor) {
@@ -70,6 +74,8 @@ class ReservationWriter
                 throw new StaleReservationException;
             }
 
+            $this->guardRules($data, $fresh);
+
             $fresh->fill($data);
             $fresh->version = $fresh->version + 1;
             $fresh->updated_by = $actor->id;
@@ -86,6 +92,72 @@ class ReservationWriter
 
             return $fresh;
         });
+    }
+
+    /**
+     * Aturan isi yang berlaku untuk setiap penulisan, termasuk yang tidak lewat
+     * form: area wajib, dan bentrok area wajib punya penjelasan di Remark.
+     *
+     * Halaman Filament memeriksa hal yang sama lebih dulu dengan pesan yang
+     * ramah. Penjagaan di sini bukan pengulangan yang sia-sia — tanpa ia,
+     * aturannya hanya berlaku selama datanya kebetulan masuk lewat form.
+     */
+    private function guardRules(array $data, ?Reservation $current): void
+    {
+        $state = $this->effectiveState($data, $current);
+
+        if (blank($state['area_id'])) {
+            throw InvalidReservationException::missingArea();
+        }
+
+        if (filled($state['remark'])) {
+            return;
+        }
+
+        // Duplikat persis juga tampak sebagai bentrok area karena menempati area
+        // yang sama. Dibiarkan lewat supaya DuplicateReservationException yang
+        // muncul — pesannya menyebut nama dan tanggal, jauh lebih menolong
+        // daripada "Remark kosong".
+        if ($this->findDuplicate($state, $current?->getKey()) !== null) {
+            return;
+        }
+
+        $conflicts = app(ConflictChecker::class)->check(
+            $state['area_id'],
+            $state['reservation_date'],
+            $state['start_time'],
+            $state['end_time'],
+            $current?->getKey(),
+        );
+
+        if ($conflicts->isNotEmpty()) {
+            throw InvalidReservationException::unexplainedConflict($conflicts);
+        }
+    }
+
+    /**
+     * Keadaan reservasi SESUDAH perubahan diterapkan.
+     *
+     * update() menerima array parsial — `fill()` hanya menimpa kunci yang ada.
+     * Memeriksa $data mentah akan menolak perubahan pax yang tidak menyentuh
+     * area sama sekali, hanya karena area tidak ikut dikirim.
+     *
+     * @return array{area_id: mixed, reservation_date: string, start_time: string, end_time: ?string, remark: ?string, guest_name: string}
+     */
+    private function effectiveState(array $data, ?Reservation $current): array
+    {
+        $pick = fn (string $key, $fallback) => array_key_exists($key, $data) ? $data[$key] : $fallback;
+
+        $date = $pick('reservation_date', $current?->reservation_date);
+
+        return [
+            'area_id' => $pick('area_id', $current?->area_id),
+            'reservation_date' => $date instanceof CarbonInterface ? $date->toDateString() : (string) $date,
+            'start_time' => (string) $pick('start_time', $current?->start_time),
+            'end_time' => $pick('end_time', $current?->end_time),
+            'remark' => $pick('remark', $current?->remark),
+            'guest_name' => (string) $pick('guest_name', $current?->guest_name),
+        ];
     }
 
     private function violates(QueryException $e, string $index): bool

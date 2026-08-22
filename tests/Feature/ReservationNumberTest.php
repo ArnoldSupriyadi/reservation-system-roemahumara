@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Exceptions\DuplicateReservationException;
+use App\Models\Area;
 use App\Models\Reservation;
 use App\Models\User;
 use App\Services\ReservationWriter;
@@ -18,6 +19,8 @@ class ReservationNumberTest extends TestCase
 
     private User $actor;
 
+    private Area $area;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -25,6 +28,9 @@ class ReservationNumberTest extends TestCase
         $this->writer = app(ReservationWriter::class);
         $this->actor = User::factory()->create();
         $this->actingAs($this->actor);
+
+        // ReservationWriter mewajibkan area sejak 2026-08-22.
+        $this->area = Area::create(['name' => 'VIP 1']);
     }
 
     private function payload(array $overrides = []): array
@@ -38,12 +44,16 @@ class ReservationNumberTest extends TestCase
             'pic_id' => $this->actor->id,
             'event_type_id' => null,
             'menu_style_id' => null,
-            'area_id' => null,
+            'area_id' => $this->area->id,
             'start_time' => '12:00',
             'end_time' => null,
             'pax' => 3,
             'status' => null,
-            'remark' => null,
+            // Diisi karena beberapa test di sini membuat beberapa reservasi pada
+            // area dan jam yang sama. Yang diuji penomoran dan dedupe, bukan
+            // bentrok area — remark kosong akan membuat writer menolaknya lebih
+            // dulu dan menutupi hal yang sebenarnya diperiksa.
+            'remark' => 'Uji tulis.',
         ], $overrides);
     }
 

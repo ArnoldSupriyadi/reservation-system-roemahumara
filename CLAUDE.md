@@ -140,9 +140,17 @@ jadi idempotency-nya mencegah data kembar.
 
     **Area wajib diisi** justru karena aturan ini: area kosong membuat
     `ConflictChecker` melewati barisnya sepenuhnya, sehingga kewajiban menjelaskan
-    bentrok bisa dihindari cukup dengan tidak mengisi area. Diwajibkan di form,
-    bukan di kolom database — `area_id` masih nullable, jadi seeder dan tinker
-    tetap bisa menulis null.
+    bentrok bisa dihindari cukup dengan tidak mengisi area.
+
+    **Kedua aturan ditegakkan dua kali, dan itu disengaja.** Di form Filament
+    supaya pesannya ramah, dan di `ReservationWriter` supaya berlaku juga untuk
+    seeder, tinker, dan kode yang ditulis nanti — writer melempar
+    `InvalidReservationException`. Kolom `area_id` sendiri masih nullable di
+    database; yang menegakkan adalah writer, bukan skema.
+
+    Penjagaan di writer memeriksa keadaan **hasil** perubahan, bukan input mentah.
+    `update()` menerima array parsial, jadi memeriksa `$data` apa adanya akan
+    menolak perubahan pax yang tidak menyentuh area sama sekali.
 
     Aturannya ada di trait `Concerns\ChecksAreaConflicts`, dipakai bersama Create
     dan Edit. **Jangan menyalinnya kembali ke masing-masing halaman** — salinan
