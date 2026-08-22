@@ -130,7 +130,21 @@ jadi idempotency-nya mencegah data kembar.
     transaksi, `FOR UPDATE` tidak menahan apa pun. Nomor reservasi ditetapkan sekali
     saat pembuatan dan tidak pernah berubah.
 
-12. **Selesai create atau edit, kembali ke index.** Disetel sekali di
+12. **Bentrok area tidak dilarang, tapi menuntut penjelasan di Remark.** Kalau
+    area, tanggal, dan jamnya tumpang tindih dengan reservasi lain, penyimpanan
+    ditolak selama Remark kosong; begitu diisi, tersimpan dan peringatan "Area
+    bentrok" tetap muncul. **Jangan menggantinya jadi larangan keras** — di
+    lapangan ada bentrok yang sah (acara berurutan, sekat VIP dibuka), dan
+    penolakan mentah mendorong staf mengosongkan kolom Area supaya bisa
+    menyimpan. Begitu Area kosong, pengecekan bentrok mati total untuk baris itu.
+
+    Aturannya ada di trait `Concerns\ChecksAreaConflicts`, dipakai bersama Create
+    dan Edit. **Jangan menyalinnya kembali ke masing-masing halaman** — salinan
+    seperti itu berangsur berbeda dan menghasilkan larangan yang berlaku saat
+    membuat tapi tidak saat mengubah. Pemeriksaannya berjalan **sebelum**
+    penulisan; `warnAboutConflicts()` sesudahnya.
+
+13. **Selesai create atau edit, kembali ke index.** Disetel sekali di
     `CmsPanelProvider` lewat `->resourceCreatePageRedirect('index')` dan
     `->resourceEditPageRedirect('index')`, sehingga berlaku untuk semua resource
     termasuk yang dibuat nanti. **Jangan meng-override `getRedirectUrl()` di
@@ -138,13 +152,13 @@ jadi idempotency-nya mencegah data kembar.
     itulah yang dulu membuat CreateReservation lompat ke halaman view.
     `ReservationFilamentTest::test_creating_redirects_back_to_the_list` menjaganya.
 
-13. **Master (Area, EventType, MenuStyle) tidak punya kolom urutan.** Daftarnya
+14. **Master (Area, EventType, MenuStyle) tidak punya kolom urutan.** Daftarnya
     diurutkan `id`. `sort_order` dihapus 2026-08-22 karena menuntut pengelola
     memikirkan angka setiap menambah baris, padahal isinya belasan dan urutan
     tampilnya tidak pernah jadi persoalan. Urutan larik di `MasterSeeder` tetap
     menentukan urutan di layar, karena id mengikuti urutan penyisipan.
 
-14. **Menambah status baru butuh migrasi, bukan hanya case enum.** Kolom `status`
+15. **Menambah status baru butuh migrasi, bukan hanya case enum.** Kolom `status`
     bertipe ENUM MySQL. Menambah case di `App\Enums\ReservationStatus` tanpa
     `ALTER TABLE ... MODIFY COLUMN` menghasilkan "Data truncated for column
     'status'" saat menyimpan. Pakai `DB::statement()`, bukan `$table->enum()->change()`

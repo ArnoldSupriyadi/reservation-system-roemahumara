@@ -5,20 +5,20 @@ namespace App\Filament\Resources\Reservations\Pages;
 use App\Enums\ReservationStatus;
 use App\Exceptions\DuplicateReservationException;
 use App\Exceptions\StaleReservationException;
+use App\Filament\Resources\Reservations\Concerns\ChecksAreaConflicts;
 use App\Filament\Resources\Reservations\ReservationResource;
-use App\Models\Reservation;
-use App\Services\ConflictChecker;
 use App\Services\ReservationWriter;
 use App\Support\ReservationInput;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
-use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\ValidationException;
 
 class EditReservation extends EditRecord
 {
+    use ChecksAreaConflicts;
+
     protected static string $resource = ReservationResource::class;
 
     /** Versi yang dilihat pengguna saat form dimuat. */
@@ -53,6 +53,7 @@ class EditReservation extends EditRecord
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
         $this->guardConfirmedStatus($record, $data);
+        $this->requireRemarkWhenAreaConflicts($data, $record->getKey());
 
         unset($data['idempotency_key']);
 
@@ -106,33 +107,5 @@ class EditReservation extends EditRecord
         throw ValidationException::withMessages([
             'data.status' => 'Hanya admin yang boleh menetapkan status CONFIRMED.',
         ]);
-    }
-
-    private function warnAboutConflicts(array $data, int $ignoreId): void
-    {
-        $conflicts = app(ConflictChecker::class)->check(
-            $data['area_id'] ?? null,
-            $data['reservation_date'],
-            $data['start_time'],
-            $data['end_time'] ?? null,
-            $ignoreId,
-        );
-
-        if ($conflicts->isEmpty()) {
-            return;
-        }
-
-        Notification::make()
-            ->warning()
-            ->title('Area bentrok')
-            ->body($conflicts
-                ->map(fn (Reservation $other) => sprintf(
-                    '%s jam %s',
-                    $other->guest_name,
-                    substr((string) $other->start_time, 0, 5)
-                ))
-                ->join(', '))
-            ->persistent()
-            ->send();
     }
 }

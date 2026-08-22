@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ReservationStatus;
 use App\Filament\Resources\Reservations\Pages\CreateReservation;
 use App\Filament\Resources\Reservations\Pages\EditReservation;
 use App\Filament\Resources\Reservations\ReservationResource;
@@ -164,7 +165,8 @@ class ReservationFilamentTest extends TestCase
         $this->assertSame(8, $r->fresh()->pax);
     }
 
-    public function test_area_overlap_still_saves(): void
+    /** Reservasi lain yang menempati VIP 1 pada 2026-08-07 jam 12.00. */
+    private function occupyArea(): Area
     {
         $area = Area::create(['name' => 'VIP 1']);
 
@@ -175,8 +177,43 @@ class ReservationFilamentTest extends TestCase
             'guest_name' => 'Tamu Lebih Dulu',
         ]);
 
+        return $area;
+    }
+
+    /**
+     * Bentrok area tidak dilarang, tapi menuntut penjelasan. Sampai 2026-08-22
+     * ia hanya diperingatkan dan tetap tersimpan; sekarang Remark wajib diisi.
+     *
+     * Melarang keras terdengar lebih aman, tapi akan mendorong staf mengosongkan
+     * kolom Area supaya bisa menyimpan — dan begitu Area kosong, pengecekan
+     * bentrok mati total untuk baris itu.
+     */
+    public function test_an_area_conflict_without_a_remark_is_refused(): void
+    {
+        $area = $this->occupyArea();
+
         Livewire::test(CreateReservation::class)
-            ->fillForm($this->formData(['area_id' => $area->id, 'start_time' => '13.00']))
+            ->fillForm($this->formData([
+                'area_id' => $area->id,
+                'start_time' => '13.00',
+                'remark' => null,
+            ]))
+            ->call('create')
+            ->assertHasFormErrors(['remark']);
+
+        $this->assertSame(1, Reservation::count(), 'Tidak boleh tersimpan lebih dulu lalu ditolak.');
+    }
+
+    public function test_an_area_conflict_saves_once_the_remark_explains_it(): void
+    {
+        $area = $this->occupyArea();
+
+        Livewire::test(CreateReservation::class)
+            ->fillForm($this->formData([
+                'area_id' => $area->id,
+                'start_time' => '13.00',
+                'remark' => 'Sekat VIP 1 dan VIP 2 dibuka, dipakai satu rombongan.',
+            ]))
             ->call('create')
             ->assertHasNoFormErrors();
 
@@ -184,11 +221,69 @@ class ReservationFilamentTest extends TestCase
     }
 
     /**
-     * Task 14 Step 7 poin 4. Bentrok area memberi tahu, bukan menolak — jadi
-     * yang perlu dibuktikan adalah peringatannya benar-benar muncul, bukan
-     * sekadar penyimpanannya berhasil.
+     * Task 14 Step 7 poin 4. Peringatannya tetap muncul setelah tersimpan —
+     * kewajiban mengisi Remark tidak menghapus kebutuhan melihat bentrok
+     * dengan siapa.
      */
     public function test_an_overlapping_area_raises_a_warning_naming_the_other_guest(): void
+    {
+        $area = $this->occupyArea();
+
+        Livewire::test(CreateReservation::class)
+            ->fillForm($this->formData([
+                'area_id' => $area->id,
+                'start_time' => '13.00',
+                'remark' => 'Acara berurutan, bongkar-pasang 30 menit.',
+            ]))
+            ->call('create')
+            ->assertNotified('Area bentrok');
+    }
+
+    /** Remark berisi spasi saja bukan penjelasan. */
+    public function test_a_blank_remark_does_not_count_as_an_explanation(): void
+    {
+        $area = $this->occupyArea();
+
+        Livewire::test(CreateReservation::class)
+            ->fillForm($this->formData([
+                'area_id' => $area->id,
+                'start_time' => '13.00',
+                'remark' => '   ',
+            ]))
+            ->call('create')
+            ->assertHasFormErrors(['remark']);
+
+        $this->assertSame(1, Reservation::count());
+    }
+
+    /** Aturannya harus sama di Edit, bukan hanya di Create. */
+    public function test_editing_into_a_conflict_also_requires_a_remark(): void
+    {
+        $area = $this->occupyArea();
+
+        Livewire::test(CreateReservation::class)
+            ->fillForm($this->formData(['start_time' => '13.00']))
+            ->call('create');
+
+        $mine = Reservation::where('guest_name', 'Bapak Wanda')->sole();
+
+        Livewire::test(EditReservation::class, ['record' => $mine->getKey()])
+            ->fillForm(['area_id' => $area->id])
+            ->call('save')
+            ->assertHasFormErrors(['remark']);
+
+        $this->assertNull($mine->fresh()->area_id, 'Perubahan tidak boleh tersimpan.');
+
+        Livewire::test(EditReservation::class, ['record' => $mine->getKey()])
+            ->fillForm(['area_id' => $area->id, 'remark' => 'Sekat dibuka.'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame($area->id, $mine->fresh()->area_id);
+    }
+
+    /** Reservasi batal tidak memakai tempat, jadi tidak menuntut penjelasan. */
+    public function test_a_cancelled_reservation_does_not_demand_a_remark(): void
     {
         $area = Area::create(['name' => 'VIP 1']);
 
@@ -196,13 +291,20 @@ class ReservationFilamentTest extends TestCase
             'area_id' => $area->id,
             'reservation_date' => '2026-08-07',
             'start_time' => '12:00:00',
-            'guest_name' => 'Tamu Lebih Dulu',
+            'guest_name' => 'Tamu Batal',
+            'status' => ReservationStatus::Cancelled,
         ]);
 
         Livewire::test(CreateReservation::class)
-            ->fillForm($this->formData(['area_id' => $area->id, 'start_time' => '13.00']))
+            ->fillForm($this->formData([
+                'area_id' => $area->id,
+                'start_time' => '13.00',
+                'remark' => null,
+            ]))
             ->call('create')
-            ->assertNotified('Area bentrok');
+            ->assertHasNoFormErrors();
+
+        $this->assertSame(2, Reservation::count());
     }
 
     public function test_a_reservation_without_an_area_raises_no_warning(): void
