@@ -24,6 +24,12 @@ class EditReservation extends EditRecord
     /** Versi yang dilihat pengguna saat form dimuat. */
     public ?int $loadedVersion = null;
 
+    /** Nomor hanya dibaca di judul; ia tidak boleh muncul sebagai field form. */
+    public function getTitle(): string
+    {
+        return 'Ubah '.$this->getRecord()->reservation_number.' · '.$this->getRecord()->guest_name;
+    }
+
     protected function getHeaderActions(): array
     {
         return [

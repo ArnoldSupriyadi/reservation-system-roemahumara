@@ -61,19 +61,24 @@
                                             href="{{ route('public.calendar', ['bulan' => $month, 'pilih' => $r->id]) }}"
                                             @class([
                                                 'brut-chip',
-                                                'brut-chip-taken' => $r->status?->value === 'confirmed',
+                                                'brut-chip-booked' => $r->status?->value === 'confirmed',
                                                 'brut-chip-tentative' => $r->status?->value !== 'confirmed',
                                                 'brut-chip-selected' => $r->id === $selectedId,
                                             ])
                                         >
+                                            @php $status = \App\Enums\ReservationStatus::publicOrDefault($r->status); @endphp
+
                                             {{ substr($r->start_time, 0, 5) }}
+                                            <span class="block truncate font-black">{{ $r->guest_name }}</span>
                                             @if ($r->area)
                                                 <span class="block font-normal">{{ $r->area->name }}</span>
                                             @endif
                                             {{-- Statusnya ditulis, bukan hanya diwarnai: rona saja tidak
-                                                 terbaca oleh pengunjung yang buta warna. --}}
-                                            <span class="block text-[9px] font-black uppercase tracking-wide">
-                                                {{ $r->status?->publicLabel() ?? 'Sedang dijajaki' }}
+                                                 terbaca oleh pengunjung yang buta warna. Ikonnya isyarat
+                                                 ketiga, bukan pengganti labelnya. --}}
+                                            <span class="flex items-center gap-1 text-[9px] font-black uppercase tracking-wide">
+                                                @svg($status->publicIcon(), 'h-3 w-3 shrink-0')
+                                                {{ $status->publicLabel() }}
                                             </span>
                                         </a>
                                     @endforeach
@@ -88,18 +93,28 @@
 
     <section class="mt-5 flex flex-wrap gap-4 text-xs font-bold uppercase">
         <span class="flex items-center gap-2">
-            <span class="inline-block h-4 w-6 border-[2px] border-ink bg-taken"></span> Terisi
+            <span class="inline-block h-4 w-6 border-[2px] border-ink bg-booked"></span>
+            @svg(\App\Enums\ReservationStatus::Confirmed->publicIcon(), 'h-4 w-4')
+            {{ \App\Enums\ReservationStatus::Confirmed->publicLabel() }}
         </span>
         <span class="flex items-center gap-2">
-            <span class="inline-block h-4 w-6 border-[2px] border-dashed border-ink bg-tentative/40"></span> Sedang dijajaki
+            <span class="inline-block h-4 w-6 border-[2px] border-dashed border-ink bg-tentative/40"></span>
+            @svg(\App\Enums\ReservationStatus::Tentative->publicIcon(), 'h-4 w-4')
+            {{ \App\Enums\ReservationStatus::Tentative->publicLabel() }}
         </span>
     </section>
 
     @if ($selected)
         <section class="brut-box mt-5 p-5">
             <h3 class="text-xl font-black uppercase">
-                {{ $selected->reservation_date->translatedFormat('l, d F Y') }}
+                {{ $selected->guest_name }}
             </h3>
+            @if (filled($selected->company))
+                <p class="text-sm font-bold uppercase">{{ $selected->company }}</p>
+            @endif
+            <p class="text-sm font-bold uppercase">
+                {{ $selected->reservation_date->translatedFormat('l, d F Y') }}
+            </p>
 
             <dl class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <div>
@@ -122,9 +137,35 @@
                 </div>
                 <div>
                     <dt class="text-[10px] font-black uppercase tracking-widest">Status</dt>
-                    <dd class="text-sm font-bold">{{ $selected->status?->publicLabel() ?? 'Sedang dijajaki' }}</dd>
+                    @php $selectedStatus = \App\Enums\ReservationStatus::publicOrDefault($selected->status); @endphp
+                    <dd class="flex items-center gap-1.5 text-sm font-bold">
+                        @svg($selectedStatus->publicIcon(), 'h-4 w-4 shrink-0')
+                        {{ $selectedStatus->publicLabel() }}
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-[10px] font-black uppercase tracking-widest">Pax</dt>
+                    <dd class="text-sm font-bold">{{ $selected->pax }} orang</dd>
+                </div>
+                <div>
+                    <dt class="text-[10px] font-black uppercase tracking-widest">Menu style</dt>
+                    <dd class="text-sm font-bold">{{ $selected->menuStyle?->name ?? '—' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-[10px] font-black uppercase tracking-widest">PIC / Sales</dt>
+                    <dd class="text-sm font-bold">{{ $selected->pic?->name ?? '—' }}</dd>
                 </div>
             </dl>
+
+            {{-- Aturan #4 CLAUDE.md berlaku juga di sini: remark tampil penuh.
+                 JANGAN memakai Str::limit(), words(), atau menyembunyikannya di
+                 balik tombol. --}}
+            <div class="mt-4 border-t-[3px] border-ink pt-4">
+                <dt class="text-[10px] font-black uppercase tracking-widest">Remark</dt>
+                <dd class="mt-1 whitespace-pre-line text-sm font-bold">
+                    {{ filled($selected->remark) ? $selected->remark : '—' }}
+                </dd>
+            </div>
         </section>
     @endif
 @endsection

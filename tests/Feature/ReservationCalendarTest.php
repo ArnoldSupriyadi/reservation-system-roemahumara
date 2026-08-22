@@ -38,7 +38,7 @@ class ReservationCalendarTest extends TestCase
         $this->admin = User::factory()->admin()->create(['name' => 'IRA']);
         $this->actingAs($this->admin);
 
-        $area = Area::create(['name' => 'VIP 1', 'sort_order' => 1]);
+        $area = Area::create(['name' => 'VIP 1']);
         $month = Carbon::now()->startOfMonth();
 
         $this->singleTime = Reservation::factory()->create([

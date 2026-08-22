@@ -75,10 +75,18 @@ jadi idempotency-nya mencegah data kembar.
    `hasRole('admin')` atau membuat `User::isAdmin()`. Yang benar:
    `$user->can(Ability::DeleteReservation->value)`.
 
-4. **Remark selalu ditampilkan penuh.** Dilarang `->limit()`, `->words()`, atau
-   menyembunyikan di balik hover/tombol. Di tabel memakai `Panel` tanpa
-   `->collapsible()`. Satu pengecualian: chip kalender, yang menggantinya dengan
-   panel detail.
+4. **Remark selalu ditampilkan penuh.** Dilarang `->limit()`, `->words()`,
+   `->toggleable()`, atau menyembunyikan di balik hover/tombol. Satu pengecualian:
+   chip kalender, yang menggantinya dengan panel detail.
+
+   Di tabel, remark adalah **kolom biasa** dengan `->wrap()`. Sebelumnya aturan ini
+   mewajibkan `Panel`, dan itu keliru: Filament mematikan `<thead>` seluruh tabel
+   begitu ada satu komponen layout di level atas (`HasColumns::pushColumns` menyetel
+   `hasColumnsLayout`, dan `index.blade.php` hanya merender header kalau flag itu
+   false). Akibatnya nomor reservasi dan pax tampil sebagai angka telanjang tanpa
+   judul kolom, dan pengguna melaporkan tabelnya tidak terbaca. Diganti 2026-08-22.
+   `ReservationsTableTest::test_the_table_keeps_its_header_row` menjaga agar
+   komponen layout tidak masuk lagi diam-diam.
 
 5. **Penyimpanan reservasi wajib lewat `ReservationWriter`.** Halaman Create dan Edit
    Filament meng-override `handleRecordCreation()` dan `handleRecordUpdate()`. Tanpa
@@ -93,15 +101,55 @@ jadi idempotency-nya mencegah data kembar.
    (`forgetCachedPermissions()`). Kalau terlewat, gejalanya terlihat seperti
    "sistem tidak menyimpan perubahan".
 
-9. **Halaman publik hanya boleh memuat lima kolom reservasi:** tanggal, jam, area,
-   jenis acara, status. Batasnya ditegakkan lewat `select()` eksplisit di
-   `PublicCalendarController`, bukan dengan tidak menulisnya di Blade. Dilarang
-   menambahkan `guest_name`, `company`, `phone`, `email`, `remark`, `pax`, atau
-   `pic_id` ke `select()` itu.
+9. **Reservasi berstatus `cancelled` tidak pernah tampil di halaman publik.**
+   Blade publik memperlakukan segala yang bukan CONFIRMED sebagai "Sedang
+   dijajaki", jadi reservasi batal yang ikut termuat akan terbaca pengunjung
+   sebagai slot terpakai padahal sudah bebas. Disaring di `PublicCalendarController`,
+   bukan di Blade. Karena alasan yang sama, `ConflictChecker` juga melewatinya —
+   reservasi batal tidak memakai tempat. Di kalender staf ia tetap tampil, dicoret.
 
-10. **`NumberSequence::next()` wajib dipanggil di dalam transaksi.** Di luar
+10. **Halaman publik: hanya `phone` dan `email` yang masih tertutup.** Batasnya
+   ditegakkan lewat `select()` eksplisit di `PublicCalendarController`, bukan
+   dengan tidak menulisnya di Blade. Dilarang menambahkan keduanya ke `select()`
+   itu — keduanya kontak pribadi tamu, dan nilainya justru bertambah sekarang
+   karena semua konteks di sekitarnya sudah terbuka.
+
+   Halaman ini dulu dibatasi lima kolom. Pada 2026-08-22 dilonggarkan bertahap
+   atas permintaan eksplisit pemilik sistem: `pax`, `menu_style_id`, lalu
+   `guest_name`, `pic_id`, `remark`, lalu `company`. Yang perlu disadari pembaca
+   berkas ini: halaman terbuka tanpa login dan dapat terindeks mesin pencari,
+   sedangkan remark di sistem ini terbiasa memuat keterangan pembayaran.
+   Menariknya kembali cukup dengan menghapus kolomnya dari `select()`; Blade akan
+   menampilkan nilai kosong, bukan error.
+
+   `PublicCalendarTest::test_the_remaining_private_columns_are_never_even_loaded`
+   memeriksa `getAttributes()` hasil query, sehingga kolom terlarang ketahuan
+   sudah pada tahap dimuat, bukan menunggu bocor di Blade.
+
+11. **`NumberSequence::next()` wajib dipanggil di dalam transaksi.** Di luar
     transaksi, `FOR UPDATE` tidak menahan apa pun. Nomor reservasi ditetapkan sekali
     saat pembuatan dan tidak pernah berubah.
+
+12. **Selesai create atau edit, kembali ke index.** Disetel sekali di
+    `CmsPanelProvider` lewat `->resourceCreatePageRedirect('index')` dan
+    `->resourceEditPageRedirect('index')`, sehingga berlaku untuk semua resource
+    termasuk yang dibuat nanti. **Jangan meng-override `getRedirectUrl()` di
+    halaman mana pun** — override lokal mengalahkan setelan panel diam-diam, dan
+    itulah yang dulu membuat CreateReservation lompat ke halaman view.
+    `ReservationFilamentTest::test_creating_redirects_back_to_the_list` menjaganya.
+
+13. **Master (Area, EventType, MenuStyle) tidak punya kolom urutan.** Daftarnya
+    diurutkan `id`. `sort_order` dihapus 2026-08-22 karena menuntut pengelola
+    memikirkan angka setiap menambah baris, padahal isinya belasan dan urutan
+    tampilnya tidak pernah jadi persoalan. Urutan larik di `MasterSeeder` tetap
+    menentukan urutan di layar, karena id mengikuti urutan penyisipan.
+
+14. **Menambah status baru butuh migrasi, bukan hanya case enum.** Kolom `status`
+    bertipe ENUM MySQL. Menambah case di `App\Enums\ReservationStatus` tanpa
+    `ALTER TABLE ... MODIFY COLUMN` menghasilkan "Data truncated for column
+    'status'" saat menyimpan. Pakai `DB::statement()`, bukan `$table->enum()->change()`
+    — doctrine/dbal tidak mengenali ENUM dan diam-diam mengubahnya jadi VARCHAR.
+    Status saat ini: `tentative`, `confirmed`, `cancelled`, plus NULL (belum ditentukan).
 
 ## API Filament v5 — jangan pakai pola v3
 

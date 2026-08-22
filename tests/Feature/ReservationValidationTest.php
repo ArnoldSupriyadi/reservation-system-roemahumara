@@ -166,7 +166,16 @@ class ReservationValidationTest extends TestCase
     }
 
     /** Spec 11 nomor 14, bagian kedua: submit ulang mengalihkan ke record itu. */
-    public function test_a_repeated_submit_redirects_to_the_same_record(): void
+    /**
+     * Submit berulang dengan idempotency_key yang sama tidak boleh membuat baris
+     * kedua, dan tidak boleh memunculkan error ke pengguna — ia diperlakukan
+     * sebagai penyimpanan yang sudah berhasil.
+     *
+     * Sejak 2026-08-22 tujuan redirect-nya daftar, bukan halaman record; panel
+     * disetel resourceCreatePageRedirect('index'). Yang dijaga test ini tetap
+     * sama: satu baris, tanpa error.
+     */
+    public function test_a_repeated_submit_creates_nothing_and_returns_to_the_list(): void
     {
         $data = $this->formData();
 
@@ -181,9 +190,10 @@ class ReservationValidationTest extends TestCase
             ->fillForm($data)
             ->call('create')
             ->assertHasNoFormErrors()
-            ->assertRedirect("/cms/reservations/{$first->id}");
+            ->assertRedirect('/cms/reservations');
 
         $this->assertSame(1, Reservation::count());
+        $this->assertTrue($first->is(Reservation::sole()), 'Baris yang sama harus dipertahankan.');
     }
 
     /**

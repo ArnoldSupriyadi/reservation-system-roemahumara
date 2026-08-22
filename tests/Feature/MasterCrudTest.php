@@ -42,7 +42,7 @@ class MasterCrudTest extends TestCase
     public function test_a_master_name_is_stored_in_upper_case(): void
     {
         Livewire::test(ManageAreas::class)
-            ->callAction('create', ['name' => '  vip 3  ', 'sort_order' => 8, 'is_active' => true])
+            ->callAction('create', ['name' => '  vip 3  ', 'is_active' => true])
             ->assertHasNoActionErrors();
 
         $this->assertSame('VIP 3', Area::latest('id')->value('name'));
@@ -50,10 +50,10 @@ class MasterCrudTest extends TestCase
 
     public function test_a_duplicate_master_name_is_refused(): void
     {
-        Area::create(['name' => 'VIP 3', 'sort_order' => 8]);
+        Area::create(['name' => 'VIP 3']);
 
         Livewire::test(ManageAreas::class)
-            ->callAction('create', ['name' => 'VIP 3', 'sort_order' => 9, 'is_active' => true])
+            ->callAction('create', ['name' => 'VIP 3', 'is_active' => true])
             ->assertHasActionErrors(['name']);
 
         $this->assertSame(1, Area::where('name', 'VIP 3')->count());
@@ -65,7 +65,7 @@ class MasterCrudTest extends TestCase
      */
     public function test_deleting_a_master_in_use_warns_instead_of_crashing(): void
     {
-        $area = Area::create(['name' => 'VIP 1', 'sort_order' => 1]);
+        $area = Area::create(['name' => 'VIP 1']);
         Reservation::factory()->create([
             'area_id' => $area->id,
             'pic_id' => $this->admin->id,
@@ -81,7 +81,7 @@ class MasterCrudTest extends TestCase
 
     public function test_an_unused_master_can_still_be_deleted(): void
     {
-        $area = Area::create(['name' => 'GUDANG', 'sort_order' => 9]);
+        $area = Area::create(['name' => 'GUDANG']);
 
         Livewire::test(ManageAreas::class)
             ->callAction(TestAction::make('delete')->table($area));
@@ -91,8 +91,8 @@ class MasterCrudTest extends TestCase
 
     public function test_a_deactivated_master_disappears_from_the_reservation_form(): void
     {
-        $active = Area::create(['name' => 'VIP 1', 'sort_order' => 1]);
-        $inactive = Area::create(['name' => 'GUDANG', 'sort_order' => 2, 'is_active' => false]);
+        $active = Area::create(['name' => 'VIP 1']);
+        $inactive = Area::create(['name' => 'GUDANG', 'is_active' => false]);
 
         Livewire::test(CreateReservation::class)
             ->assertFormFieldExists('area_id', function ($field) use ($active, $inactive) {

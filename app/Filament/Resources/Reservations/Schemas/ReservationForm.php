@@ -7,11 +7,13 @@ use App\Enums\ReservationStatus;
 use App\Models\Area;
 use App\Models\EventType;
 use App\Models\MenuStyle;
+use App\Models\Reservation;
 use App\Models\User;
 use App\Support\TimeInput;
 use Closure;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -29,6 +31,20 @@ class ReservationForm
             Section::make('Tamu')
                 ->columns(2)
                 ->schema([
+                    // Bukan field, hanya keterangan. Namanya sengaja BUKAN
+                    // 'reservation_number': nomor ditetapkan NumberSequence di dalam
+                    // transaksi saat disimpan, jadi menawarkannya sebagai isian akan
+                    // mengundang pengguna menimpanya.
+                    //
+                    // Di Create nomornya belum ada dan JANGAN ditebak — duplikat yang
+                    // ditolak tidak membakar nomor, dan dua pembuatan bersamaan akan
+                    // menebak angka yang sama padahal hanya satu yang mendapatkannya.
+                    Placeholder::make('reservation_number_display')
+                        ->label('No. reservasi')
+                        ->columnSpanFull()
+                        ->content(fn (?Reservation $record) => $record?->reservation_number
+                            ?? 'Dibuat otomatis setelah disimpan.'),
+
                     DatePicker::make('reservation_date')
                         ->label('Tanggal')
                         ->required()
@@ -71,17 +87,17 @@ class ReservationForm
                 ->schema([
                     Select::make('event_type_id')
                         ->label('Event')
-                        ->options(fn () => EventType::query()->active()->orderBy('sort_order')->pluck('name', 'id'))
+                        ->options(fn () => EventType::query()->active()->orderBy('id')->pluck('name', 'id'))
                         ->helperText('Opsional'),
 
                     Select::make('menu_style_id')
                         ->label('Menu style')
-                        ->options(fn () => MenuStyle::query()->active()->orderBy('sort_order')->pluck('name', 'id'))
+                        ->options(fn () => MenuStyle::query()->active()->orderBy('id')->pluck('name', 'id'))
                         ->helperText('Opsional'),
 
                     Select::make('area_id')
                         ->label('Area')
-                        ->options(fn () => Area::query()->active()->orderBy('sort_order')->pluck('name', 'id'))
+                        ->options(fn () => Area::query()->active()->orderBy('id')->pluck('name', 'id'))
                         ->helperText('Opsional'),
 
                     TextInput::make('pax')
@@ -195,6 +211,12 @@ class ReservationForm
         if (self::canConfirm()) {
             $options[ReservationStatus::Confirmed->value] = 'CONFIRMED';
         }
+
+        // CANCEL tidak digerbangi kemampuan apa pun: siapa pun yang boleh
+        // mengubah reservasi boleh membatalkannya. Perhatikan konsekuensinya —
+        // staf tanpa reservation.confirm yang membatalkan reservasi CONFIRMED
+        // tidak akan bisa mengembalikannya sendiri.
+        $options[ReservationStatus::Cancelled->value] = 'CANCEL';
 
         return $options;
     }

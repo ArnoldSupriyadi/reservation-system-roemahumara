@@ -110,7 +110,7 @@ class NewRoleEndToEndTest extends TestCase
         Livewire::test(CreateReservation::class)
             ->assertFormFieldExists(
                 'status',
-                fn ($field) => array_keys($field->getOptions()) === ['tentative', 'confirmed'],
+                fn ($field) => array_keys($field->getOptions()) === ['tentative', 'confirmed', 'cancelled'],
             );
 
         // Langkah 6: tombol Hapus reservasi tetap tidak muncul.
@@ -145,7 +145,7 @@ class NewRoleEndToEndTest extends TestCase
         Livewire::test(CreateReservation::class)
             ->assertFormFieldExists(
                 'status',
-                fn ($field) => array_keys($field->getOptions()) === ['tentative'],
+                fn ($field) => array_keys($field->getOptions()) === ['tentative', 'cancelled'],
             );
     }
 

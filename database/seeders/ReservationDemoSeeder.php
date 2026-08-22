@@ -35,8 +35,8 @@ class ReservationDemoSeeder extends Seeder
             return;
         }
 
-        $areas = Area::query()->orderBy('sort_order')->get();
-        $events = EventType::query()->orderBy('sort_order')->get();
+        $areas = Area::query()->orderBy('id')->get();
+        $events = EventType::query()->orderBy('id')->get();
 
         if ($areas->isEmpty() || $events->isEmpty()) {
             $this->command?->warn('Master area atau jenis acara kosong. Jalankan `php artisan db:seed` dulu.');
@@ -58,6 +58,9 @@ class ReservationDemoSeeder extends Seeder
             [17, 'confirmed', '20:00', '23:00', 'Keluarga Tanuwijaya'],
             [22, 'tentative', '10:15', '12:45', 'Ibu Melati'],
             [26, 'confirmed', '16:00', '19:30', 'PT Bangun Karya'],
+            // Contoh yang batal: tampil dicoret di kalender staf, dan sama
+            // sekali tidak muncul di halaman publik.
+            [26, 'cancelled', '09:00', '11:00', 'Bapak Nugroho'],
         ];
 
         foreach ($rows as $i => [$day, $status, $start, $end, $guest]) {

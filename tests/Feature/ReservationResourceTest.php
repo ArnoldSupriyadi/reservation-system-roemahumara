@@ -82,7 +82,7 @@ class ReservationResourceTest extends TestCase
         Livewire::test(CreateReservation::class)
             ->assertFormFieldExists(
                 'status',
-                fn ($field) => array_keys($field->getOptions()) === ['tentative'],
+                fn ($field) => array_keys($field->getOptions()) === ['tentative', 'cancelled'],
             );
     }
 
@@ -93,7 +93,7 @@ class ReservationResourceTest extends TestCase
         Livewire::test(CreateReservation::class)
             ->assertFormFieldExists(
                 'status',
-                fn ($field) => array_keys($field->getOptions()) === ['tentative', 'confirmed'],
+                fn ($field) => array_keys($field->getOptions()) === ['tentative', 'confirmed', 'cancelled'],
             );
     }
 

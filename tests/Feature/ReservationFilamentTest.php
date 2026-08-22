@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Filament\Resources\Reservations\Pages\CreateReservation;
 use App\Filament\Resources\Reservations\Pages\EditReservation;
+use App\Filament\Resources\Reservations\ReservationResource;
 use App\Models\Area;
 use App\Models\Reservation;
 use App\Models\User;
@@ -165,7 +166,7 @@ class ReservationFilamentTest extends TestCase
 
     public function test_area_overlap_still_saves(): void
     {
-        $area = Area::create(['name' => 'VIP 1', 'sort_order' => 1]);
+        $area = Area::create(['name' => 'VIP 1']);
 
         Reservation::factory()->create([
             'area_id' => $area->id,
@@ -189,7 +190,7 @@ class ReservationFilamentTest extends TestCase
      */
     public function test_an_overlapping_area_raises_a_warning_naming_the_other_guest(): void
     {
-        $area = Area::create(['name' => 'VIP 1', 'sort_order' => 1]);
+        $area = Area::create(['name' => 'VIP 1']);
 
         Reservation::factory()->create([
             'area_id' => $area->id,
@@ -231,5 +232,38 @@ class ReservationFilamentTest extends TestCase
             ->call('create');
 
         $this->assertSame(1, Reservation::count());
+    }
+
+    /**
+     * Selesai menyimpan, kembali ke daftar.
+     *
+     * Disetel di tingkat panel lewat resourceCreatePageRedirect(), bukan
+     * getRedirectUrl() per halaman — jadi test ini sekaligus membuktikan
+     * setelan panelnya terpasang, bukan hanya satu halaman yang kebetulan benar.
+     */
+    public function test_creating_redirects_back_to_the_list(): void
+    {
+        Livewire::test(CreateReservation::class)
+            ->fillForm($this->formData())
+            ->call('create')
+            ->assertHasNoFormErrors()
+            ->assertRedirect(ReservationResource::getUrl('index'));
+    }
+
+    public function test_editing_redirects_back_to_the_list(): void
+    {
+        Livewire::test(CreateReservation::class)
+            ->fillForm($this->formData())
+            ->call('create');
+
+        $r = Reservation::sole();
+
+        Livewire::test(EditReservation::class, ['record' => $r->getKey()])
+            ->fillForm(['pax' => 9])
+            ->call('save')
+            ->assertHasNoFormErrors()
+            ->assertRedirect(ReservationResource::getUrl('index'));
+
+        $this->assertSame(9, $r->fresh()->pax);
     }
 }

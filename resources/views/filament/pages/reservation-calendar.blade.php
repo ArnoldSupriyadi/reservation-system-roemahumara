@@ -35,12 +35,17 @@
                         <button
                             type="button"
                             wire:click="select({{ $r->id }})"
-                            title="{{ substr($r->start_time, 0, 5) }} {{ $r->guest_name }}"
+                            title="{{ $r->reservation_number }} · {{ substr($r->start_time, 0, 5) }} {{ $r->guest_name }}"
                             @class([
                                 'mb-0.5 block w-full truncate border-s-2 py-0.5 pe-0.5 ps-1 text-start text-[10px] leading-tight',
                                 'border-s-green-600' => $r->status?->value === 'confirmed',
                                 'border-s-amber-500 border-dashed' => $r->status?->value === 'tentative',
+                                'border-s-red-600' => $r->status?->value === 'cancelled',
                                 'border-s-gray-300' => $r->status === null,
+                                // Batal tetap tampil di kalender staf — mereka perlu tahu
+                                // slot itu pernah dipesan — tapi dicoret supaya tidak
+                                // terbaca sebagai slot terpakai.
+                                'line-through opacity-60' => $r->status?->value === 'cancelled',
                                 'bg-gray-900 font-bold text-white' => $r->id === $this->selectedId,
                                 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800' => $r->id !== $this->selectedId,
                             ])
@@ -56,7 +61,10 @@
 
     @if ($selected)
         <x-filament::section class="mt-3">
-            <x-slot name="heading">{{ $selected->guest_name }}</x-slot>
+            <x-slot name="heading">
+                <span class="font-mono text-gray-500 dark:text-gray-400">{{ $selected->reservation_number }}</span>
+                <span class="ms-1">{{ $selected->guest_name }}</span>
+            </x-slot>
 
             <x-slot name="description">
                 {{ $selected->reservation_date->translatedFormat('d F Y') }} ·

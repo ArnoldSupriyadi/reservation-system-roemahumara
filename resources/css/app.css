@@ -24,8 +24,9 @@
                text-left text-[11px] font-bold leading-tight;
     }
 
-    .brut-chip-taken {
-        @apply bg-taken text-white;
+    /* Teks ink, bukan putih: putih di atas hijau terang hanya 2:1 dan gagal WCAG. */
+    .brut-chip-booked {
+        @apply bg-booked text-ink;
     }
 
     .brut-chip-tentative {

@@ -36,7 +36,7 @@ class ReservationsTableTest extends TestCase
         Filament::setCurrentPanel('cms');
 
         $this->admin = User::factory()->admin()->create(['name' => 'IRA']);
-        $area = Area::create(['name' => 'VIP 1', 'sort_order' => 1]);
+        $area = Area::create(['name' => 'VIP 1']);
         $month = Carbon::now()->startOfMonth();
 
         $this->singleTime = Reservation::factory()->create([
@@ -106,6 +106,29 @@ class ReservationsTableTest extends TestCase
 
         Livewire::test(ListReservations::class)
             ->assertTableColumnFormattedStateSet('start_time', '12:00–15:00', $this->range);
+    }
+
+    /**
+     * Baris header wajib ada. Filament mematikan <thead> untuk seluruh tabel
+     * begitu ada satu komponen layout (Split, Stack, Panel) di level atas —
+     * lihat HasColumns::pushColumns. Tanpa header, angka pax dan nomor
+     * reservasi tampil tanpa keterangan dan pembacanya harus menebak.
+     */
+    public function test_the_table_keeps_its_header_row(): void
+    {
+        $this->actingAs($this->admin);
+
+        $table = Livewire::test(ListReservations::class)->instance()->getTable();
+
+        $this->assertFalse(
+            $table->hasColumnsLayout(),
+            'Ada komponen layout di level atas; baris header hilang.'
+        );
+
+        $this->get('/cms/reservations')
+            ->assertSee('Pax')
+            ->assertSee('No.')
+            ->assertSee('Nama tamu');
     }
 
     /**

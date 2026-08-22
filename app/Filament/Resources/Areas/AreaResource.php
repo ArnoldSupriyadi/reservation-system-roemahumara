@@ -40,12 +40,6 @@ class AreaResource extends Resource
                 ->unique(ignoreRecord: true)
                 ->dehydrateStateUsing(fn (string $state) => mb_strtoupper(trim($state))),
 
-            TextInput::make('sort_order')
-                ->label('Urutan')
-                ->numeric()
-                ->default(0)
-                ->minValue(0),
-
             Toggle::make('is_active')
                 ->label('Aktif')
                 ->default(true)
@@ -56,11 +50,10 @@ class AreaResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->defaultSort('sort_order')
+            ->defaultSort('id')
             ->paginated(false)
             ->columns([
                 TextColumn::make('name')->label('Nama')->searchable(),
-                TextColumn::make('sort_order')->label('Urutan')->numeric(),
                 IconColumn::make('is_active')->label('Aktif')->boolean(),
             ])
             ->recordActions([

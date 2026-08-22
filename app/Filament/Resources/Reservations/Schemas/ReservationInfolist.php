@@ -48,6 +48,7 @@ class ReservationInfolist
                         ->color(fn (?ReservationStatus $state) => match ($state) {
                             ReservationStatus::Confirmed => 'success',
                             ReservationStatus::Tentative => 'warning',
+                            ReservationStatus::Cancelled => 'danger',
                             default => 'gray',
                         }),
                 ]),

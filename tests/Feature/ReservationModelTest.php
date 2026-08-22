@@ -41,7 +41,7 @@ class ReservationModelTest extends TestCase
     public function test_relations_resolve(): void
     {
         $pic = User::factory()->create(['name' => 'IRA']);
-        $area = Area::create(['name' => 'VIP 1', 'sort_order' => 1]);
+        $area = Area::create(['name' => 'VIP 1']);
 
         $r = Reservation::factory()->create([
             'pic_id' => $pic->id,

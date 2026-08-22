@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ReservationStatus;
 use App\Models\Area;
 use App\Models\Reservation;
 use App\Services\ConflictChecker;
@@ -20,7 +21,7 @@ class ConflictCheckerTest extends TestCase
     {
         parent::setUp();
         $this->checker = app(ConflictChecker::class);
-        $this->area = Area::create(['name' => 'VIP 1', 'sort_order' => 1]);
+        $this->area = Area::create(['name' => 'VIP 1']);
     }
 
     private function existing(string $start, ?string $end = null): Reservation
@@ -86,7 +87,7 @@ class ConflictCheckerTest extends TestCase
     public function test_other_areas_are_ignored(): void
     {
         $this->existing('12:00:00', '15:00:00');
-        $other = Area::create(['name' => 'VIP 2', 'sort_order' => 2]);
+        $other = Area::create(['name' => 'VIP 2']);
 
         $this->assertCount(0, $this->checker->check($other->id, '2026-08-09', '12:00', '15:00'));
     }
@@ -103,5 +104,33 @@ class ConflictCheckerTest extends TestCase
         $this->existing('12:00:00', '15:00:00')->delete();
 
         $this->assertCount(0, $this->checker->check($this->area->id, '2026-08-09', '13:00', '14:00'));
+    }
+
+    /**
+     * Reservasi batal tidak memakai tempat. Kalau ia ikut dihitung, pengguna
+     * mendapat peringatan bentrok atas slot yang sebenarnya sudah bebas dan
+     * akan belajar mengabaikan peringatan bentrok sama sekali.
+     */
+    public function test_cancelled_rows_do_not_block_the_area(): void
+    {
+        $r = $this->existing('12:00:00', '15:00:00');
+        $r->status = ReservationStatus::Cancelled;
+        $r->save();
+
+        $this->assertCount(0, $this->checker->check($this->area->id, '2026-08-09', '13:00', '14:00'));
+    }
+
+    public function test_confirmed_and_undetermined_rows_still_block_the_area(): void
+    {
+        $confirmed = $this->existing('12:00:00', '15:00:00');
+        $confirmed->status = ReservationStatus::Confirmed;
+        $confirmed->save();
+
+        $this->assertCount(1, $this->checker->check($this->area->id, '2026-08-09', '13:00', '14:00'));
+
+        $confirmed->status = null;
+        $confirmed->save();
+
+        $this->assertCount(1, $this->checker->check($this->area->id, '2026-08-09', '13:00', '14:00'));
     }
 }

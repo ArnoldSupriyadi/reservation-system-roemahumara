@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ReservationStatus;
 use App\Models\Reservation;
 use App\Support\MonthGrid;
 use Illuminate\Database\Eloquent\Collection;
@@ -44,8 +45,21 @@ class PublicCalendarController extends Controller
      * ceroboh di Blade suatu hari nanti menghasilkan nilai kosong, bukan kebocoran
      * nomor HP dan catatan pembayaran tamu.
      *
-     * JANGAN menambahkan guest_name, company, phone, email, remark, pax, atau
-     * pic_id ke daftar ini.
+     * JANGAN menambahkan phone dan email ke daftar ini. Keduanya kontak pribadi
+     * tamu — satu-satunya yang tersisa tertutup, dan nilainya justru bertambah
+     * sekarang karena semua konteks di sekitarnya sudah terbuka.
+     *
+     * Riwayat pelonggaran, semuanya atas permintaan eksplisit pemilik sistem:
+     *
+     * - 2026-08-22: pax dan menu_style_id — keterangan acara, bukan identitas.
+     * - 2026-08-22: company.
+     * - 2026-08-22: guest_name, pic_id, dan remark. Ini pelonggaran yang jauh
+     *   lebih besar dan konsekuensinya perlu diketahui siapa pun yang membaca
+     *   berkas ini: remark adalah catatan internal yang di sistem ini terbiasa
+     *   memuat keterangan pembayaran, dan halaman ini terbuka tanpa login serta
+     *   dapat terindeks mesin pencari. Kalau suatu saat diputuskan menarik
+     *   kembali, cukup hapus ketiganya dari select() di bawah — Blade akan
+     *   menampilkan nilai kosong, bukan error.
      *
      * @return Collection<int, Reservation>
      */
@@ -62,10 +76,24 @@ class PublicCalendarController extends Controller
                 'status',
                 'area_id',
                 'event_type_id',
+                'pax',
+                'menu_style_id',
+                'guest_name',
+                'company',
+                'pic_id',
+                'remark',
             ])
-            ->with(['area:id,name', 'eventType:id,name'])
+            ->with(['area:id,name', 'eventType:id,name', 'menuStyle:id,name', 'pic:id,name'])
             ->whereYear('reservation_date', (int) $year)
             ->whereMonth('reservation_date', (int) $monthNumber)
+            // Reservasi batal tidak ditampilkan ke umum. Blade menganggap semua
+            // yang bukan CONFIRMED sebagai "Sedang dijajaki", jadi kalau yang
+            // batal ikut termuat, pengunjung membaca slot yang sudah bebas
+            // sebagai slot terpakai. Disaring di query, bukan di template, atas
+            // alasan yang sama dengan select() di atas.
+            ->where(fn ($q) => $q
+                ->whereNull('status')
+                ->orWhere('status', '!=', ReservationStatus::Cancelled->value))
             ->orderBy('reservation_date')
             ->orderBy('start_time')
             ->get();

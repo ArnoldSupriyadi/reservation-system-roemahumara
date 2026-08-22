@@ -10,11 +10,8 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Support\Enums\FontFamily;
 use Filament\Support\Enums\FontWeight;
-use Filament\Support\Enums\TextSize;
-use Filament\Tables\Columns\Layout\Panel;
-use Filament\Tables\Columns\Layout\Split;
-use Filament\Tables\Columns\Layout\Stack;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -34,91 +31,90 @@ class ReservationsTable
             ]))
             ->defaultSort('reservation_date')
             ->paginated(false)
+            ->striped()
+            /*
+             * Kolom biasa, bukan Split/Stack, supaya baris header tampil.
+             *
+             * Filament mematikan <thead> begitu ada satu saja komponen layout di
+             * level atas (HasColumns::pushColumns menyetel hasColumnsLayout, lalu
+             * index.blade.php hanya merender <thead> kalau flag itu false). Tanpa
+             * header, angka pax dan nomor reservasi melayang tanpa keterangan dan
+             * pembacanya harus menebak. Itu sebabnya Panel remark ikut dilepas —
+             * remark sekarang kolom biasa yang di-wrap, tetap utuh tanpa limit.
+             */
             ->columns([
-                Split::make([
-                    TextColumn::make('reservation_number')
-                        ->label('No.')
-                        ->searchable()
-                        ->weight(FontWeight::Bold)
-                        ->color('gray')
-                        ->grow(false),
+                TextColumn::make('reservation_number')
+                    ->label('No.')
+                    ->searchable()
+                    ->sortable()
+                    ->weight(FontWeight::Bold)
+                    ->fontFamily(FontFamily::Mono),
 
-                    TextColumn::make('reservation_date')
-                        ->label('Tanggal')
-                        ->date('d M Y')
-                        ->sortable()
-                        ->grow(false),
+                TextColumn::make('reservation_date')
+                    ->label('Tanggal')
+                    ->date('d M Y')
+                    ->description(fn ($record) => $record->reservation_date->translatedFormat('l'))
+                    ->sortable(),
 
-                    TextColumn::make('start_time')
-                        ->label('Jam')
-                        ->formatStateUsing(fn ($record) => self::timeRange($record))
-                        ->sortable()
-                        ->grow(false),
+                TextColumn::make('start_time')
+                    ->label('Jam')
+                    ->formatStateUsing(fn ($record) => self::timeRange($record))
+                    ->description(fn ($record) => blank($record->end_time) ? 'jam tunggal' : 'rentang')
+                    ->sortable(),
 
-                    Stack::make([
-                        TextColumn::make('guest_name')
-                            ->label('Nama')
-                            ->weight(FontWeight::Bold)
-                            ->searchable(),
+                TextColumn::make('guest_name')
+                    ->label('Nama tamu')
+                    ->weight(FontWeight::Bold)
+                    ->description(fn ($record) => $record->company)
+                    ->searchable(['guest_name', 'company'])
+                    ->sortable(),
 
-                        TextColumn::make('company')
-                            ->label('Company')
-                            ->size(TextSize::ExtraSmall)
-                            ->color('gray')
-                            ->searchable()
-                            ->placeholder(''),
-                    ]),
+                TextColumn::make('pic.name')
+                    ->label('PIC')
+                    ->toggleable(),
 
-                    Stack::make([
-                        TextColumn::make('pic.name')
-                            ->label('PIC')
-                            ->icon('heroicon-m-user'),
+                TextColumn::make('phone')
+                    ->label('HP')
+                    ->searchable()
+                    ->toggleable(),
 
-                        TextColumn::make('phone')
-                            ->label('HP')
-                            ->icon('heroicon-m-phone')
-                            ->searchable(),
-                    ])->visibleFrom('md'),
+                TextColumn::make('eventType.name')
+                    ->label('Event')
+                    ->badge()
+                    ->placeholder('—')
+                    ->toggleable(),
 
-                    Stack::make([
-                        TextColumn::make('eventType.name')
-                            ->label('Event')
-                            ->badge()
-                            ->placeholder('—'),
+                TextColumn::make('area.name')
+                    ->label('Area')
+                    ->placeholder('—')
+                    ->toggleable(),
 
-                        TextColumn::make('area.name')
-                            ->label('Area')
-                            ->color('gray')
-                            ->placeholder('—'),
-                    ])->visibleFrom('lg'),
+                TextColumn::make('pax')
+                    ->label('Pax')
+                    ->numeric()
+                    ->sortable()
+                    ->alignEnd(),
 
-                    TextColumn::make('pax')
-                        ->label('Pax')
-                        ->numeric()
-                        ->sortable()
-                        ->grow(false),
+                TextColumn::make('status')
+                    ->label('Status')
+                    ->badge()
+                    ->formatStateUsing(fn (?ReservationStatus $state) => $state?->label() ?? 'Belum ditentukan')
+                    ->color(fn (?ReservationStatus $state) => match ($state) {
+                        ReservationStatus::Confirmed => 'success',
+                        ReservationStatus::Tentative => 'warning',
+                        ReservationStatus::Cancelled => 'danger',
+                        default => 'gray',
+                    }),
 
-                    TextColumn::make('status')
-                        ->label('Status')
-                        ->badge()
-                        ->formatStateUsing(fn (?ReservationStatus $state) => $state?->label() ?? '—')
-                        ->color(fn (?ReservationStatus $state) => match ($state) {
-                            ReservationStatus::Confirmed => 'success',
-                            ReservationStatus::Tentative => 'warning',
-                            default => 'gray',
-                        })
-                        ->grow(false),
-                ]),
-
-                // Remark selalu tampil penuh. JANGAN tambahkan ->collapsible()
-                // dan JANGAN memakai ->limit() pada kolom di dalamnya.
-                Panel::make([
-                    TextColumn::make('remark')
-                        ->label('Remark')
-                        ->icon('heroicon-m-chat-bubble-bottom-center-text')
-                        ->wrap()
-                        ->searchable(),
-                ])->visible(fn ($record) => filled($record?->remark)),
+                // Aturan #4 CLAUDE.md: remark selalu penuh.
+                // JANGAN tambahkan ->limit(), ->words(), atau ->toggleable().
+                TextColumn::make('remark')
+                    ->label('Remark')
+                    ->wrap()
+                    ->searchable()
+                    ->placeholder('—')
+                    ->extraHeaderAttributes(['style' => 'min-width: 18rem'])
+                    ->extraCellAttributes(['style' => 'min-width: 18rem']),
             ])
             ->filters([
                 SelectFilter::make('pic_id')
@@ -127,22 +123,32 @@ class ReservationsTable
 
                 SelectFilter::make('event_type_id')
                     ->label('Event')
-                    ->options(fn () => EventType::query()->active()->orderBy('sort_order')->pluck('name', 'id')),
+                    ->options(fn () => EventType::query()->active()->orderBy('id')->pluck('name', 'id')),
 
                 SelectFilter::make('area_id')
                     ->label('Area')
-                    ->options(fn () => Area::query()->active()->orderBy('sort_order')->pluck('name', 'id')),
+                    ->options(fn () => Area::query()->active()->orderBy('id')->pluck('name', 'id')),
 
                 SelectFilter::make('status')
                     ->label('Status')
                     ->options([
                         'confirmed' => 'CONFIRMED',
                         'tentative' => 'TENTATIVE',
+                        'cancelled' => 'CANCEL',
                     ]),
 
                 Filter::make('undetermined_status')
                     ->label('Status belum ditentukan')
                     ->query(fn (Builder $query) => $query->whereNull('status'))
+                    ->toggle(),
+
+                Filter::make('hide_cancelled')
+                    ->label('Sembunyikan yang batal')
+                    ->query(fn (Builder $query) => $query->where(
+                        fn (Builder $q) => $q
+                            ->whereNull('status')
+                            ->orWhere('status', '!=', ReservationStatus::Cancelled->value)
+                    ))
                     ->toggle(),
             ])
             ->recordActions([

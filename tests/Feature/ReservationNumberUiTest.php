@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\Resources\Reservations\Pages\CreateReservation;
+use App\Filament\Resources\Reservations\Pages\EditReservation;
 use App\Filament\Resources\Reservations\Pages\ListReservations;
 use App\Filament\Resources\Reservations\Pages\ViewReservation;
 use App\Models\Reservation;
@@ -75,6 +76,28 @@ class ReservationNumberUiTest extends TestCase
     public function test_the_number_is_not_offered_as_a_form_field(): void
     {
         Livewire::test(CreateReservation::class)
+            ->assertFormFieldDoesNotExist('reservation_number');
+    }
+
+    /**
+     * Di Create nomor belum ada — NumberSequence baru menetapkannya di dalam
+     * transaksi saat disimpan. Yang tampil harus keterangan, bukan tebakan angka:
+     * duplikat yang ditolak tidak membakar nomor, jadi tebakan sering meleset.
+     */
+    public function test_create_explains_that_the_number_comes_later(): void
+    {
+        Livewire::test(CreateReservation::class)
+            ->assertSee('Dibuat otomatis setelah disimpan.')
+            ->assertDontSee(Reservation::NUMBER_PREFIX);
+    }
+
+    /** Di Edit nomornya sudah ada, jadi yang tampil nomor sungguhan. */
+    public function test_edit_shows_the_real_number_read_only(): void
+    {
+        $r = $this->reservation();
+
+        Livewire::test(EditReservation::class, ['record' => $r->getKey()])
+            ->assertSee($r->reservation_number)
             ->assertFormFieldDoesNotExist('reservation_number');
     }
 }

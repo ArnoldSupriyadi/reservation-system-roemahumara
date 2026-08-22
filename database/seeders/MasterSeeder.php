@@ -15,16 +15,19 @@ class MasterSeeder extends Seeder
         $eventTypes = ['TEST FOOD', 'PRIVATE', 'MEETING', 'LUNCH', 'DINNER', 'GATHERING'];
         $menuStyles = ['BUFFET', 'AL CARTE'];
 
-        foreach ($areas as $i => $name) {
-            Area::firstOrCreate(['name' => $name], ['sort_order' => $i + 1]);
+        // Urutan tampilnya mengikuti id, dan id mengikuti urutan penyisipan di
+        // sini — jadi urutan larik di atas tetap menentukan urutan di layar,
+        // tanpa perlu kolom sort_order.
+        foreach ($areas as $name) {
+            Area::firstOrCreate(['name' => $name]);
         }
 
-        foreach ($eventTypes as $i => $name) {
-            EventType::firstOrCreate(['name' => $name], ['sort_order' => $i + 1]);
+        foreach ($eventTypes as $name) {
+            EventType::firstOrCreate(['name' => $name]);
         }
 
-        foreach ($menuStyles as $i => $name) {
-            MenuStyle::firstOrCreate(['name' => $name], ['sort_order' => $i + 1]);
+        foreach ($menuStyles as $name) {
+            MenuStyle::firstOrCreate(['name' => $name]);
         }
     }
 }

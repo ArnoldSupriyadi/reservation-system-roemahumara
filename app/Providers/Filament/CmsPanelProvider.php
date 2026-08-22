@@ -37,6 +37,14 @@ class CmsPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Amber,
             ])
+            // Selesai membuat atau mengubah, kembali ke daftar — bukan berhenti di
+            // halaman edit seperti bawaan Filament. Disetel di tingkat panel supaya
+            // berlaku untuk semua resource sekaligus, termasuk yang dibuat nanti;
+            // meng-override getRedirectUrl() satu per satu akan terlewat pada
+            // resource berikutnya. Penghapusan sudah kembali ke daftar dengan
+            // sendirinya, karena catatannya tidak lagi ada untuk ditampilkan.
+            ->resourceCreatePageRedirect('index')
+            ->resourceEditPageRedirect('index')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([

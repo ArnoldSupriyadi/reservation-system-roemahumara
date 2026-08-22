@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\ReservationStatus;
 use App\Models\Reservation;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -31,6 +32,12 @@ class ConflictChecker
             ->where('area_id', $areaId)
             ->whereDate('reservation_date', $date)
             ->when($ignoreId, fn ($q) => $q->whereKeyNot($ignoreId))
+            // Reservasi yang sudah dibatalkan tidak memakai tempat. Ikut
+            // menghitungnya akan memunculkan peringatan bentrok palsu yang
+            // menghalangi pengguna memakai slot yang sebenarnya sudah bebas.
+            ->where(fn ($q) => $q
+                ->whereNull('status')
+                ->orWhere('status', '!=', ReservationStatus::Cancelled->value))
             ->get()
             ->filter(function (Reservation $other) use ($start, $end) {
                 [$otherStart, $otherEnd] = $this->window($other->start_time, $other->end_time);

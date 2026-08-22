@@ -64,7 +64,7 @@ class MasterResourceTest extends TestCase
 
     public function test_area_in_use_cannot_be_deleted(): void
     {
-        $area = Area::create(['name' => 'VIP 1', 'sort_order' => 1]);
+        $area = Area::create(['name' => 'VIP 1']);
         Reservation::factory()->create(['area_id' => $area->id]);
 
         $this->expectException(\Illuminate\Database\QueryException::class);

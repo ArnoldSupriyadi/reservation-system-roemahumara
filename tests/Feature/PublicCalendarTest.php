@@ -2,12 +2,16 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ReservationStatus;
+use App\Http\Controllers\PublicCalendarController;
 use App\Models\Area;
 use App\Models\EventType;
+use App\Models\MenuStyle;
 use App\Models\Reservation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use ReflectionMethod;
 use Tests\TestCase;
 
 class PublicCalendarTest extends TestCase
@@ -27,7 +31,7 @@ class PublicCalendarTest extends TestCase
         // Nama PIC sengaja dibuat mencolok dan tidak mungkin muncul kebetulan,
         // supaya assertDontSee() di bawah benar-benar bermakna.
         $this->pic = User::factory()->create(['name' => 'RAHASIAPIC']);
-        $this->area = Area::create(['name' => 'VIP 1', 'sort_order' => 1]);
+        $this->area = Area::create(['name' => 'VIP 1']);
         $this->month = Carbon::now()->format('Y-m');
     }
 
@@ -52,8 +56,13 @@ class PublicCalendarTest extends TestCase
     }
 
     /**
-     * Spec nomor 31. Test terpenting di berkas ini: ia menjaga satu-satunya
-     * keputusan yang bisa merugikan tamu bila salah.
+     * Spec nomor 31, dipersempit berulang kali pada 2026-08-22 atas permintaan
+     * eksplisit pemilik sistem. Yang tersisa dijaga di sini hanya dua: phone
+     * dan email.
+     *
+     * Yang DILEPAS dan kini terbit ke publik: pax, menu_style_id, guest_name,
+     * pic_id, remark, company. Dicatat apa adanya supaya pelonggaran ini tetap
+     * terbaca sebagai keputusan sadar, bukan sebagai test yang lupa diperbarui.
      */
     public function test_no_private_data_ever_reaches_the_page(): void
     {
@@ -69,14 +78,83 @@ class PublicCalendarTest extends TestCase
         foreach (['/', "/?bulan={$this->month}", "/?bulan={$this->month}&pilih={$r->id}"] as $url) {
             $this->get($url)
                 ->assertOk()
-                ->assertDontSee('RAHASIANAMA')
-                ->assertDontSee('RAHASIAPERUSAHAAN')
                 ->assertDontSee('081999888777')
-                ->assertDontSee('rahasia@contoh.test')
-                ->assertDontSee('RAHASIAREMARK')
-                ->assertDontSee('4242')
-                ->assertDontSee('RAHASIAPIC');
+                ->assertDontSee('rahasia@contoh.test');
         }
+    }
+
+    /**
+     * Kolom yang masih tertutup tidak boleh sekadar tidak ditulis di Blade — ia
+     * tidak boleh dimuat ke memori sama sekali. Ini yang membuat satu baris
+     * ceroboh di Blade suatu hari nanti menghasilkan nilai kosong, bukan kebocoran.
+     */
+    public function test_the_remaining_private_columns_are_never_even_loaded(): void
+    {
+        $r = $this->reservation(['end_time' => '15:00:00']);
+
+        $this->get("/?bulan={$this->month}&pilih={$r->id}")->assertOk();
+
+        $loaded = app(PublicCalendarController::class);
+        $method = new ReflectionMethod($loaded, 'reservationsIn');
+        $rows = $method->invoke($loaded, $this->month);
+
+        foreach (['phone', 'email'] as $forbidden) {
+            $this->assertArrayNotHasKey(
+                $forbidden,
+                $rows->first()->getAttributes(),
+                "Kolom {$forbidden} termuat ke halaman publik."
+            );
+        }
+    }
+
+    public function test_guest_name_company_pic_and_remark_are_shown(): void
+    {
+        $r = $this->reservation([
+            'guest_name' => 'KELUARGA WIJAYA',
+            'company' => 'PT SINAR ABADI',
+            'remark' => "Baris pertama remark.\nBaris kedua remark.",
+        ]);
+
+        $this->get("/?bulan={$this->month}&pilih={$r->id}")
+            ->assertOk()
+            ->assertSee('KELUARGA WIJAYA')
+            ->assertSee('PT SINAR ABADI')
+            ->assertSee('RAHASIAPIC')
+            ->assertSee('Baris pertama remark.')
+            ->assertSee('Baris kedua remark.');
+    }
+
+    /** company boleh kosong — panelnya tidak boleh menyisakan baris hampa. */
+    public function test_a_reservation_without_a_company_renders_cleanly(): void
+    {
+        $r = $this->reservation(['guest_name' => 'IBU RATNA', 'company' => null]);
+
+        $this->get("/?bulan={$this->month}&pilih={$r->id}")
+            ->assertOk()
+            ->assertSee('IBU RATNA');
+    }
+
+    /** Aturan #4 CLAUDE.md berlaku juga di halaman publik: remark tidak dipotong. */
+    public function test_a_long_remark_is_not_truncated(): void
+    {
+        $long = str_repeat('Catatan panjang yang tidak boleh dipotong. ', 12);
+        $r = $this->reservation(['remark' => $long]);
+
+        $this->get("/?bulan={$this->month}&pilih={$r->id}")
+            ->assertOk()
+            ->assertSee(trim($long))
+            ->assertDontSee('...');
+    }
+
+    public function test_pax_and_menu_style_are_shown(): void
+    {
+        $menu = MenuStyle::create(['name' => 'BUFFET SIANG']);
+        $r = $this->reservation(['pax' => 137, 'menu_style_id' => $menu->id]);
+
+        $this->get("/?bulan={$this->month}&pilih={$r->id}")
+            ->assertOk()
+            ->assertSee('137')
+            ->assertSee('BUFFET SIANG');
     }
 
     public function test_the_page_shows_what_it_is_supposed_to(): void
@@ -128,19 +206,19 @@ class PublicCalendarTest extends TestCase
     {
         $this->reservation(['status' => 'confirmed', 'start_time' => '08:00:00']);
 
-        $this->get("/?bulan={$this->month}")->assertOk()->assertSee('Terisi');
+        $this->get("/?bulan={$this->month}")->assertOk()->assertSee('BOOKED');
 
         Reservation::query()->forceDelete();
         $this->reservation(['status' => 'tentative', 'start_time' => '08:00:00']);
 
-        $this->get("/?bulan={$this->month}")->assertOk()->assertSee('Sedang dijajaki');
+        $this->get("/?bulan={$this->month}")->assertOk()->assertSee('Tentatif');
     }
 
     public function test_a_reservation_without_a_status_reads_as_tentative(): void
     {
         $this->reservation(['status' => null, 'start_time' => '09:00:00']);
 
-        $this->get("/?bulan={$this->month}")->assertOk()->assertSee('Sedang dijajaki');
+        $this->get("/?bulan={$this->month}")->assertOk()->assertSee('Tentatif');
     }
 
     public function test_internal_status_words_never_appear(): void
@@ -156,7 +234,7 @@ class PublicCalendarTest extends TestCase
     /** Spec nomor 35. */
     public function test_the_detail_panel_shows_area_time_and_event(): void
     {
-        $event = EventType::create(['name' => 'MEETING', 'sort_order' => 1]);
+        $event = EventType::create(['name' => 'MEETING']);
         $r = $this->reservation(['end_time' => '15:00:00', 'event_type_id' => $event->id]);
 
         $this->get("/?bulan={$this->month}&pilih={$r->id}")
@@ -202,7 +280,7 @@ class PublicCalendarTest extends TestCase
     /**
      * Bukan dari rencana. Kedua test spec nomor 34 di atas bisa lolos tanpa chipnya
      * benar, karena keterangan warna Task 24 selalu mencetak kedua kata itu — halaman
-     * berisi satu reservasi tentative pun memuat kata "Terisi". Menghitung kemunculan,
+     * berisi satu reservasi tentative pun memuat kata "BOOKED". Menghitung kemunculan,
      * bukan sekadar mencarinya, membuat chip yang kehilangan labelnya ketahuan.
      *
      * Pembedaan status juga tidak boleh bergantung pada warna saja, karena pengunjung
@@ -214,17 +292,17 @@ class PublicCalendarTest extends TestCase
 
         $onlyTentative = $this->get("/?bulan={$this->month}")->assertOk()->getContent();
 
-        // 'Terisi' sekali saja: dari keterangan warna, bukan dari chip.
-        $this->assertSame(1, substr_count($onlyTentative, 'Terisi'));
-        $this->assertSame(2, substr_count($onlyTentative, 'Sedang dijajaki'));
+        // 'BOOKED' sekali saja: dari keterangan warna, bukan dari chip.
+        $this->assertSame(1, substr_count($onlyTentative, 'BOOKED'));
+        $this->assertSame(2, substr_count($onlyTentative, 'Tentatif'));
 
         Reservation::query()->forceDelete();
         $this->reservation(['status' => 'confirmed', 'start_time' => '10:00:00']);
 
         $onlyConfirmed = $this->get("/?bulan={$this->month}")->assertOk()->getContent();
 
-        $this->assertSame(2, substr_count($onlyConfirmed, 'Terisi'));
-        $this->assertSame(1, substr_count($onlyConfirmed, 'Sedang dijajaki'));
+        $this->assertSame(2, substr_count($onlyConfirmed, 'BOOKED'));
+        $this->assertSame(1, substr_count($onlyConfirmed, 'Tentatif'));
     }
 
     /**
@@ -248,5 +326,85 @@ class PublicCalendarTest extends TestCase
         $this->get("/?bulan={$this->month}&pilih={$r->id}")
             ->assertOk()
             ->assertDontSee('/cms');
+    }
+
+    /**
+     * Reservasi batal tidak boleh tampil ke umum. Blade halaman publik
+     * memperlakukan segala yang bukan CONFIRMED sebagai "Tentatif", jadi
+     * kalau yang batal ikut termuat, pengunjung membaca slot yang sudah bebas
+     * sebagai slot terpakai.
+     */
+    public function test_a_cancelled_reservation_is_hidden_from_the_public(): void
+    {
+        $cancelled = $this->reservation([
+            'guest_name' => 'Batal',
+            'start_time' => '08:00:00',
+            'status' => ReservationStatus::Cancelled,
+        ]);
+
+        $response = $this->get("/?bulan={$this->month}");
+
+        $response->assertOk()->assertDontSee('08:00');
+
+        // Membukanya lewat ?pilih pun tidak boleh memunculkan jamnya. Yang
+        // diperiksa jamnya, bukan kata "Tentatif" — kata itu juga ada di
+        // legenda warna halaman, sehingga tidak membuktikan apa pun.
+        $this->get("/?bulan={$this->month}&pilih={$cancelled->id}")
+            ->assertOk()
+            ->assertDontSee('08:00');
+    }
+
+    /**
+     * Ikon status benar-benar ter-render, dan ikon yang benar untuk statusnya.
+     *
+     * Yang dibandingkan bentuk path-nya, bukan nama kelas heroicon, supaya test
+     * ini tidak pecah hanya karena versi heroicons naik — tapi tetap gagal kalau
+     * ikonnya hilang atau tertukar antar status.
+     */
+    public function test_each_public_status_carries_its_own_icon(): void
+    {
+        $cases = [ReservationStatus::Confirmed, ReservationStatus::Tentative];
+
+        foreach ($cases as $status) {
+            Reservation::query()->forceDelete();
+            $this->reservation(['status' => $status, 'start_time' => '07:00:00']);
+
+            $content = $this->get("/?bulan={$this->month}")->assertOk()->getContent();
+
+            $this->assertStringContainsString(
+                $this->iconPath($status),
+                $content,
+                "Ikon untuk {$status->value} tidak ter-render."
+            );
+
+            $this->assertStringNotContainsString(
+                $this->iconPath(ReservationStatus::Cancelled),
+                $content,
+                'Ikon batal tidak boleh muncul di halaman publik.'
+            );
+        }
+    }
+
+    /** Atribut d dari path pertama ikon — cukup untuk membedakan satu ikon dari yang lain. */
+    private function iconPath(ReservationStatus $status): string
+    {
+        preg_match('/d="([^"]+)"/', svg($status->publicIcon())->toHtml(), $m);
+
+        return $m[1];
+    }
+
+    public function test_tentative_and_confirmed_are_still_public(): void
+    {
+        $this->reservation(['guest_name' => 'Tentatif', 'start_time' => '09:00:00']);
+        $this->reservation([
+            'guest_name' => 'Pasti',
+            'start_time' => '16:00:00',
+            'status' => ReservationStatus::Confirmed,
+        ]);
+
+        $this->get("/?bulan={$this->month}")
+            ->assertOk()
+            ->assertSee('09:00')
+            ->assertSee('16:00');
     }
 }

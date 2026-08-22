@@ -42,11 +42,6 @@ class CreateReservation extends CreateRecord
         return $reservation;
     }
 
-    protected function getRedirectUrl(): string
-    {
-        return static::getResource()::getUrl('view', ['record' => $this->getRecord()]);
-    }
-
     private function guardConfirmedStatus(array $data): void
     {
         if (($data['status'] ?? null) !== ReservationStatus::Confirmed->value) {

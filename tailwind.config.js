@@ -16,7 +16,11 @@ export default {
                 ink: '#111111',
                 paper: '#FFFDF5',
                 brand: '#FFD400',
-                taken: '#FF5A36',
+                // Setiap chip di kalender publik adalah slot yang sudah dipesan —
+                // tidak ada chip "kosong". Jadi warnanya membedakan kepastian,
+                // bukan ketersediaan, dan hijau di sini berarti "terkunci", bukan
+                // "masih bebas". Oranye yang lama terbaca sebagai peringatan.
+                booked: '#00D26A',
                 tentative: '#7FB3FF',
                 // Dipakai hanya untuk penghitung jadwal. Sengaja bukan taken/tentative,
                 // karena kedua warna itu sudah berarti status di keterangan kalender.

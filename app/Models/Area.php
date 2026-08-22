@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Area extends Model
 {
-    protected $fillable = ['name', 'sort_order', 'is_active'];
+    protected $fillable = ['name', 'is_active'];
 
     protected function casts(): array
     {
