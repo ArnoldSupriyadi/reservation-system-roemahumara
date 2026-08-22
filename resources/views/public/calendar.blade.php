@@ -9,14 +9,21 @@
         <a href="{{ route('public.calendar', ['bulan' => $previousMonth]) }}" rel="nofollow" class="brut-btn">‹ Sebelumnya</a>
         <a href="{{ route('public.calendar', ['bulan' => $nextMonth]) }}" rel="nofollow" class="brut-btn">Berikutnya ›</a>
 
-        <p class="brut-count ms-auto">{{ $total }} jadwal</p>
+        <p class="brut-count ms-auto">{{ $total }} Booking</p>
     </section>
 
     <div class="brut-box overflow-x-auto">
         <table class="w-full table-fixed border-collapse">
             <thead>
                 <tr>
-                    @foreach (['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'] as $name)
+                    @php
+                        $days = [
+                            ['Sen', 'Senin'], ['Sel', 'Selasa'], ['Rab', 'Rabu'], ['Kam', 'Kamis'],
+                            ['Jum', 'Jumat'], ['Sab', 'Sabtu'], ['Min', 'Minggu'],
+                        ];
+                    @endphp
+
+                    @foreach ($days as [$short, $full])
                         <th
                             scope="col"
                             @class([
@@ -25,7 +32,12 @@
                                 'text-sunday-ink' => $loop->last,
                             ])
                         >
-                            {{ $name }}
+                            {{-- Tujuh kolom dibagi rata: di ponsel selebar 360px tiap kolom hanya
+                                 dapat sekitar 50px, dan "MINGGU" berhuruf kapital tidak muat.
+                                 display:none membuang yang tersembunyi dari pohon aksesibilitas,
+                                 jadi pembaca layar hanya menerima satu nama, bukan dua. --}}
+                            <span class="sm:hidden">{{ $short }}</span>
+                            <span class="hidden sm:inline">{{ $full }}</span>
                         </th>
                     @endforeach
                 </tr>
