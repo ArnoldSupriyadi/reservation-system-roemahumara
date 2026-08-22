@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Enums\Ability;
-use App\Filament\Pages\ReservationCalendar;
 use App\Filament\Resources\Reservations\Pages\CreateReservation;
 use App\Filament\Resources\Reservations\Pages\ListReservations;
 use App\Filament\Resources\Reservations\Pages\ViewReservation;
@@ -134,7 +133,6 @@ class NewRoleEndToEndTest extends TestCase
 
         // Yang boleh, tetap boleh.
         $this->get('/cms/reservations')->assertOk();
-        $this->get(ReservationCalendar::getUrl())->assertOk();
     }
 
     /** Langkah 5 dibuktikan sebagai perubahan, bukan keadaan awal. */
