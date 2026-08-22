@@ -218,6 +218,51 @@ sudo -u deployer php8.3 artisan migrate --force
 sudo -u deployer php8.3 artisan storage:link
 ```
 
+### Data awal & akun pertama
+
+**Jangan lewati bagian ini.** `migrate` hanya membuat tabel kosong. Tanpa langkah
+di bawah, `/cms/login` terbuka tapi tidak ada satu pun akun yang bisa masuk, dan
+form reservasi tidak punya pilihan area maupun jenis acara. Anda terkunci di luar
+sistem sendiri.
+
+```bash
+sudo -u deployer php8.3 artisan db:seed --class=RolePermissionSeeder --force
+sudo -u deployer php8.3 artisan db:seed --class=MasterSeeder --force
+```
+
+Yang pertama membuat role `admin` dan `staff` beserta seluruh permission-nya. Yang
+kedua mengisi master area, jenis acara, dan menu style.
+
+> **Jangan menjalankan `db:seed` polos di produksi.** Tanpa `--class`, ia ikut
+> membuat akun `test@example.com` berkata sandi `password` yang berperan admin.
+
+Lalu buat akun sungguhan. Perintahnya menanyakan kata sandi secara tersembunyi,
+jadi sandi tidak tertinggal di riwayat shell:
+
+```bash
+sudo -u deployer php8.3 artisan make:filament-user
+```
+
+**Akun itu belum bisa apa-apa.** `make:filament-user` tidak memberi role, dan
+seluruh policy di sistem ini memeriksa kemampuan lewat role — tanpa role, pengguna
+bisa masuk tapi setiap tombol tertutup. Beri role admin, lalu bersihkan cache
+permission (aturan #8 CLAUDE.md):
+
+```bash
+sudo -u deployer php8.3 artisan tinker --execute="App\Models\User::where('email','EMAIL_KAMU')->firstOrFail()->assignRole('admin');"
+sudo -u deployer php8.3 artisan permission:cache-reset
+```
+
+Uji sebelum lanjut — harus mencetak `true`:
+
+```bash
+sudo -u deployer php8.3 artisan tinker --execute="echo var_export(App\Models\User::where('email','EMAIL_KAMU')->firstOrFail()->can('reservation.delete'), true);"
+```
+
+> Kolom `is_active` bernilai `true` secara bawaan, jadi tidak perlu disetel manual.
+> Kalau suatu saat akun dinonaktifkan, ia ditolak middleware Filament dengan 403 —
+> bukan pesan "sandi salah", jadi jangan tertukar.
+
 ---
 
 ## 7. Pasang Nginx server block
