@@ -8,6 +8,8 @@ Volume ± 15 reservasi per bulan, sekitar 8 pengguna, semua internal.
 - Spec: `claude/2026-08-10-reservasi-roemah-umara-design.md`
 - Rencana backend: `claude/2026-08-10-reservasi-roemah-umara-plan.md` (Task 0–11)
 - Rencana UI: `claude/2026-08-10-reservasi-roemah-umara-plan-ui.md` (Task 12–18)
+- Spec v2: `claude/2026-08-20-kalender-publik-dan-nomor-reservasi-design.md`
+- Rencana v2: `claude/2026-08-20-kalender-publik-dan-nomor-reservasi-plan.md` (Task 19–24)
 
 Kerjakan berurutan. Jangan melompat. Satu task per sesi review.
 
@@ -68,6 +70,16 @@ diambil sadar. Kalau nanti mengganggu, pindahkan ke database terpisah dengan men
 8. **Bersihkan cache permission spatie setiap kali role disimpan**
    (`forgetCachedPermissions()`). Kalau terlewat, gejalanya terlihat seperti
    "sistem tidak menyimpan perubahan".
+
+9. **Halaman publik hanya boleh memuat lima kolom reservasi:** tanggal, jam, area,
+   jenis acara, status. Batasnya ditegakkan lewat `select()` eksplisit di
+   `PublicCalendarController`, bukan dengan tidak menulisnya di Blade. Dilarang
+   menambahkan `guest_name`, `company`, `phone`, `email`, `remark`, `pax`, atau
+   `pic_id` ke `select()` itu.
+
+10. **`NumberSequence::next()` wajib dipanggil di dalam transaksi.** Di luar
+    transaksi, `FOR UPDATE` tidak menahan apa pun. Nomor reservasi ditetapkan sekali
+    saat pembuatan dan tidak pernah berubah.
 
 ## API Filament v5 — jangan pakai pola v3
 

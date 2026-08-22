@@ -200,6 +200,34 @@ class PublicCalendarTest extends TestCase
     }
 
     /**
+     * Bukan dari rencana. Kedua test spec nomor 34 di atas bisa lolos tanpa chipnya
+     * benar, karena keterangan warna Task 24 selalu mencetak kedua kata itu — halaman
+     * berisi satu reservasi tentative pun memuat kata "Terisi". Menghitung kemunculan,
+     * bukan sekadar mencarinya, membuat chip yang kehilangan labelnya ketahuan.
+     *
+     * Pembedaan status juga tidak boleh bergantung pada warna saja, karena pengunjung
+     * yang buta warna tidak bisa membacanya.
+     */
+    public function test_the_chip_itself_says_the_status_not_only_the_colour(): void
+    {
+        $this->reservation(['status' => 'tentative', 'start_time' => '10:00:00']);
+
+        $onlyTentative = $this->get("/?bulan={$this->month}")->assertOk()->getContent();
+
+        // 'Terisi' sekali saja: dari keterangan warna, bukan dari chip.
+        $this->assertSame(1, substr_count($onlyTentative, 'Terisi'));
+        $this->assertSame(2, substr_count($onlyTentative, 'Sedang dijajaki'));
+
+        Reservation::query()->forceDelete();
+        $this->reservation(['status' => 'confirmed', 'start_time' => '10:00:00']);
+
+        $onlyConfirmed = $this->get("/?bulan={$this->month}")->assertOk()->getContent();
+
+        $this->assertSame(2, substr_count($onlyConfirmed, 'Terisi'));
+        $this->assertSame(1, substr_count($onlyConfirmed, 'Sedang dijajaki'));
+    }
+
+    /**
      * Bukan dari rencana. Spec nomor 36 menuntut halaman ini tidak bisa dijatuhkan
      * lewat query string, dan `?bulan[]=x` membuat query() mengembalikan array,
      * bukan string — sesuatu yang tidak diuji oleh test bulan-sampah di atas.

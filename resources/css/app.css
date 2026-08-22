@@ -1,3 +1,38 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    body {
+        @apply bg-paper text-ink font-sans;
+    }
+}
+
+@layer components {
+    .brut-box {
+        @apply border-[3px] border-ink bg-white shadow-brut;
+    }
+
+    .brut-btn {
+        @apply inline-block border-[3px] border-ink bg-brand px-4 py-2
+               text-sm font-black uppercase tracking-wide shadow-brut-sm
+               hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none;
+    }
+
+    .brut-chip {
+        @apply mb-1 block w-full border-[2px] border-ink px-1 py-0.5
+               text-left text-[11px] font-bold leading-tight;
+    }
+
+    .brut-chip-taken {
+        @apply bg-taken text-white;
+    }
+
+    .brut-chip-tentative {
+        @apply border-dashed bg-tentative/40 text-ink;
+    }
+
+    .brut-chip-selected {
+        @apply bg-ink text-white;
+    }
+}

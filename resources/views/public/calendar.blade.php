@@ -3,71 +3,102 @@
 @section('title', 'Jadwal '.$monthLabel.' — Roemah Umara')
 
 @section('content')
-    <section>
-        <h2>{{ $monthLabel }}</h2>
+    <section class="mb-5 flex flex-wrap items-center gap-3">
+        <h2 class="text-2xl font-black uppercase">{{ $monthLabel }}</h2>
 
-        <a href="{{ route('public.calendar', ['bulan' => $previousMonth]) }}" rel="nofollow">Bulan sebelumnya</a>
-        <a href="{{ route('public.calendar', ['bulan' => $nextMonth]) }}" rel="nofollow">Bulan berikutnya</a>
+        <a href="{{ route('public.calendar', ['bulan' => $previousMonth]) }}" rel="nofollow" class="brut-btn">‹ Sebelumnya</a>
+        <a href="{{ route('public.calendar', ['bulan' => $nextMonth]) }}" rel="nofollow" class="brut-btn">Berikutnya ›</a>
 
-        <p>{{ $total }} jadwal pada bulan ini</p>
+        <p class="ms-auto text-sm font-bold uppercase">{{ $total }} jadwal</p>
     </section>
 
-    <table>
-        <thead>
-            <tr>
-                @foreach (['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'] as $name)
-                    <th scope="col">{{ $name }}</th>
-                @endforeach
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (array_chunk($cells, 7) as $week)
+    <div class="brut-box overflow-x-auto">
+        <table class="w-full table-fixed border-collapse">
+            <thead>
                 <tr>
-                    @foreach ($week as $cell)
-                        <td>
-                            @if ($cell['day'] !== null)
-                                <span>{{ $cell['day'] }}</span>
-
-                                @foreach (($byDate[$cell['iso']] ?? collect()) as $r)
-                                    <a
-                                        href="{{ route('public.calendar', ['bulan' => $month, 'pilih' => $r->id]) }}"
-                                        @class(['is-selected' => $r->id === $selectedId])
-                                    >
-                                        <strong>{{ substr($r->start_time, 0, 5) }}</strong>
-                                        {{ $r->area?->name }}
-                                        <em>{{ $r->status?->publicLabel() ?? 'Sedang dijajaki' }}</em>
-                                    </a>
-                                @endforeach
-                            @endif
-                        </td>
+                    @foreach (['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'] as $name)
+                        <th scope="col" class="border-[2px] border-ink bg-ink py-2 text-[11px] font-black uppercase tracking-widest text-white">
+                            {{ $name }}
+                        </th>
                     @endforeach
                 </tr>
-            @endforeach
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (array_chunk($cells, 7) as $week)
+                    <tr>
+                        @foreach ($week as $cell)
+                            <td class="h-24 border-[2px] border-ink p-1 align-top {{ $cell['day'] === null ? 'bg-black/5' : '' }}">
+                                @if ($cell['day'] !== null)
+                                    <span class="mb-1 block text-xs font-black">{{ $cell['day'] }}</span>
+
+                                    @foreach (($byDate[$cell['iso']] ?? collect()) as $r)
+                                        <a
+                                            href="{{ route('public.calendar', ['bulan' => $month, 'pilih' => $r->id]) }}"
+                                            @class([
+                                                'brut-chip',
+                                                'brut-chip-taken' => $r->status?->value === 'confirmed',
+                                                'brut-chip-tentative' => $r->status?->value !== 'confirmed',
+                                                'brut-chip-selected' => $r->id === $selectedId,
+                                            ])
+                                        >
+                                            {{ substr($r->start_time, 0, 5) }}
+                                            @if ($r->area)
+                                                <span class="block font-normal">{{ $r->area->name }}</span>
+                                            @endif
+                                            {{-- Statusnya ditulis, bukan hanya diwarnai: rona saja tidak
+                                                 terbaca oleh pengunjung yang buta warna. --}}
+                                            <span class="block text-[9px] font-black uppercase tracking-wide">
+                                                {{ $r->status?->publicLabel() ?? 'Sedang dijajaki' }}
+                                            </span>
+                                        </a>
+                                    @endforeach
+                                @endif
+                            </td>
+                        @endforeach
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+
+    <section class="mt-5 flex flex-wrap gap-4 text-xs font-bold uppercase">
+        <span class="flex items-center gap-2">
+            <span class="inline-block h-4 w-6 border-[2px] border-ink bg-taken"></span> Terisi
+        </span>
+        <span class="flex items-center gap-2">
+            <span class="inline-block h-4 w-6 border-[2px] border-dashed border-ink bg-tentative/40"></span> Sedang dijajaki
+        </span>
+    </section>
 
     @if ($selected)
-        <section>
-            <h3>{{ $selected->reservation_date->translatedFormat('l, d F Y') }}</h3>
+        <section class="brut-box mt-5 p-5">
+            <h3 class="text-xl font-black uppercase">
+                {{ $selected->reservation_date->translatedFormat('l, d F Y') }}
+            </h3>
 
-            <dl>
-                <dt>Jam</dt>
-                <dd>
-                    @if (blank($selected->end_time))
-                        {{ substr($selected->start_time, 0, 5) }} (jam tunggal)
-                    @else
-                        {{ substr($selected->start_time, 0, 5) }}–{{ substr($selected->end_time, 0, 5) }}
-                    @endif
-                </dd>
-
-                <dt>Area</dt>
-                <dd>{{ $selected->area?->name ?? 'Belum ditentukan' }}</dd>
-
-                <dt>Jenis acara</dt>
-                <dd>{{ $selected->eventType?->name ?? '—' }}</dd>
-
-                <dt>Status</dt>
-                <dd>{{ $selected->status?->publicLabel() ?? 'Sedang dijajaki' }}</dd>
+            <dl class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div>
+                    <dt class="text-[10px] font-black uppercase tracking-widest">Jam</dt>
+                    <dd class="text-sm font-bold">
+                        @if (blank($selected->end_time))
+                            {{ substr($selected->start_time, 0, 5) }} (jam tunggal)
+                        @else
+                            {{ substr($selected->start_time, 0, 5) }}–{{ substr($selected->end_time, 0, 5) }}
+                        @endif
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-[10px] font-black uppercase tracking-widest">Area</dt>
+                    <dd class="text-sm font-bold">{{ $selected->area?->name ?? 'Belum ditentukan' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-[10px] font-black uppercase tracking-widest">Jenis acara</dt>
+                    <dd class="text-sm font-bold">{{ $selected->eventType?->name ?? '—' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-[10px] font-black uppercase tracking-widest">Status</dt>
+                    <dd class="text-sm font-bold">{{ $selected->status?->publicLabel() ?? 'Sedang dijajaki' }}</dd>
+                </div>
             </dl>
         </section>
     @endif
