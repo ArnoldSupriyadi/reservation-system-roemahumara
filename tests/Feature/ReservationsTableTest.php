@@ -36,11 +36,19 @@ class ReservationsTableTest extends TestCase
         Filament::setCurrentPanel('cms');
 
         $this->admin = User::factory()->admin()->create(['name' => 'IRA']);
+
+        // Dua area, bukan satu. Test filter area di bawah butuh baris yang
+        // benar-benar berada di area berbeda; sejak area wajib, membiarkan yang
+        // lain memakai bawaan factory membuat semuanya jatuh ke area yang sama
+        // dan filternya lolos tanpa membuktikan apa pun.
+        $lain = Area::create(['name' => 'REGULAR']);
         $area = Area::create(['name' => 'VIP 1']);
+
         $month = Carbon::now()->startOfMonth();
 
         $this->singleTime = Reservation::factory()->create([
             'reservation_date' => $month->copy()->addDays(7),
+            'area_id' => $lain->id,
             'guest_name' => 'Ibu There',
             'pic_id' => $this->admin->id,
             'created_by' => $this->admin->id,
@@ -64,6 +72,7 @@ class ReservationsTableTest extends TestCase
 
         $this->noRemark = Reservation::factory()->create([
             'reservation_date' => $month->copy()->addDays(9),
+            'area_id' => $lain->id,
             'guest_name' => 'Tanti',
             'pic_id' => $this->admin->id,
             'created_by' => $this->admin->id,

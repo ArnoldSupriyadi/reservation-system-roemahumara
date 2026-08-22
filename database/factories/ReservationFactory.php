@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Area;
 use App\Models\Reservation;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -30,7 +31,12 @@ class ReservationFactory extends Factory
             'pic_id' => User::factory(),
             'event_type_id' => null,
             'menu_style_id' => null,
-            'area_id' => null,
+            // Area wajib di database sejak 2026-08-22. Area yang sudah ada dipakai
+            // ulang, bukan dibuat baru setiap kali — kalau setiap reservasi punya
+            // areanya sendiri, test bentrok tidak akan pernah menemukan bentrok
+            // dan lulus tanpa membuktikan apa pun.
+            'area_id' => fn () => Area::query()->value('id')
+                ?? Area::create(['name' => 'AREA UJI'])->id,
             'start_time' => '12:00:00',
             'end_time' => null,
             'pax' => 4,

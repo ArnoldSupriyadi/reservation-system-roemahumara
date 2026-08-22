@@ -142,11 +142,12 @@ jadi idempotency-nya mencegah data kembar.
     `ConflictChecker` melewati barisnya sepenuhnya, sehingga kewajiban menjelaskan
     bentrok bisa dihindari cukup dengan tidak mengisi area.
 
-    **Kedua aturan ditegakkan dua kali, dan itu disengaja.** Di form Filament
-    supaya pesannya ramah, dan di `ReservationWriter` supaya berlaku juga untuk
-    seeder, tinker, dan kode yang ditulis nanti — writer melempar
-    `InvalidReservationException`. Kolom `area_id` sendiri masih nullable di
-    database; yang menegakkan adalah writer, bukan skema.
+    **Ditegakkan berlapis, dan itu disengaja.** Area wajib di tiga tempat: form
+    Filament (pesan ramah, menunjuk kolom), `ReservationWriter` (berlaku untuk
+    seeder, tinker, dan kode lain — melempar `InvalidReservationException`), dan
+    kolom `area_id` yang `NOT NULL` di database (berlaku bahkan untuk SQL
+    langsung dan impor). Kewajiban menjelaskan bentrok di Remark hanya di dua
+    lapis pertama; itu aturan bisnis, bukan bentuk data.
 
     Penjagaan di writer memeriksa keadaan **hasil** perubahan, bukan input mentah.
     `update()` menerima array parsial, jadi memeriksa `$data` apa adanya akan
