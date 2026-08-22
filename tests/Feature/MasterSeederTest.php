@@ -17,7 +17,7 @@ class MasterSeederTest extends TestCase
     {
         $this->seed(MasterSeeder::class);
 
-        $this->assertSame(7, Area::count());
+        $this->assertSame(12, Area::count());
         $this->assertSame(6, EventType::count());
         $this->assertSame(2, MenuStyle::count());
     }
@@ -32,7 +32,10 @@ class MasterSeederTest extends TestCase
         $this->seed(MasterSeeder::class);
 
         $this->assertSame(
-            ['VIP 1', 'VIP 2', 'FOYER FnB', 'KORIDOR', 'SOFA REGULAR', 'REGULAR', 'OUTDOOR'],
+            [
+                'VIP 1', 'VIP 2', 'FOYER FnB', 'KORIDOR', 'SOFA REGULAR', 'REGULAR', 'OUTDOOR',
+                'BALLROOM 1', 'BALLROOM 2', 'BALLROOM 3', 'BALLROOM 4', 'ALL BALLROOM',
+            ],
             Area::orderBy('id')->pluck('name')->all()
         );
     }

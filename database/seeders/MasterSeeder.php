@@ -11,7 +11,13 @@ class MasterSeeder extends Seeder
 {
     public function run(): void
     {
-        $areas = ['VIP 1', 'VIP 2', 'FOYER FnB', 'KORIDOR', 'SOFA REGULAR', 'REGULAR', 'OUTDOOR'];
+        // Ballroom ditaruh di belakang, bukan disisipkan di tengah. Urutan larik
+        // ini menentukan id, dan id menentukan urutan tampil — menyisipkan di
+        // tengah akan membuat urutan di mesin lama berbeda dari pemasangan baru.
+        $areas = [
+            'VIP 1', 'VIP 2', 'FOYER FnB', 'KORIDOR', 'SOFA REGULAR', 'REGULAR', 'OUTDOOR',
+            'BALLROOM 1', 'BALLROOM 2', 'BALLROOM 3', 'BALLROOM 4', 'ALL BALLROOM',
+        ];
         $eventTypes = ['TEST FOOD', 'PRIVATE', 'MEETING', 'LUNCH', 'DINNER', 'GATHERING'];
         $menuStyles = ['BUFFET', 'AL CARTE'];
 

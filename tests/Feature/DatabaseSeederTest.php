@@ -35,7 +35,7 @@ class DatabaseSeederTest extends TestCase
     {
         $this->seed();
 
-        $this->assertSame(7, Area::count());
+        $this->assertSame(12, Area::count());
         $this->assertSame(6, EventType::count());
         $this->assertSame(2, MenuStyle::count());
     }
