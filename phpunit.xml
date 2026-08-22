@@ -23,10 +23,18 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
+        <!--
+            DB_HOST dan DB_PORT sengaja TIDAK dipatok di sini: keduanya mengikuti
+            .env masing-masing mesin. Dulu port dipatok (3306, lalu 8889 saat
+            disesuaikan dengan MAMP) dan akibatnya test selalu gagal menyambung
+            di mesin yang MySQL-nya di port lain — gejalanya puluhan
+            QueryException, bukan pesan yang menunjuk penyebabnya.
+
+            Yang tetap dipatok hanya dua, dan keduanya memang harus sama di semua
+            mesin: mysql (aturan #1 CLAUDE.md) dan database test yang terpisah.
+        -->
         <env name="DB_CONNECTION" value="mysql"/>
         <env name="DB_DATABASE" value="ru_reservation_test"/>
-        <env name="DB_HOST" value="127.0.0.1"/>
-        <env name="DB_PORT" value="8889"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

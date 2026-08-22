@@ -13,8 +13,8 @@ reservasi contoh. Tidak perlu dump, tidak perlu ekspor.
 
 | Kebutuhan | Versi | Catatan |
 |---|---|---|
-| PHP | 8.2 atau lebih baru | Mesin lama memakai 8.3.1 dari MAMP |
-| MySQL | 5.7 | **Bukan** SQLite — lihat aturan nomor 1 di CLAUDE.md |
+| PHP | 8.2 atau lebih baru | Mesin lama memakai 8.3.9 dari MAMP |
+| MySQL | 8.0 | **Bukan** SQLite — lihat aturan nomor 1 di CLAUDE.md. Mesin lama memakai 8.0.40 dari MAMP |
 | Composer | 2.x | |
 | Node.js | 20 atau lebih baru | |
 | Git | | |
@@ -37,7 +37,11 @@ php artisan key:generate
 
 `.env.example` sudah memuat seluruh nilai yang benar — locale `id`, zona waktu
 `Asia/Jakarta`, dan sambungan MySQL ke `ru_reservation` dengan `root`/`root`. Ubah
-`DB_USERNAME` dan `DB_PASSWORD` bila mesin barumu berbeda.
+`DB_USERNAME`, `DB_PASSWORD`, dan `DB_PORT` bila mesin barumu berbeda.
+
+`DB_PORT` di `.env.example` berisi `3306`, port MySQL bawaan. **MAMP memakai 8889**,
+jadi kalau mesin barumu pakai MAMP, ubah nilainya. Cukup di `.env` saja — `phpunit.xml`
+sengaja tidak mematok host dan port, ia mengikuti `.env` yang sama.
 
 **Nyalakan MySQL lebih dulu**, lalu buat kedua database:
 
@@ -82,13 +86,25 @@ Akun itu dibuat seeder dan berperan `admin`. **Ganti sebelum dipakai sungguhan.*
 php artisan test
 ```
 
-Harus 226 test hijau. Kalau hijau, pemindahan berhasil sepenuhnya.
+Harus 231 test hijau. Kalau hijau, pemindahan berhasil sepenuhnya.
 
 ## 5. Hal yang menjebak
 
 **MySQL mati.** `php artisan test` akan menggantung lama tanpa mencetak satu baris pun,
 bukan gagal cepat. Kalau suite diam berlarut-larut, periksa MySQL dulu sebelum
 menyalahkan test.
+
+**`DB_CONNECTION` keliru jadi `sqlite`.** Ini yang paling mudah terjadi justru saat
+menyiapkan mesin baru, karena `.env` sedang diedit. Laravel tidak protes: ia
+memperlakukan `DB_DATABASE=ru_reservation` sebagai **nama berkas**, membuat database
+SQLite di akar proyek, lalu menjalankan semuanya dari sana. Aplikasi hidup normal,
+migrasi jalan, seeder jalan — hanya saja semua datamu tidak ada di tempat yang kamu
+kira. Gejalanya terbaca sebagai "data saya hilang", bukan sebagai salah konfigurasi.
+
+Cirinya: muncul berkas tanpa ekstensi bernama `ru_reservation` di akar proyek. Berkas
+semacam itu sudah masuk `.gitignore` supaya tidak pernah ikut ter-commit, tapi
+keberadaannya tetap menandakan ada yang salah. Hapus berkasnya, kembalikan
+`DB_CONNECTION=mysql`, lalu ulangi `php artisan migrate --seed`.
 
 **MAMP bentrok port.** Bila MySQL dinyalakan sebagai proses lepas
 (`mysqld.exe --standalone`), MAMP Control Panel tidak mengetahuinya dan tombol Start
