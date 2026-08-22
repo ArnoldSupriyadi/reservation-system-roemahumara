@@ -21,17 +21,18 @@ use Spatie\Permission\PermissionRegistrar;
  * mengganti sandinya sendiri, menjalankan seeder ini lagi tidak mengembalikannya ke
  * sandi awal.
  *
- * KATA SANDI AWAL SAMA UNTUK SEMUA ORANG dan tertulis di berkas ini. Itu permintaan
- * eksplisit pemilik sistem pada 2026-08-22, diambil sesudah alternatif sandi acak
- * per akun ditawarkan. Konsekuensinya perlu diketahui siapa pun yang membaca ini:
- * satu orang yang tahu sandinya bisa masuk sebagai siapa saja, memakai nama rekannya
- * sebagai PIC, dan activity_log akan menunjuk orang yang keliru. Ganti sebelum
- * sistem dipakai sungguhan.
+ * SANDI AWALNYA SAMA UNTUK SEMUA ORANG, dibaca dari INITIAL_USER_PASSWORD di .env.
+ * Nilainya sengaja TIDAK ditulis di sini: repositori ini publik, dan sandi sungguhan
+ * yang masuk ke kode akan terbit ke internet secara permanen — riwayat git
+ * menyimpannya meski barisnya nanti dihapus.
+ *
+ * Sandi bersama tetap punya konsekuensi yang perlu diketahui: satu orang yang tahu
+ * sandinya bisa masuk sebagai siapa saja, memakai nama rekannya sebagai PIC, dan
+ * activity_log akan menunjuk orang yang keliru. Minta setiap orang menggantinya
+ * sendiri setelah masuk pertama kali.
  */
 class StaffSeeder extends Seeder
 {
-    private const DEFAULT_PASSWORD = 'password';
-
     /** @var array<string, string> nama => email */
     private const STAFF = [
         'Denry' => 'denry@roemahumara.com',
@@ -59,7 +60,7 @@ class StaffSeeder extends Seeder
                 ['email' => $email],
                 [
                     'name' => $name,
-                    'password' => Hash::make(self::DEFAULT_PASSWORD),
+                    'password' => Hash::make(config('reservation.initial_password')),
                     'is_active' => true,
                 ],
             );
@@ -73,7 +74,10 @@ class StaffSeeder extends Seeder
         // "sistem tidak menyimpan perubahan".
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        $this->command?->info('Akun staf: '.count(self::STAFF).' orang, sandi awal "'.self::DEFAULT_PASSWORD.'".');
-        $this->command?->warn('Sandi awalnya sama untuk semua. Ganti sebelum dipakai sungguhan.');
+        $this->command?->info('Akun staf: '.count(self::STAFF).' orang.');
+        $this->command?->warn(
+            'Sandi awalnya diambil dari INITIAL_USER_PASSWORD di .env dan sama untuk semua orang. '
+            .'Minta setiap orang menggantinya sendiri.'
+        );
     }
 }

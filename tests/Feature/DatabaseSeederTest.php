@@ -48,7 +48,7 @@ class DatabaseSeederTest extends TestCase
         $user = User::where('email', 'roemahmumara@gmail.com')->firstOrFail();
 
         $this->assertSame('Admin Roemah Umara', $user->name);
-        $this->assertTrue(Hash::check('password', $user->password), 'Sandi awal tidak cocok.');
+        $this->assertTrue(Hash::check(config('reservation.initial_password'), $user->password), 'Sandi awal harus mengikuti INITIAL_USER_PASSWORD.');
         $this->assertTrue($user->is_active, 'Akun tidak aktif ditolak middleware Filament dengan 403.');
         $this->assertTrue($user->hasRole('admin'));
         $this->assertTrue($user->can(Ability::DeleteReservation->value));

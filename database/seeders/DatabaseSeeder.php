@@ -33,8 +33,9 @@ class DatabaseSeeder extends Seeder
      * unik — dan gagalnya di tengah jalan, setelah role dan master terlanjur
      * dibuat.
      *
-     * Sandi awalnya sama dengan akun staf. Ganti sebelum sistem dipakai
-     * sungguhan; lihat catatan di StaffSeeder.
+     * Sandi awalnya dibaca dari INITIAL_USER_PASSWORD di .env, sama seperti akun
+     * staf. Nilainya tidak ditulis di kode karena repositori ini publik — lihat
+     * catatan di StaffSeeder.
      */
     private function createAdmin(): void
     {
@@ -42,7 +43,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'roemahmumara@gmail.com'],
             [
                 'name' => 'Admin Roemah Umara',
-                'password' => Hash::make('password'),
+                'password' => Hash::make(config('reservation.initial_password')),
                 'is_active' => true,
             ],
         );

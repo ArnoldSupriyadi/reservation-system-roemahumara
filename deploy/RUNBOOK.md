@@ -233,10 +233,14 @@ sudo -u deployer php8.3 artisan db:seed --class=MasterSeeder --force
 Yang pertama membuat role `admin` dan `staff` beserta seluruh permission-nya. Yang
 kedua mengisi master area, jenis acara, dan menu style.
 
-> `db:seed` polos juga membuat akun admin `roemahmumara@gmail.com` berkata sandi
-> `password`. Sejak 2026-08-22 itu akun sungguhan, bukan lagi `test@example.com`,
-> jadi menjalankannya di produksi tidak lagi berbahaya — **asal sandinya segera
-> diganti.** Seeder ini aman diulang.
+> `db:seed` polos juga membuat akun admin `roemahmumara@gmail.com`. Sejak
+> 2026-08-22 itu akun sungguhan, bukan lagi `test@example.com`, jadi
+> menjalankannya di produksi memang diperlukan. Seeder ini aman diulang.
+>
+> **Setel `INITIAL_USER_PASSWORD` di `.env` server SEBELUM menjalankannya.**
+> Sandi awal semua akun diambil dari sana. Kalau belum disetel, sandinya jatuh ke
+> `password` — dan karena seeder memakai `firstOrCreate`, menjalankannya lagi
+> setelah `.env` dibetulkan TIDAK akan memperbaiki sandi yang terlanjur dibuat.
 
 Untuk sepuluh akun staf Roemah Umara, ada seedernya sendiri:
 
@@ -244,12 +248,12 @@ Untuk sepuluh akun staf Roemah Umara, ada seedernya sendiri:
 sudo -u deployer php8.3 artisan db:seed --class=StaffSeeder --force
 ```
 
-> **Sandi awalnya sama untuk semua, yaitu `password`,** dan tertulis di dalam
-> `database/seeders/StaffSeeder.php`. Minta setiap orang menggantinya sebelum
-> sistem dipakai sungguhan. Selama belum diganti, satu orang yang tahu sandinya
-> bisa masuk sebagai siapa saja dan `activity_log` akan menunjuk orang yang
-> keliru. Menjalankan seeder ini lagi tidak mengembalikan sandi yang sudah
-> diganti — ia memakai `firstOrCreate`.
+> **Sandi awalnya sama untuk semua**, diambil dari `INITIAL_USER_PASSWORD` di
+> `.env`. Nilainya tidak ada di dalam kode — repositori ini publik. Minta setiap
+> orang menggantinya setelah masuk pertama kali. Selama belum diganti, satu orang
+> yang tahu sandinya bisa masuk sebagai siapa saja dan `activity_log` akan
+> menunjuk orang yang keliru. Menjalankan seeder ini lagi tidak mengembalikan
+> sandi yang sudah diganti — ia memakai `firstOrCreate`.
 
 Akun staf tidak bisa menghapus reservasi. Untuk akun admin, buat sendiri —
 perintahnya menanyakan kata sandi secara tersembunyi, jadi sandi tidak

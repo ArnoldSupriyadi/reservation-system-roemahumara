@@ -33,6 +33,13 @@
             Yang tetap dipatok hanya dua, dan keduanya memang harus sama di semua
             mesin: mysql (aturan #1 CLAUDE.md) dan database test yang terpisah.
         -->
+        <!--
+            Dipatok supaya test tidak bergantung pada .env tiap mesin. Nilainya
+            sengaja berbeda dari nilai cadangan di config, sehingga test yang
+            membandingkannya membuktikan seeder benar-benar membaca konfigurasi
+            dan bukan kebetulan cocok dengan literal 'password'.
+        -->
+        <env name="INITIAL_USER_PASSWORD" value="sandi-uji-bukan-sandi-sungguhan"/>
         <env name="DB_CONNECTION" value="mysql"/>
         <env name="DB_DATABASE" value="ru_reservation_test"/>
         <env name="DB_URL" value=""/>

@@ -76,9 +76,15 @@ php artisan serve
 
 - Halaman publik: <http://localhost:8000/>
 - Panel staf: <http://localhost:8000/cms>
-- Masuk dengan `roemahmumara@gmail.com` / `password`
+- Masuk dengan `roemahmumara@gmail.com`, sandinya sesuai `INITIAL_USER_PASSWORD`
+  di `.env`
 
-Akun itu dibuat seeder dan berperan `admin`. **Ganti sebelum dipakai sungguhan.**
+Akun itu dibuat seeder dan berperan `admin`.
+
+`INITIAL_USER_PASSWORD` tidak ada di `.env.example` dengan nilai sungguhan —
+repositori ini publik, jadi sandi yang masuk ke kode akan terbit permanen di
+riwayat git. Isi sendiri di `.env` mesin barumu; kalau dibiarkan kosong, sandinya
+jatuh ke `password` yang jelas terlihat placeholder.
 
 ## 4. Memastikan semuanya benar
 
