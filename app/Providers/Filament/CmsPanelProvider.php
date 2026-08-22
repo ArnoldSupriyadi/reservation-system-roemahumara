@@ -29,6 +29,10 @@ class CmsPanelProvider extends PanelProvider
             ->path('cms')
             ->login()
             ->brandName('Roemah Umara')
+            // Filament hanya merender satu <link rel="icon">, jadi dipilih yang
+            // 32px — ukuran yang dipakai tab peramban di layar biasa maupun
+            // Retina. Berkasnya dibuat scripts/buat-favicon.php dari logo gold.
+            ->favicon(asset('img/favicon-32.png'))
             ->navigationGroups([
                 'Reservasi',
                 'Master',
