@@ -53,8 +53,26 @@ class EventTypeResource extends Resource
             ->defaultSort('id')
             ->paginated(false)
             ->columns([
+                // Nomor urut baris, bukan kolom di database. sort_order sengaja dihapus
+                // 2026-08-22; daftar ini diurutkan id, dan angka di layar hanya untuk
+                // memudahkan menghitung serta menunjuk baris.
+                TextColumn::make('index')
+                    ->label('No.')
+                    ->rowIndex()
+                    ->color('gray')
+                    // width:1% membuat kolom menyempit sampai selebar isinya.
+                    // Tanpa itu tiga kolom berbagi rata lebar tabel dan angkanya
+                    // terdorong jauh dari nama.
+                    ->extraHeaderAttributes(['style' => 'width:1%; white-space:nowrap'])
+                    ->extraCellAttributes(['style' => 'width:1%; white-space:nowrap']),
+
                 TextColumn::make('name')->label('Nama')->searchable(),
-                IconColumn::make('is_active')->label('Aktif')->boolean(),
+                // Menyempit juga, supaya kolom Nama yang mengambil sisa lebar tabel.
+                IconColumn::make('is_active')
+                    ->label('Aktif')
+                    ->boolean()
+                    ->extraHeaderAttributes(['style' => 'width:1%; white-space:nowrap'])
+                    ->extraCellAttributes(['style' => 'width:1%; white-space:nowrap']),
             ])
             ->recordActions([
                 EditAction::make(),
