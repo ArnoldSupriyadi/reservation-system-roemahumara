@@ -18,6 +18,9 @@ export default {
                 brand: '#FFD400',
                 taken: '#FF5A36',
                 tentative: '#7FB3FF',
+                // Dipakai hanya untuk penghitung jadwal. Sengaja bukan taken/tentative,
+                // karena kedua warna itu sudah berarti status di keterangan kalender.
+                pop: '#B9FF39',
             },
             boxShadow: {
                 brut: '6px 6px 0 0 #111111',

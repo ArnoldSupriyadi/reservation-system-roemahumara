@@ -35,4 +35,30 @@
     .brut-chip-selected {
         @apply bg-ink text-white;
     }
+
+    /* text-sm (0.875rem) diperbesar 10% menjadi 0.9625rem. */
+    .brut-count {
+        @apply inline-block border-[3px] border-ink bg-pop px-3 py-1
+               text-[0.9625rem] font-black uppercase tracking-wide shadow-brut-sm;
+        animation: brut-blink 1.8s ease-in-out infinite;
+    }
+}
+
+/* Berkedip halus: opasitas naik-turun, bukan hidup-mati. */
+@keyframes brut-blink {
+    0%, 100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.35;
+    }
+}
+
+/* Sebagian orang pusing atau terganggu oleh gerakan berulang, dan sistemnya sudah
+   memberi tahu lewat setelan ini. Kedipannya dihentikan, warnanya tetap. */
+@media (prefers-reduced-motion: reduce) {
+    .brut-count {
+        animation: none;
+    }
 }
