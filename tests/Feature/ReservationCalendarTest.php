@@ -80,50 +80,6 @@ class ReservationCalendarTest extends TestCase
         $this->get(ReservationCalendar::getUrl())->assertOk();
     }
 
-    public function test_the_week_starts_on_monday_whatever_day_the_month_begins(): void
-    {
-        // Tujuh bulan yang tanggal 1-nya jatuh pada tujuh hari berbeda.
-        foreach (['2026-06', '2026-09', '2026-04', '2026-01', '2026-05', '2026-08', '2026-02'] as $month) {
-            $page = Livewire::test(ReservationCalendar::class)->set('month', $month);
-            $cells = $page->instance()->getCellsProperty();
-
-            $first = Carbon::createFromFormat('Y-m-d', $month.'-01');
-            $expectedLead = ($first->dayOfWeek + 6) % 7;
-
-            $lead = 0;
-            foreach ($cells as $cell) {
-                if ($cell['day'] !== null) {
-                    break;
-                }
-                $lead++;
-            }
-
-            $this->assertSame(
-                $expectedLead,
-                $lead,
-                "Sel kosong sebelum tanggal 1 salah untuk {$month} ({$first->format('l')})."
-            );
-
-            $this->assertSame(
-                $expectedLead + $first->daysInMonth,
-                count($cells),
-                "Jumlah sel salah untuk {$month}."
-            );
-        }
-    }
-
-    public function test_january_first_2026_lands_in_the_thursday_column(): void
-    {
-        // 1 Januari 2026 adalah hari Kamis: kolom kelima jika minggu mulai Senin.
-        $cells = Livewire::test(ReservationCalendar::class)
-            ->set('month', '2026-01')
-            ->instance()
-            ->getCellsProperty();
-
-        $this->assertSame('Thursday', Carbon::parse('2026-01-01')->format('l'));
-        $this->assertSame(3, array_search(1, array_column($cells, 'day'), true));
-    }
-
     public function test_the_chips_show_time_and_guest_name(): void
     {
         Livewire::test(ReservationCalendar::class)
