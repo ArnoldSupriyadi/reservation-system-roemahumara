@@ -19,7 +19,7 @@ reservasi contoh. Tidak perlu dump, tidak perlu ekspor.
 | Node.js | 20 atau lebih baru | |
 | Git | | |
 
-MySQL 5.7 di mesin lama datang dari **MAMP**, bukan service Windows. Kalau di mesin
+MySQL di mesin lama datang dari **MAMP**, bukan service Windows. Kalau di mesin
 baru memakai MAMP juga, binary-nya ada di `C:\MAMP\bin\mysql\bin\mysqld.exe`.
 
 ## 2. Langkah
@@ -76,7 +76,7 @@ php artisan serve
 
 - Halaman publik: <http://localhost:8000/>
 - Panel staf: <http://localhost:8000/cms>
-- Masuk dengan `roemahmumara@gmail.com`, sandinya sesuai `INITIAL_USER_PASSWORD`
+- Masuk dengan `roemahumara@gmail.com`, sandinya sesuai `INITIAL_USER_PASSWORD`
   di `.env`
 
 Akun itu dibuat seeder dan berperan `admin`.
@@ -92,7 +92,7 @@ jatuh ke `password` yang jelas terlihat placeholder.
 php artisan test
 ```
 
-Harus 231 test hijau. Kalau hijau, pemindahan berhasil sepenuhnya.
+Harus 262 test hijau. Kalau hijau, pemindahan berhasil sepenuhnya.
 
 ## 5. Hal yang menjebak
 

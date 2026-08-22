@@ -40,7 +40,7 @@ class DatabaseSeeder extends Seeder
     private function createAdmin(): void
     {
         $admin = User::firstOrCreate(
-            ['email' => 'roemahmumara@gmail.com'],
+            ['email' => 'roemahumara@gmail.com'],
             [
                 'name' => 'Admin Roemah Umara',
                 'password' => Hash::make(config('reservation.initial_password')),

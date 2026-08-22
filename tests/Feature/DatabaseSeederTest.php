@@ -45,7 +45,7 @@ class DatabaseSeederTest extends TestCase
     {
         $this->seed();
 
-        $user = User::where('email', 'roemahmumara@gmail.com')->firstOrFail();
+        $user = User::where('email', 'roemahumara@gmail.com')->firstOrFail();
 
         $this->assertSame('Admin Roemah Umara', $user->name);
         $this->assertTrue(Hash::check(config('reservation.initial_password'), $user->password), 'Sandi awal harus mengikuti INITIAL_USER_PASSWORD.');
@@ -64,6 +64,6 @@ class DatabaseSeederTest extends TestCase
         $this->seed();
         $this->seed();
 
-        $this->assertSame(1, User::where('email', 'roemahmumara@gmail.com')->count());
+        $this->assertSame(1, User::where('email', 'roemahumara@gmail.com')->count());
     }
 }
