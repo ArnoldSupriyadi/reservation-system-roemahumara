@@ -1,6 +1,6 @@
 # Runbook Provisioning VPS — Reservation System Roemah Umara
 
-Target: **Ubuntu 22.04 / 24.04 LTS**, stack Nginx + PHP 8.3-FPM + MySQL 8, deploy via GitHub Actions.
+Target: **Ubuntu 22.04 / 24.04 LTS**, stack Nginx + PHP 8.3-FPM + MySQL 8, deploy manual lewat SSH (bagian 12).
 
 Semua perintah dijalankan lewat SSH ke VPS. Ganti setiap `CHANGE_ME`.
 
@@ -106,8 +106,10 @@ opcache.validate_timestamps = 0
 ```
 
 > `opcache.validate_timestamps = 0` berarti PHP **tidak** mengecek perubahan file.
-> Konsekuensinya: setiap deploy WAJIB reload PHP-FPM — dan itu sudah ada di `deploy.sh`.
-> Kalau kamu pernah deploy manual tanpa reload, kode lama akan terus tersaji.
+> Konsekuensinya: setiap deploy WAJIB reload PHP-FPM. Deploy di sini dikerjakan
+> manual, jadi tidak ada yang mengingatkan — lupa reload berarti kode lama terus
+> tersaji padahal file di server sudah baru, dan itu terlihat seperti "deploy
+> saya tidak berpengaruh". Langkahnya ada di bagian 12.
 
 ```bash
 sudo systemctl restart php8.3-fpm
@@ -169,7 +171,8 @@ sudo php8.3 /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=comp
 composer --version
 ```
 
-> Node **tidak perlu diinstall di server**. Build aset dilakukan di GitHub Actions.
+> Node **tidak perlu diinstall di server**. Build aset dilakukan di komputer lokal
+> lalu dikirim lewat rsync — lihat bagian 12a.
 
 ---
 
@@ -278,9 +281,9 @@ sudo crontab -u deployer -e
 
 ---
 
-## 11. Izin sudo terbatas untuk deploy script
+## 11. Izin sudo terbatas untuk deploy
 
-`deploy.sh` perlu `systemctl restart` dan `reload` tanpa prompt password. Beri izin **hanya** untuk dua perintah itu — jangan NOPASSWD untuk semua.
+Langkah deploy di bagian 12 perlu `systemctl restart` dan `reload` tanpa prompt password. Beri izin **hanya** untuk dua perintah itu — jangan NOPASSWD untuk semua.
 
 ```bash
 sudo visudo -f /etc/sudoers.d/deployer-deploy
@@ -303,36 +306,91 @@ sudo chmod 440 /etc/sudoers.d/deployer-deploy
 
 ---
 
-## 12. Hubungkan GitHub Actions
+## 12. Prosedur deploy manual
 
-### 12a. Buat SSH key khusus deploy (di komputer lokal, bukan di server)
+Deploy dikerjakan dengan tangan lewat SSH. Sebelumnya ada `deploy/deploy.sh` yang
+dipanggil GitHub Actions; keduanya dihapus 2026-08-22 karena rilis akan dilakukan
+bertahap dan diawasi. Urutan di bawah adalah isi skrip itu, dipindahkan ke sini
+supaya tidak hilang.
+
+**Urutannya tidak boleh diacak.** Alasan tiap langkah ada di catatan setelahnya.
+
+### 12a. Build aset di komputer lokal, bukan di server
 
 ```bash
-ssh-keygen -t ed25519 -C "github-actions-roemahumara" -f ~/.ssh/roemahumara_deploy -N ""
+composer install --no-dev --prefer-dist --optimize-autoloader
+npm ci
+npm run build
+test -f public/build/manifest.json || echo "BUILD GAGAL — jangan lanjut"
 ```
 
-Salin **public key** ke server:
+> `npm run build` rutin memakai >1 GB RAM. Di VPS kecil ia kena OOM-kill di tengah
+> jalan dan meninggalkan `public/build` rusak — situs hidup tapi tanpa CSS. Build
+> di mesin lokal membuat VPS tidak perlu Node sama sekali.
+
+### 12b. Kirim ke server
 
 ```bash
-ssh-copy-id -i ~/.ssh/roemahumara_deploy.pub deployer@SERVER_IP
+rsync -az --delete \
+  --exclude='.git' --exclude='.github' --exclude='.env' \
+  --exclude='node_modules' --exclude='storage' --exclude='public/storage' \
+  --exclude='bootstrap/cache/*.php' --exclude='tests' --exclude='phpunit.xml' \
+  -e "ssh -p 22" ./ deployer@SERVER_IP:/var/www/roemahumara/
 ```
 
-### 12b. Daftarkan secrets
+> Semua `--exclude` di atas otomatis terlindungi dari `--delete`, karena
+> `--delete-excluded` TIDAK dipakai. Itulah yang menjaga `.env`, `storage/`, dan
+> `public/storage` di server tidak ikut terhapus. Jangan menambahkan
+> `--delete-excluded`.
 
-GitHub → repo → **Settings → Secrets and variables → Actions → New repository secret**:
+### 12c. Aktivasi di server
 
-| Secret | Nilai | Contoh |
-|---|---|---|
-| `SSH_PRIVATE_KEY` | Isi **penuh** `~/.ssh/roemahumara_deploy` (termasuk baris BEGIN/END) | `-----BEGIN OPENSSH...` |
-| `SSH_HOST` | IP atau hostname VPS | `103.xxx.xxx.xxx` |
-| `SSH_USER` | User deploy | `deployer` |
-| `SSH_PORT` | Port SSH | `22` |
-| `DEPLOY_PATH` | Path aplikasi (tanpa trailing slash) | `/var/www/roemahumara` |
-| `APP_URL` | URL untuk smoke test | `https://your-domain.com` |
+```bash
+ssh deployer@SERVER_IP
+cd /var/www/roemahumara
 
-### 12c. Uji
+php8.3 artisan down --render="errors::503" --retry=15
 
-Jalankan manual dulu lewat tab **Actions → Deploy to Production → Run workflow**, jangan langsung push ke `main`.
+php8.3 artisan migrate --force --no-interaction
+
+[ -L public/storage ] || php8.3 artisan storage:link
+
+php8.3 artisan optimize:clear
+php8.3 artisan config:cache
+php8.3 artisan route:cache
+php8.3 artisan view:cache
+php8.3 artisan event:cache
+
+chmod -R ug+rw storage bootstrap/cache
+
+php8.3 artisan queue:restart
+sudo systemctl restart roemahumara-queue
+
+sudo systemctl reload php8.3-fpm
+
+php8.3 artisan up
+```
+
+> **`--force` wajib.** Tanpa itu Laravel menolak `migrate` non-interaktif dan
+> langkahnya diam-diam tidak jalan.
+>
+> **`optimize:clear` harus mendahului `config:cache`.** Kalau dibalik, config lama
+> tetap nyangkut di cache dan perubahan `.env` tidak pernah terbaca.
+>
+> **`reload php8.3-fpm` tidak boleh dilewat**, lihat catatan OPcache di bagian 2.
+>
+> **Kalau ada langkah yang gagal di tengah, situs sedang dalam maintenance mode.**
+> Skrip lama punya `trap` yang otomatis menjalankan `artisan up`; sekarang tidak
+> ada. Jalankan `php8.3 artisan up` sendiri setelah masalahnya diperiksa, jangan
+> tinggalkan situs mati.
+
+### 12d. Smoke test
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' --max-time 20 https://your-domain.com
+```
+
+Harus `200`.
 
 ---
 
@@ -363,9 +421,9 @@ sudo tail -50 /var/log/nginx/roemahumara-error.log
 Deploy ini **bukan** zero-downtime (tidak ada folder `releases/`), jadi rollback = deploy ulang commit lama:
 
 ```bash
-# Opsi A - lewat GitHub: revert commit, push, workflow jalan otomatis.
+# Opsi A - revert commit di git lalu ulangi prosedur deploy bagian 12.
 
-# Opsi B - manual di server (darurat):
+# Opsi B - langsung di server (darurat, lebih cepat):
 cd /var/www/roemahumara
 sudo -u deployer php8.3 artisan down
 sudo -u deployer git checkout <COMMIT_LAMA>
