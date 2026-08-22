@@ -132,6 +132,83 @@ class ReservationsTableTest extends TestCase
     }
 
     /**
+     * Nomor urut baris, terpisah dari nomor reservasi.
+     *
+     * Diperiksa lewat HTML yang benar-benar ter-render, bukan lewat
+     * assertTableColumnFormattedStateSet(): rowIndex() mengambil nilainya dari
+     * rowLoop yang hanya disuntikkan Blade saat merender baris, sehingga helper
+     * itu selalu melihatnya kosong. Kalau kolomnya suatu saat berhenti bekerja,
+     * gejalanya persis sama — kolomnya tetap ada, selnya saja yang kosong — jadi
+     * memeriksa keberadaan kolom tidak akan menangkapnya.
+     */
+    public function test_rows_are_numbered_in_display_order(): void
+    {
+        $this->actingAs($this->admin);
+
+        // defaultSort reservation_date: singleTime (hari ke-7), range (ke-8),
+        // noRemark (ke-9).
+        $this->assertSame(['1', '2', '3'], $this->renderedRowNumbers());
+    }
+
+    /**
+     * Nomor urut mengikuti tampilan, nomor reservasi menempel pada reservasinya.
+     * Membalik urutan membuktikan keduanya memang tidak sama.
+     */
+    public function test_the_row_number_follows_the_sort_while_the_reservation_number_does_not(): void
+    {
+        $this->actingAs($this->admin);
+
+        $html = Livewire::test(ListReservations::class)
+            ->sortTable('reservation_date', 'desc')
+            ->html();
+
+        $baris = $this->rowsFrom($html);
+
+        $this->assertSame('1', $this->cell($baris[0], 1));
+        $this->assertStringContainsString(
+            $this->noRemark->reservation_number,
+            $this->cell($baris[0], 2),
+            'Yang paling akhir tanggalnya jadi baris 1, tapi nomor reservasinya tetap miliknya sendiri.'
+        );
+    }
+
+    /** @return array<int, string> */
+    private function renderedRowNumbers(): array
+    {
+        $html = $this->get('/cms/reservations')->assertOk()->getContent();
+
+        return array_map(fn (string $row) => $this->cell($row, 1), $this->rowsFrom($html));
+    }
+
+    /** @return array<int, string> */
+    private function rowsFrom(string $html): array
+    {
+        preg_match('/<tbody.*?<\/tbody>/s', $html, $tbody);
+        preg_match_all('/<tr[^>]*>(.*?)<\/tr>/s', $tbody[0] ?? '', $rows);
+
+        return $rows[1];
+    }
+
+    /** Sel ke-$n dalam satu baris; indeks 0 adalah sel centang massal. */
+    private function cell(string $row, int $n): string
+    {
+        preg_match_all('/<td[^>]*>(.*?)<\/td>/s', $row, $cells);
+
+        return trim(preg_replace('/\s+/', ' ', strip_tags($cells[1][$n] ?? '')));
+    }
+
+    /** Kedua kolom nomor harus bisa dibedakan di header. */
+    public function test_the_row_number_and_the_reservation_number_are_labelled_apart(): void
+    {
+        $this->actingAs($this->admin);
+
+        $this->get('/cms/reservations')
+            ->assertSee('No.')
+            ->assertSee('No. Reservasi')
+            ->assertSee($this->singleTime->reservation_number);
+    }
+
+    /**
      * Aturan #4 CLAUDE.md: remark selalu ditampilkan penuh. Membandingkan
      * dengan nilai utuh sekaligus membuktikan tidak ada limit() atau words().
      */

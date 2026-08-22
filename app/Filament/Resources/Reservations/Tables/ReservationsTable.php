@@ -43,8 +43,18 @@ class ReservationsTable
              * remark sekarang kolom biasa yang di-wrap, tetap utuh tanpa limit.
              */
             ->columns([
-                TextColumn::make('reservation_number')
+                // Nomor urut baris, bukan nomor reservasi. Ia ikut urutan tampil,
+                // jadi berubah begitu tabel disortir atau difilter — gunanya
+                // menghitung dan menunjuk baris di layar, bukan mengacu reservasi.
+                // Untuk itu ada kolom No. Reservasi di sebelahnya.
+                TextColumn::make('index')
                     ->label('No.')
+                    ->rowIndex()
+                    ->alignEnd()
+                    ->color('gray'),
+
+                TextColumn::make('reservation_number')
+                    ->label('No. Reservasi')
                     ->searchable()
                     ->sortable()
                     ->weight(FontWeight::Bold)
