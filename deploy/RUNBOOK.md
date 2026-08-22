@@ -236,8 +236,22 @@ kedua mengisi master area, jenis acara, dan menu style.
 > **Jangan menjalankan `db:seed` polos di produksi.** Tanpa `--class`, ia ikut
 > membuat akun `test@example.com` berkata sandi `password` yang berperan admin.
 
-Lalu buat akun sungguhan. Perintahnya menanyakan kata sandi secara tersembunyi,
-jadi sandi tidak tertinggal di riwayat shell:
+Untuk sembilan akun staf Roemah Umara, ada seedernya sendiri:
+
+```bash
+sudo -u deployer php8.3 artisan db:seed --class=StaffSeeder --force
+```
+
+> **Sandi awalnya sama untuk semua, yaitu `password`,** dan tertulis di dalam
+> `database/seeders/StaffSeeder.php`. Minta setiap orang menggantinya sebelum
+> sistem dipakai sungguhan. Selama belum diganti, satu orang yang tahu sandinya
+> bisa masuk sebagai siapa saja dan `activity_log` akan menunjuk orang yang
+> keliru. Menjalankan seeder ini lagi tidak mengembalikan sandi yang sudah
+> diganti — ia memakai `firstOrCreate`.
+
+Akun staf tidak bisa menghapus reservasi. Untuk akun admin, buat sendiri —
+perintahnya menanyakan kata sandi secara tersembunyi, jadi sandi tidak
+tertinggal di riwayat shell:
 
 ```bash
 sudo -u deployer php8.3 artisan make:filament-user
