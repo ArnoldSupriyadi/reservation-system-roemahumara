@@ -233,10 +233,12 @@ sudo -u deployer php8.3 artisan db:seed --class=MasterSeeder --force
 Yang pertama membuat role `admin` dan `staff` beserta seluruh permission-nya. Yang
 kedua mengisi master area, jenis acara, dan menu style.
 
-> **Jangan menjalankan `db:seed` polos di produksi.** Tanpa `--class`, ia ikut
-> membuat akun `test@example.com` berkata sandi `password` yang berperan admin.
+> `db:seed` polos juga membuat akun admin `roemahmumara@gmail.com` berkata sandi
+> `password`. Sejak 2026-08-22 itu akun sungguhan, bukan lagi `test@example.com`,
+> jadi menjalankannya di produksi tidak lagi berbahaya — **asal sandinya segera
+> diganti.** Seeder ini aman diulang.
 
-Untuk sembilan akun staf Roemah Umara, ada seedernya sendiri:
+Untuk sepuluh akun staf Roemah Umara, ada seedernya sendiri:
 
 ```bash
 sudo -u deployer php8.3 artisan db:seed --class=StaffSeeder --force

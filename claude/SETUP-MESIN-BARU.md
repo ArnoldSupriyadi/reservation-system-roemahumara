@@ -76,7 +76,7 @@ php artisan serve
 
 - Halaman publik: <http://localhost:8000/>
 - Panel staf: <http://localhost:8000/cms>
-- Masuk dengan `test@example.com` / `password`
+- Masuk dengan `roemahmumara@gmail.com` / `password`
 
 Akun itu dibuat seeder dan berperan `admin`. **Ganti sebelum dipakai sungguhan.**
 

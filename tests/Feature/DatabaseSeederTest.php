@@ -8,6 +8,7 @@ use App\Models\EventType;
 use App\Models\MenuStyle;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -44,9 +45,25 @@ class DatabaseSeederTest extends TestCase
     {
         $this->seed();
 
-        $user = User::where('email', 'test@example.com')->firstOrFail();
+        $user = User::where('email', 'roemahmumara@gmail.com')->firstOrFail();
 
+        $this->assertSame('Admin Roemah Umara', $user->name);
+        $this->assertTrue(Hash::check('password', $user->password), 'Sandi awal tidak cocok.');
+        $this->assertTrue($user->is_active, 'Akun tidak aktif ditolak middleware Filament dengan 403.');
         $this->assertTrue($user->hasRole('admin'));
         $this->assertTrue($user->can(Ability::DeleteReservation->value));
+    }
+
+    /**
+     * db:seed harus aman diulang. Sebelumnya memakai factory()->create() biasa,
+     * sehingga jalan kedua gagal karena email admin unik — dan gagalnya di tengah
+     * jalan, setelah role dan master terlanjur dibuat.
+     */
+    public function test_seeding_twice_neither_fails_nor_duplicates_the_admin(): void
+    {
+        $this->seed();
+        $this->seed();
+
+        $this->assertSame(1, User::where('email', 'roemahmumara@gmail.com')->count());
     }
 }
