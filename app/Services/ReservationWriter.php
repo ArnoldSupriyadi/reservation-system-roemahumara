@@ -30,7 +30,7 @@ class ReservationWriter
 
         try {
             return DB::transaction(function () use ($data, $idempotencyKey, $actor) {
-                $reservation = new Reservation();
+                $reservation = new Reservation;
                 $reservation->fill($data);
                 $reservation->reservation_number = Reservation::NUMBER_PREFIX
                     .$this->sequence->next('reservation');
@@ -67,7 +67,7 @@ class ReservationWriter
                 ->firstOrFail();
 
             if ($fresh->version !== $expectedVersion) {
-                throw new StaleReservationException();
+                throw new StaleReservationException;
             }
 
             $fresh->fill($data);
@@ -94,7 +94,7 @@ class ReservationWriter
             && str_contains($e->getMessage(), $index);
     }
 
-    private function findDuplicate(array $data): ?Reservation
+    public function findDuplicate(array $data, ?int $ignoreId = null): ?Reservation
     {
         // Ketiga klausa sengaja mencerminkan definisi generated column dedupe_key,
         // supaya baris yang ditemukan di sini persis baris yang ditabrak constraint.
@@ -107,6 +107,7 @@ class ReservationWriter
             ->whereDate('reservation_date', $data['reservation_date'])
             ->whereRaw('LOWER(TRIM(guest_name)) = ?', [mb_strtolower(trim($data['guest_name']))])
             ->whereRaw("TIME_FORMAT(start_time, '%H:%i') = ?", [TimeInput::normalize($data['start_time'])])
+            ->when($ignoreId, fn ($q) => $q->whereKeyNot($ignoreId))
             ->first();
     }
 }

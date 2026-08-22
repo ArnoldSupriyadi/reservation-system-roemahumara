@@ -95,10 +95,13 @@ class ReservationForm
                         ->options(fn () => MenuStyle::query()->active()->orderBy('id')->pluck('name', 'id'))
                         ->helperText('Opsional'),
 
+                    // Wajib. Area yang kosong membuat ConflictChecker melewati
+                    // baris ini sepenuhnya, sehingga kewajiban menjelaskan bentrok
+                    // di Remark bisa dihindari hanya dengan tidak mengisi area.
                     Select::make('area_id')
                         ->label('Area')
-                        ->options(fn () => Area::query()->active()->orderBy('id')->pluck('name', 'id'))
-                        ->helperText('Opsional'),
+                        ->required()
+                        ->options(fn () => Area::query()->active()->orderBy('id')->pluck('name', 'id')),
 
                     TextInput::make('pax')
                         ->label('Pax')

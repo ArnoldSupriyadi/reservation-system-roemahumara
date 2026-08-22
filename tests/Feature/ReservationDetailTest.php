@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Filament\Resources\Reservations\Pages\EditReservation;
 use App\Filament\Resources\Reservations\Pages\ViewReservation;
+use App\Models\Area;
 use App\Models\Reservation;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
@@ -24,6 +25,8 @@ class ReservationDetailTest extends TestCase
 
     private User $admin;
 
+    private Area $area;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -33,13 +36,20 @@ class ReservationDetailTest extends TestCase
 
         $this->admin = User::factory()->admin()->create(['name' => 'IRA']);
         $this->actingAs($this->admin);
+
+        $this->area = Area::create(['name' => 'VIP 1']);
     }
 
+    /**
+     * Area diisi karena beberapa test di berkas ini menyimpan lewat form Edit,
+     * dan area wajib sejak 2026-08-22. Factory sendiri masih membiarkannya null.
+     */
     private function reservation(array $overrides = []): Reservation
     {
         return Reservation::factory()->create(array_merge([
             'pic_id' => $this->admin->id,
             'created_by' => $this->admin->id,
+            'area_id' => $this->area->id,
         ], $overrides));
     }
 

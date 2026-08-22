@@ -22,6 +22,8 @@ class ReservationFilamentTest extends TestCase
 
     private User $staff;
 
+    private Area $area;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -35,6 +37,10 @@ class ReservationFilamentTest extends TestCase
         $this->staff = User::factory()->create(['name' => 'IRA']);
         $this->staff->assignRole('staff');
         $this->actingAs($this->staff);
+
+        // Area kini wajib diisi. Dibuat terpisah dari VIP 1 yang dipakai
+        // occupyArea(), supaya form bawaan tidak bentrok dengan sendirinya.
+        $this->area = Area::create(['name' => 'REGULAR']);
     }
 
     private function formData(array $overrides = []): array
@@ -44,6 +50,7 @@ class ReservationFilamentTest extends TestCase
             'guest_name' => 'Bapak Wanda',
             'phone' => '0811-2233-445',
             'pic_id' => $this->staff->id,
+            'area_id' => $this->area->id,
             'start_time' => '12.00',
             'end_time' => null,
             'pax' => 3,
@@ -131,7 +138,7 @@ class ReservationFilamentTest extends TestCase
 
     public function test_edit_increments_version_and_logs_the_change(): void
     {
-        $r = Reservation::factory()->create(['pax' => 5, 'pic_id' => $this->staff->id]);
+        $r = Reservation::factory()->create(['pax' => 5, 'pic_id' => $this->staff->id, 'area_id' => $this->area->id]);
         $before = $r->activities()->count();
 
         Livewire::test(EditReservation::class, ['record' => $r->getKey()])
@@ -149,7 +156,7 @@ class ReservationFilamentTest extends TestCase
 
     public function test_stale_version_is_rejected_and_changes_nothing(): void
     {
-        $r = Reservation::factory()->create(['pax' => 5, 'pic_id' => $this->staff->id]);
+        $r = Reservation::factory()->create(['pax' => 5, 'pic_id' => $this->staff->id, 'area_id' => $this->area->id]);
 
         $page = Livewire::test(EditReservation::class, ['record' => $r->getKey()]);
 
@@ -272,7 +279,11 @@ class ReservationFilamentTest extends TestCase
             ->call('save')
             ->assertHasFormErrors(['remark']);
 
-        $this->assertNull($mine->fresh()->area_id, 'Perubahan tidak boleh tersimpan.');
+        $this->assertSame(
+            $this->area->id,
+            $mine->fresh()->area_id,
+            'Perubahan tidak boleh tersimpan; areanya harus tetap yang semula.'
+        );
 
         Livewire::test(EditReservation::class, ['record' => $mine->getKey()])
             ->fillForm(['area_id' => $area->id, 'remark' => 'Sekat dibuka.'])
@@ -307,18 +318,23 @@ class ReservationFilamentTest extends TestCase
         $this->assertSame(2, Reservation::count());
     }
 
-    public function test_a_reservation_without_an_area_raises_no_warning(): void
+    /**
+     * Jam yang sama di area berbeda bukan bentrok, dan karenanya tidak menuntut
+     * Remark. Menggantikan test lama yang menguji reservasi tanpa area — sejak
+     * area wajib diisi, keadaan itu tidak bisa lagi dicapai lewat form. Sisi
+     * area-kosong pada ConflictChecker tetap diuji di ConflictCheckerTest.
+     */
+    public function test_the_same_hour_in_a_different_area_is_not_a_conflict(): void
     {
-        Reservation::factory()->create([
-            'reservation_date' => '2026-08-07',
-            'start_time' => '12:00:00',
-            'guest_name' => 'Tamu Lebih Dulu',
-        ]);
+        $this->occupyArea();
 
         Livewire::test(CreateReservation::class)
-            ->fillForm($this->formData(['start_time' => '13.00']))
+            ->fillForm($this->formData(['start_time' => '12.00', 'remark' => null]))
             ->call('create')
+            ->assertHasNoFormErrors()
             ->assertNotNotified('Area bentrok');
+
+        $this->assertSame(2, Reservation::count());
     }
 
     /**

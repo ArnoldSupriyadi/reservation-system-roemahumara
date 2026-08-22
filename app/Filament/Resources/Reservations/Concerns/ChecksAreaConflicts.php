@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Reservations\Concerns;
 
 use App\Models\Reservation;
 use App\Services\ConflictChecker;
+use App\Services\ReservationWriter;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
@@ -36,6 +37,16 @@ trait ChecksAreaConflicts
     protected function requireRemarkWhenAreaConflicts(array $data, ?int $ignoreId = null): void
     {
         if (filled($data['remark'] ?? null)) {
+            return;
+        }
+
+        // Duplikat persis — tanggal, nama tamu, dan jam mulai yang sama — juga
+        // terbaca sebagai bentrok area, karena memang menempati area yang sama.
+        // Tapi menyuruh pengguna menulis Remark untuk itu menyesatkan: yang
+        // sebenarnya terjadi adalah reservasinya sudah ada. Diserahkan ke
+        // ReservationWriter supaya pesan duplikatnya yang muncul, lengkap dengan
+        // nama dan tanggalnya.
+        if (app(ReservationWriter::class)->findDuplicate($data, $ignoreId) !== null) {
             return;
         }
 

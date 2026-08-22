@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\Resources\Reservations\Pages\CreateReservation;
+use App\Models\Area;
 use App\Models\Reservation;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
@@ -24,6 +25,8 @@ class ReservationValidationTest extends TestCase
 
     private User $staff;
 
+    private Area $area;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -34,6 +37,8 @@ class ReservationValidationTest extends TestCase
         $this->staff = User::factory()->create(['name' => 'IRA']);
         $this->staff->assignRole('staff');
         $this->actingAs($this->staff);
+
+        $this->area = Area::create(['name' => 'VIP 1']);
     }
 
     private function formData(array $overrides = []): array
@@ -43,6 +48,7 @@ class ReservationValidationTest extends TestCase
             'guest_name' => 'Bapak Wanda',
             'phone' => '0811-2233-445',
             'pic_id' => $this->staff->id,
+            'area_id' => $this->area->id,
             'start_time' => '12.00',
             'end_time' => null,
             'pax' => 3,
@@ -62,6 +68,7 @@ class ReservationValidationTest extends TestCase
             'PIC' => ['pic_id'],
             'jam mulai' => ['start_time'],
             'pax' => ['pax'],
+            'area' => ['area_id'],
         ];
     }
 

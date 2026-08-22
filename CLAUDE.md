@@ -138,11 +138,22 @@ jadi idempotency-nya mencegah data kembar.
     penolakan mentah mendorong staf mengosongkan kolom Area supaya bisa
     menyimpan. Begitu Area kosong, pengecekan bentrok mati total untuk baris itu.
 
+    **Area wajib diisi** justru karena aturan ini: area kosong membuat
+    `ConflictChecker` melewati barisnya sepenuhnya, sehingga kewajiban menjelaskan
+    bentrok bisa dihindari cukup dengan tidak mengisi area. Diwajibkan di form,
+    bukan di kolom database — `area_id` masih nullable, jadi seeder dan tinker
+    tetap bisa menulis null.
+
     Aturannya ada di trait `Concerns\ChecksAreaConflicts`, dipakai bersama Create
     dan Edit. **Jangan menyalinnya kembali ke masing-masing halaman** — salinan
     seperti itu berangsur berbeda dan menghasilkan larangan yang berlaku saat
     membuat tapi tidak saat mengubah. Pemeriksaannya berjalan **sebelum**
     penulisan; `warnAboutConflicts()` sesudahnya.
+
+    Duplikat persis dikecualikan: ia juga terbaca sebagai bentrok area, tapi
+    pesan "sudah ada reservasi atas nama X" lebih menolong daripada "isi Remark".
+    Penjaga ini memanggil `ReservationWriter::findDuplicate()` lalu menyingkir —
+    jangan menyalin ulang logika dedupe-nya ke tempat ketiga.
 
 13. **Selesai create atau edit, kembali ke index.** Disetel sekali di
     `CmsPanelProvider` lewat `->resourceCreatePageRedirect('index')` dan
