@@ -19,6 +19,15 @@
 /storage/*.key
 /storage/pail
 /vendor
+
+# Berkas SQLite yang terbentuk kalau DB_CONNECTION di .env keliru diisi sqlite:
+# Laravel memperlakukan DB_DATABASE sebagai nama berkas, lalu membuatnya di root
+# proyek. Proyek ini wajib MySQL (aturan #1 CLAUDE.md), jadi berkas semacam ini
+# selalu kecelakaan dan tidak boleh sampai ter-commit.
+/ru_reservation
+/*.sqlite
+/*.sqlite3
+/database/*.sqlite
 Homestead.json
 Homestead.yaml
 Thumbs.db
