@@ -1,6 +1,6 @@
 # Runbook Provisioning VPS — Reservation System Roemah Umara
 
-Target: **Ubuntu 22.04 / 24.04 LTS**, stack Nginx + PHP 8.3-FPM + MySQL 8.
+Target: **Ubuntu 24.04 LTS** (diuji di 24.04.4), stack Nginx + PHP 8.3-FPM + MySQL 8. Ubuntu 22.04 juga jalan, dengan satu langkah tambahan di bagian 2.
 
 Deploy berjalan otomatis setiap push ke `main` lewat self-hosted GitHub Actions
 runner yang dipasang di VPS (bagian 12). Prosedur manualnya tetap ada di bagian
@@ -101,13 +101,28 @@ sudo systemctl restart ssh
 
 ## 2. Install PHP 8.3
 
-Ubuntu 22.04 default-nya PHP 8.1 — terlalu tua untuk Laravel 12 (`php: ^8.2`). Pakai PPA ondrej.
+**Periksa dulu — di Ubuntu 24.04 tidak perlu menambah repositori apa pun.**
 
 ```bash
+lsb_release -ds
+apt-cache policy php8.3-fpm
+```
+
+- **Ubuntu 24.04** — PHP 8.3 sudah ada di repositori bawaan (`Candidate: 8.3.x`).
+  **Lewati blok PPA di bawah**, langsung ke `apt install`.
+- **Ubuntu 22.04** — bawaannya PHP 8.1, terlalu tua untuk Laravel 12
+  (`php: ^8.2`). `Candidate: (none)` menandakan itu; tambahkan PPA ondrej dulu.
+
+```bash
+# HANYA untuk Ubuntu 22.04
 sudo apt install -y software-properties-common
 sudo add-apt-repository -y ppa:ondrej/php
 sudo apt update
+```
 
+Pemasangan, sama untuk kedua versi:
+
+```bash
 sudo apt install -y \
   php8.3-fpm php8.3-cli php8.3-mysql php8.3-mbstring php8.3-xml \
   php8.3-curl php8.3-zip php8.3-bcmath php8.3-gd php8.3-intl
