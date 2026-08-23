@@ -33,7 +33,7 @@ class MasterSeederTest extends TestCase
 
         $this->assertSame(
             [
-                'VIP 1', 'VIP 2', 'FOYER FnB', 'KORIDOR', 'SOFA REGULAR', 'REGULAR', 'OUTDOOR',
+                'VIP 1', 'VIP 2', 'FOYER', 'KORIDOR', 'SOFA REGULAR', 'REGULAR', 'OUTDOOR',
                 'BALLROOM 1', 'BALLROOM 2', 'BALLROOM 3', 'BALLROOM 4', 'ALL BALLROOM',
             ],
             Area::orderBy('id')->pluck('name')->all()

@@ -6,6 +6,7 @@ use App\Enums\ReservationStatus;
 use App\Models\Area;
 use App\Models\EventType;
 use App\Models\User;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -173,6 +174,16 @@ class ReservationsTable
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),
+
+                // Dibuka di tab baru, bukan mengganti halaman: staf biasanya
+                // mencetak beberapa reservasi berturut-turut dan tidak perlu
+                // kembali ke daftar tiap kali.
+                Action::make('pdf')
+                    ->label('PDF')
+                    ->icon('heroicon-m-printer')
+                    ->color('gray')
+                    ->url(fn ($record) => route('filament.cms.reservations.pdf', $record))
+                    ->openUrlInNewTab(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

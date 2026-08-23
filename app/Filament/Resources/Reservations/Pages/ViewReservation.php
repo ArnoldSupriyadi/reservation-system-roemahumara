@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Reservations\Pages;
 
 use App\Filament\Resources\Reservations\ReservationResource;
+use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
@@ -20,6 +21,13 @@ class ViewReservation extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('pdf')
+                ->label('Cetak PDF')
+                ->icon('heroicon-m-printer')
+                ->color('gray')
+                ->url(fn () => route('filament.cms.reservations.pdf', $this->getRecord()))
+                ->openUrlInNewTab(),
+
             EditAction::make(),
             DeleteAction::make(),
         ];

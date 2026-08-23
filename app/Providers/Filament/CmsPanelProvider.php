@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Http\Controllers\ReservationPdfController;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -17,6 +18,7 @@ use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class CmsPanelProvider extends PanelProvider
@@ -65,6 +67,17 @@ class CmsPanelProvider extends PanelProvider
                 AccountWidget::class,
                 FilamentInfoWidget::class,
             ])
+            /*
+             * Dokumen cetak reservasi. Di dalam panel, bukan di routes/web.php,
+             * supaya ikut middleware dan pengalihan login milik panel — dengan
+             * middleware 'auth' biasa, tamu yang membuka URL-nya mendapat 500
+             * karena Laravel mencari route bernama 'login' yang tidak ada di
+             * sini. Kewenangan per baris tetap diperiksa policy di controllernya.
+             */
+            ->authenticatedRoutes(fn () => Route::get(
+                'reservations/{reservation}/pdf',
+                ReservationPdfController::class
+            )->name('reservations.pdf'))
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

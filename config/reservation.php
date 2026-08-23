@@ -22,4 +22,17 @@ return [
      */
     'initial_password' => env('INITIAL_USER_PASSWORD', 'password'),
 
+    /*
+     * Identitas venue untuk kop dokumen cetak.
+     *
+     * Di sini, bukan di dalam Blade: alamat berubah lebih sering daripada tata
+     * letak dokumennya, dan mengubahnya seharusnya tidak menuntut menyentuh
+     * berkas tampilan.
+     */
+    'venue' => [
+        'name' => 'Roemah Umara Reservation',
+        'address' => 'Jl. RC. Veteran Raya No.Lot 51, RT.4/RW.12, Bintaro, '
+            .'Pesanggrahan, Jakarta Selatan, 12330',
+    ],
+
 ];
