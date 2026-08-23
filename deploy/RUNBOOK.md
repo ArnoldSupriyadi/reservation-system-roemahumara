@@ -37,6 +37,10 @@ Konvensi yang dipakai di semua file config:
 
 ---
 
+> **Sudah sampai mana?** Statusnya dicatat di [CHECKPOINT.md](CHECKPOINT.md),
+> bukan di berkas ini. Perbarui berkas itu setiap kali satu bagian selesai —
+> ia yang memungkinkan pemasangan dilanjutkan dari laptop lain.
+
 ## 0. Prasyarat
 
 - Akses root/sudo ke VPS
