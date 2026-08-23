@@ -44,7 +44,7 @@ Konvensi yang dipakai di semua file config:
   ```bash
   ping -c 2 192.168.88.33
   ```
-- Domain **belum diperlukan**. Baru dibutuhkan saat menyiapkan HTTPS (bagian 8).
+- Domain `reservation.roemahumara.com` **belum diperlukan sekarang**. Baru dibutuhkan saat menyiapkan HTTPS (bagian 8).
 - RAM minimal 2 GB. Di bawah itu MySQL 8 + PHP-FPM akan sesak. Kalau hanya 1 GB, tambahkan swap (langkah 1c).
 
 ---
@@ -346,17 +346,21 @@ lokal, aksesnya `http://192.168.88.33`.
 Kerjakan langkah di bawah **hanya** setelah domain diarahkan ke IP publik VPS:
 
 ```bash
-# 1. Pastikan DNS sudah propagasi — Certbot gagal kalau belum
-dig +short domain-anda.com
+# 1. Pastikan DNS sudah propagasi — Certbot gagal kalau belum.
+#    Hasilnya harus IP PUBLIK VPS, bukan 192.168.88.33.
+dig +short reservation.roemahumara.com
 
-# 2. Ganti server_name di server block dari IP ke domain
-sudo sed -i 's/192.168.88.33/domain-anda.com/' /etc/nginx/sites-available/roemahumara
+# 2. server_name TIDAK perlu diubah — sudah memuat domain ini sejak awal.
+#    Cukup pastikan konfigurasinya masih sah:
 sudo nginx -t && sudo systemctl reload nginx
 
 # 3. Terbitkan sertifikat
 sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d domain-anda.com -d www.domain-anda.com
+sudo certbot --nginx -d reservation.roemahumara.com
 ```
+
+> Tanpa `-d www.` — ini subdomain, dan `www.reservation.roemahumara.com` tidak
+> lazim dipakai. Menambahkannya membuat Certbot gagal kalau DNS-nya tidak ada.
 
 Setelah HTTPS aktif, **tiga hal wajib ikut diubah**:
 
@@ -366,7 +370,7 @@ sudo -u deployer nano .env
 ```
 
 ```dotenv
-APP_URL=https://domain-anda.com
+APP_URL=https://reservation.roemahumara.com
 SESSION_SECURE_COOKIE=true
 ```
 
@@ -507,7 +511,7 @@ sudo chmod -R 2775 /var/www/roemahumara
 
 | Secret | Nilai | Keterangan |
 |---|---|---|
-| `APP_URL` | `http://192.168.88.33` | Dipakai smoke test di akhir deploy. Ganti ke `https://domain-anda.com` setelah HTTPS aktif |
+| `APP_URL` | `http://192.168.88.33` | Dipakai smoke test di akhir deploy. Ganti ke `https://reservation.roemahumara.com` setelah HTTPS aktif |
 
 Hanya satu. Kredensial SSH tidak diperlukan sama sekali — runner sudah berada di
 dalam server.
