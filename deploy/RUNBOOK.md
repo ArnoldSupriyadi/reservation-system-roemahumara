@@ -423,6 +423,29 @@ sudo nginx -t && sudo systemctl reload nginx
 
 Cek lewat `http://192.168.88.33` dari komputer di jaringan yang sama.
 
+### Aset Vite belum ada — itu wajar di titik ini
+
+`public/build` **tidak ikut repositori** (ada di `.gitignore`), dan Node sengaja
+tidak dipasang di server. Sesudah clone, direktori itu belum ada, sehingga:
+
+- `/cms/login` **jalan normal** — Filament memasang asetnya sendiri ke
+  `public/css/filament` dan `public/js/filament` lewat `filament:upgrade` yang
+  berjalan otomatis pada `composer install`.
+- `/` (kalender publik) **gagal** dengan `Vite manifest not found` — halaman itu
+  memakai `@vite(['resources/css/app.css'])`.
+
+Jadi uji bagian ini lewat `/cms/login`, bukan `/`. Aset publik terisi begitu
+deploy pertama berjalan (bagian 12), karena di sanalah `npm run build`
+dijalankan oleh GitHub Actions lalu hasilnya dikirim ke server.
+
+Kalau ingin mengujinya lebih awal tanpa menunggu CI, bangun di komputer lokal
+lalu salin:
+
+```bash
+npm ci && npm run build
+rsync -avz --delete public/build/ ictumara@192.168.88.33:/var/www/roemahumara/public/build/
+```
+
 ---
 
 ## 8. SSL dengan Let's Encrypt — **nanti, saat domain siap**
