@@ -422,6 +422,107 @@ class ReservationsTableTest extends TestCase
         )));
     }
 
+    // ---------------------------------------------------------------------
+    // Filter bulan dan rentang tanggal. Diuji dari tab Semua, karena tab bulan
+    // di atas tabel menyaring lebih dulu dan akan menutupi hasilnya.
+    // ---------------------------------------------------------------------
+
+    /** Reservasi jauh di depan, di luar jendela tab. */
+    private function jauhDiDepan(): Reservation
+    {
+        return Reservation::factory()->create([
+            'reservation_date' => Carbon::now()->startOfMonth()->addMonths(8)->addDays(4),
+            'guest_name' => 'PESAN JAUH HARI',
+            'pic_id' => $this->admin->id,
+            'created_by' => $this->admin->id,
+        ]);
+    }
+
+    public function test_the_month_filter_narrows_to_one_month(): void
+    {
+        $this->actingAs($this->admin);
+        $jauh = $this->jauhDiDepan();
+
+        Livewire::test(ListReservations::class)
+            ->set('activeTab', 'all')
+            ->filterTable('bulan', ['bulan' => $jauh->reservation_date->format('Y-m')])
+            ->assertCanSeeTableRecords([$jauh])
+            ->assertCanNotSeeTableRecords([$this->singleTime, $this->range, $this->noRemark]);
+    }
+
+    /**
+     * Daftar bulannya dibangun dari data, bukan rentang tetap — itu yang membuat
+     * reservasi di luar jendela tab tetap punya jalan masuk sendiri.
+     */
+    public function test_the_month_options_include_months_outside_the_tab_window(): void
+    {
+        $this->actingAs($this->admin);
+        $jauh = $this->jauhDiDepan();
+
+        $html = $this->get('/cms/reservations')->assertOk()->getContent();
+
+        $this->assertStringContainsString(
+            $jauh->reservation_date->translatedFormat('F Y'),
+            $html,
+            'Bulan di luar jendela tab harus tetap bisa dipilih di filter.'
+        );
+    }
+
+    public function test_the_date_range_filter_narrows_between_two_dates(): void
+    {
+        $this->actingAs($this->admin);
+
+        Livewire::test(ListReservations::class)
+            ->set('activeTab', 'all')
+            ->filterTable('rentang_tanggal', [
+                'dari' => $this->range->reservation_date->toDateString(),
+                'sampai' => $this->range->reservation_date->toDateString(),
+            ])
+            ->assertCanSeeTableRecords([$this->range])
+            ->assertCanNotSeeTableRecords([$this->singleTime, $this->noRemark]);
+    }
+
+    /** Satu ujung saja sudah menyaring; tidak perlu mengisi keduanya. */
+    public function test_only_the_start_date_is_enough(): void
+    {
+        $this->actingAs($this->admin);
+
+        Livewire::test(ListReservations::class)
+            ->set('activeTab', 'all')
+            ->filterTable('rentang_tanggal', ['dari' => $this->noRemark->reservation_date->toDateString()])
+            ->assertCanSeeTableRecords([$this->noRemark])
+            ->assertCanNotSeeTableRecords([$this->singleTime, $this->range]);
+    }
+
+    public function test_only_the_end_date_is_enough(): void
+    {
+        $this->actingAs($this->admin);
+
+        Livewire::test(ListReservations::class)
+            ->set('activeTab', 'all')
+            ->filterTable('rentang_tanggal', ['sampai' => $this->singleTime->reservation_date->toDateString()])
+            ->assertCanSeeTableRecords([$this->singleTime])
+            ->assertCanNotSeeTableRecords([$this->range, $this->noRemark]);
+    }
+
+    /**
+     * Filter tanggal yang aktif harus terlihat sebagai indikator. Tanpa itu,
+     * tabel kosong terbaca sebagai "tidak ada data" — bukan "sedang tersaring" —
+     * dan pengguna mengira datanya hilang.
+     */
+    public function test_an_active_date_filter_is_visible_on_screen(): void
+    {
+        $this->actingAs($this->admin);
+
+        $html = Livewire::test(ListReservations::class)
+            ->set('activeTab', 'all')
+            ->filterTable('rentang_tanggal', ['dari' => '2026-12-01', 'sampai' => '2026-12-31'])
+            ->html();
+
+        $this->assertStringContainsString('Dari 01 Des 2026', $html);
+        $this->assertStringContainsString('Sampai 31 Des 2026', $html);
+    }
+
     public function test_staff_is_not_offered_bulk_delete_but_admin_is(): void
     {
         $staff = User::factory()->create();

@@ -5,19 +5,24 @@ namespace App\Filament\Resources\Reservations\Tables;
 use App\Enums\ReservationStatus;
 use App\Models\Area;
 use App\Models\EventType;
+use App\Models\Reservation;
 use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
 use Filament\Support\Enums\FontFamily;
 use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\Indicator;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 
 class ReservationsTable
 {
@@ -162,6 +167,76 @@ class ReservationsTable
                     ->query(fn (Builder $query) => $query->whereNull('status'))
                     ->toggle(),
 
+                /*
+                 * Filter bulan dan rentang tanggal.
+                 *
+                 * Keduanya BERTUMPUK dengan tab bulan di atas tabel — tab
+                 * menyaring lebih dulu, filter mempersempit di dalamnya. Memilih
+                 * bulan yang berbeda dari tab yang aktif menghasilkan tabel
+                 * kosong tanpa menjelaskan kenapa, jadi filter bulan memakai
+                 * Filter berskema sendiri alih-alih SelectFilter: hanya bentuk
+                 * itu yang bisa membawa helperText untuk menyebutkan tab Semua.
+                 */
+                Filter::make('bulan')
+                    ->label('Bulan')
+                    ->schema([
+                        Select::make('bulan')
+                            ->label('Bulan')
+                            ->searchable()
+                            ->placeholder('Semua bulan')
+                            ->options(fn () => self::monthOptions())
+                            ->helperText('Bertumpuk dengan tab di atas tabel. Untuk mencari di luar tab, pilih tab Semua dulu.'),
+                    ])
+                    ->query(fn (Builder $query, array $data) => $query->when(
+                        $data['bulan'] ?? null,
+                        fn (Builder $q, string $bulan) => $q->whereRaw(
+                            "DATE_FORMAT(reservation_date, '%Y-%m') = ?",
+                            [$bulan]
+                        )
+                    ))
+                    ->indicateUsing(fn (array $data): array => filled($data['bulan'] ?? null)
+                        ? [Indicator::make(Carbon::createFromFormat('Y-m', $data['bulan'])->translatedFormat('F Y'))->removeField('bulan')]
+                        : []),
+
+                Filter::make('rentang_tanggal')
+                    ->label('Rentang tanggal')
+                    ->schema([
+                        DatePicker::make('dari')
+                            ->label('Dari tanggal')
+                            ->native(false)
+                            ->displayFormat('d/m/Y')
+                            ->helperText('Boleh diisi salah satu saja.'),
+
+                        DatePicker::make('sampai')
+                            ->label('Sampai tanggal')
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
+                    ])
+                    // Kedua ujungnya berdiri sendiri: mengisi salah satu saja
+                    // tetap menyaring, sehingga "sejak 1 Desember" atau "sampai
+                    // akhir tahun" bisa dinyatakan tanpa memaksa mengisi keduanya.
+                    ->query(fn (Builder $query, array $data) => $query
+                        ->when($data['dari'] ?? null, fn (Builder $q, $dari) => $q->whereDate('reservation_date', '>=', $dari))
+                        ->when($data['sampai'] ?? null, fn (Builder $q, $sampai) => $q->whereDate('reservation_date', '<=', $sampai)))
+                    // Tanpa indikator, filter tanggal yang masih aktif tidak
+                    // terlihat di layar dan tabel yang kosong terbaca sebagai
+                    // "tidak ada data" — bukan "sedang tersaring".
+                    ->indicateUsing(function (array $data): array {
+                        $tanda = [];
+
+                        if (filled($data['dari'] ?? null)) {
+                            $tanda[] = Indicator::make('Dari '.Carbon::parse($data['dari'])->translatedFormat('d M Y'))
+                                ->removeField('dari');
+                        }
+
+                        if (filled($data['sampai'] ?? null)) {
+                            $tanda[] = Indicator::make('Sampai '.Carbon::parse($data['sampai'])->translatedFormat('d M Y'))
+                                ->removeField('sampai');
+                        }
+
+                        return $tanda;
+                    }),
+
                 Filter::make('hide_cancelled')
                     ->label('Sembunyikan yang batal')
                     ->query(fn (Builder $query) => $query->where(
@@ -192,6 +267,30 @@ class ReservationsTable
             ])
             ->emptyStateHeading('Belum ada reservasi')
             ->emptyStateDescription('Tekan tombol tambah untuk mencatat reservasi pertama.');
+    }
+
+    /**
+     * Bulan yang BENAR-BENAR punya reservasi, bukan rentang tetap.
+     *
+     * Tab di atas tabel hanya mencakup tiga bulan ke belakang sampai tiga ke
+     * depan. Reservasi yang dipesan jauh hari — pernikahan biasanya enam bulan
+     * sampai setahun di muka — jatuh di luar jendela itu dan hanya bisa dicapai
+     * lewat tab Semua. Daftar ini dibangun dari data, jadi bulan seperti itu
+     * selalu punya jalan masuk sendiri.
+     *
+     * @return array<string, string>
+     */
+    private static function monthOptions(): array
+    {
+        return Reservation::query()
+            ->selectRaw("DATE_FORMAT(reservation_date, '%Y-%m') AS bulan")
+            ->distinct()
+            ->orderByDesc('bulan')
+            ->pluck('bulan')
+            ->mapWithKeys(fn (string $bulan) => [
+                $bulan => Carbon::createFromFormat('Y-m', $bulan)->translatedFormat('F Y'),
+            ])
+            ->all();
     }
 
     private static function timeRange($record): string
