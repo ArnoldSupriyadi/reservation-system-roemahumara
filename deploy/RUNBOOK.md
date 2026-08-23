@@ -260,63 +260,47 @@ di bawah, `/cms/login` terbuka tapi tidak ada satu pun akun yang bisa masuk, dan
 form reservasi tidak punya pilihan area maupun jenis acara. Anda terkunci di luar
 sistem sendiri.
 
-```bash
-sudo -u deployer php8.3 artisan db:seed --class=RolePermissionSeeder --force
-sudo -u deployer php8.3 artisan db:seed --class=MasterSeeder --force
-```
+> **Setel `INITIAL_USER_PASSWORD` di `.env` LEBIH DULU.** Sandi awal semua akun
+> diambil dari sana. Kalau belum disetel, sandinya jatuh ke `password` — dan
+> karena seeder memakai `firstOrCreate`, membetulkan `.env` sesudahnya TIDAK
+> memperbaiki akun yang terlanjur dibuat.
 
-Yang pertama membuat role `admin` dan `staff` beserta seluruh permission-nya. Yang
-kedua mengisi master area, jenis acara, dan seluruh daftar menu (137 hidangan dalam 24 kategori).
-
-> `db:seed` polos juga membuat akun admin `roemahumara@gmail.com`. Sejak
-> 2026-08-22 itu akun sungguhan, bukan lagi `test@example.com`, jadi
-> menjalankannya di produksi memang diperlukan. Seeder ini aman diulang.
->
-> **Setel `INITIAL_USER_PASSWORD` di `.env` server SEBELUM menjalankannya.**
-> Sandi awal semua akun diambil dari sana. Kalau belum disetel, sandinya jatuh ke
-> `password` — dan karena seeder memakai `firstOrCreate`, menjalankannya lagi
-> setelah `.env` dibetulkan TIDAK akan memperbaiki sandi yang terlanjur dibuat.
-
-Untuk sepuluh akun staf Roemah Umara, ada seedernya sendiri:
+Dua perintah, itu saja:
 
 ```bash
+cd /var/www/roemahumara
+
+# Role, permission, master (area, jenis acara, 137 menu), dan akun admin
+sudo -u deployer php8.3 artisan db:seed --force
+
+# Sepuluh akun staf
 sudo -u deployer php8.3 artisan db:seed --class=StaffSeeder --force
 ```
 
-> **Sandi awalnya sama untuk semua**, diambil dari `INITIAL_USER_PASSWORD` di
-> `.env`. Nilainya tidak ada di dalam kode — repositori ini publik. Minta setiap
-> orang menggantinya setelah masuk pertama kali. Selama belum diganti, satu orang
-> yang tahu sandinya bisa masuk sebagai siapa saja dan `activity_log` akan
-> menunjuk orang yang keliru. Menjalankan seeder ini lagi tidak mengembalikan
-> sandi yang sudah diganti — ia memakai `firstOrCreate`.
+`db:seed` polos sudah membuat akun admin **`roemahumara@gmail.com`** sekaligus
+memberinya role dan membersihkan cache permission. Tidak perlu
+`make:filament-user` — itu hanya diperlukan kalau kelak ingin menambah admin
+kedua, dan perintah itu **tidak memberi role sama sekali** sehingga akunnya bisa
+masuk tapi setiap tombol tertutup.
 
-Akun staf tidak bisa menghapus reservasi. Untuk akun admin, buat sendiri —
-perintahnya menanyakan kata sandi secara tersembunyi, jadi sandi tidak
-tertinggal di riwayat shell:
+Kedua seeder aman diulang.
 
-```bash
-sudo -u deployer php8.3 artisan make:filament-user
-```
-
-**Akun itu belum bisa apa-apa.** `make:filament-user` tidak memberi role, dan
-seluruh policy di sistem ini memeriksa kemampuan lewat role — tanpa role, pengguna
-bisa masuk tapi setiap tombol tertutup. Beri role admin, lalu bersihkan cache
-permission (aturan #8 CLAUDE.md):
-
-```bash
-sudo -u deployer php8.3 artisan tinker --execute="App\Models\User::where('email','EMAIL_KAMU')->firstOrFail()->assignRole('admin');"
-sudo -u deployer php8.3 artisan permission:cache-reset
-```
+> **Sandi awalnya sama untuk sebelas akun.** Minta setiap orang menggantinya
+> setelah masuk pertama kali. Selama belum diganti, satu orang yang tahu sandinya
+> bisa masuk sebagai siapa saja dan `activity_log` akan menunjuk orang yang
+> keliru.
 
 Uji sebelum lanjut — harus mencetak `true`:
 
 ```bash
-sudo -u deployer php8.3 artisan tinker --execute="echo var_export(App\Models\User::where('email','EMAIL_KAMU')->firstOrFail()->can('reservation.delete'), true);"
+sudo -u deployer php8.3 artisan tinker --execute="echo var_export(App\Models\User::where('email','roemahumara@gmail.com')->firstOrFail()->can('reservation.delete'), true);"
 ```
 
-> Kolom `is_active` bernilai `true` secara bawaan, jadi tidak perlu disetel manual.
-> Kalau suatu saat akun dinonaktifkan, ia ditolak middleware Filament dengan 403 —
-> bukan pesan "sandi salah", jadi jangan tertukar.
+Kalau hasilnya `false`, rolenya belum terbaca:
+
+```bash
+sudo -u deployer php8.3 artisan permission:cache-reset
+```
 
 ---
 
