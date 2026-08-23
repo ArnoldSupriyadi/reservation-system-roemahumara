@@ -21,10 +21,37 @@
     <meta charset="utf-8">
     <title>{{ $reservation->reservation_number }} — {{ $reservation->guest_name }}</title>
     <style>
-        /* DejaVu Sans: satu-satunya keluarga bawaan dompdf yang memuat huruf
-           beraksen. Tanpa ini "Papardelle Al Ragù" dan em dash tercetak sebagai
-           kotak kosong. */
-        * { font-family: "DejaVu Sans", sans-serif; }
+        /*
+           Nunito, disediakan sebagai berkas TTF di public/fonts.
+
+           dompdf hanya membawa keluarga DejaVu; font lain harus didaftarkan
+           sendiri lewat @font-face dengan path lokal — bukan URL Google Fonts,
+           yang menuntut akses jaringan saat PDF dibuat dan gagal diam-diam di
+           server tanpa internet keluar.
+
+           Dipakai versi STATIK, bukan Nunito[wght].ttf yang variabel: dompdf
+           tidak mengenali sumbu berat, sehingga font variabel membuat seluruh
+           teks tercetak pada satu bobot dan yang tebal tidak pernah tebal.
+
+           Kedua berkas sudah diperiksa memuat em dash dan huruf beraksen —
+           tanpa itu "Papardelle Al Ragù" dan tanda — tercetak sebagai kotak
+           kosong, dan itu baru ketahuan setelah PDF dibuka.
+        */
+        @font-face {
+            font-family: "Nunito";
+            font-weight: 400;
+            font-style: normal;
+            src: url("{{ public_path('fonts/Nunito-Regular.ttf') }}") format("truetype");
+        }
+
+        @font-face {
+            font-family: "Nunito";
+            font-weight: 700;
+            font-style: normal;
+            src: url("{{ public_path('fonts/Nunito-Bold.ttf') }}") format("truetype");
+        }
+
+        * { font-family: "Nunito", "DejaVu Sans", sans-serif; }
 
         body { margin: 0; color: #111; font-size: 10pt; line-height: 1.45; }
 
@@ -72,7 +99,15 @@
                  ROEMAH UMARA, jadi teks di bawahnya hanya mengulang. Dinaikkan
                  tingginya karena kini ia satu-satunya penanda identitas di kop. --}}
             @if (file_exists(public_path('img/logo-gold.png')))
-                <img src="{{ public_path('img/logo-gold.png') }}" alt="Roemah Umara" height="52">
+                {{-- display:block + margin-bottom, bukan margin saja: img bawaannya
+                     inline, dan margin bawah pada elemen inline diabaikan dompdf
+                     sehingga logonya tetap menempel ke garis kop. --}}
+                <img
+                    src="{{ public_path('img/logo-gold.png') }}"
+                    alt="Roemah Umara"
+                    height="52"
+                    style="display: block; margin-bottom: 10px;"
+                >
             @endif
         </td>
         <td class="kanan">{{ $venue['address'] }}</td>

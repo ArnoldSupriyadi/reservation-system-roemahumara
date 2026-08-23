@@ -168,6 +168,69 @@ class ReservationPdfTest extends TestCase
         $this->assertStringContainsString('Tidak ada menu dipesan.', $this->html());
     }
 
+    /**
+     * Font Nunito harus benar-benar tersedia sebagai berkas.
+     *
+     * dompdf hanya membawa keluarga DejaVu. Kalau berkas TTF-nya hilang, ia
+     * TIDAK melempar galat — ia diam-diam jatuh ke font cadangan, dan dokumen
+     * tetap terbit dengan huruf yang salah. Hanya mata yang menangkapnya.
+     */
+    public function test_the_nunito_font_files_are_present(): void
+    {
+        foreach (['Nunito-Regular.ttf', 'Nunito-Bold.ttf'] as $berkas) {
+            $path = public_path('fonts/'.$berkas);
+
+            $this->assertFileExists($path);
+            $this->assertGreaterThan(50_000, filesize($path), "{$berkas} tampak bukan font utuh.");
+            $this->assertSame("\x00\x01\x00\x00", substr(file_get_contents($path), 0, 4), "{$berkas} bukan berkas TrueType.");
+        }
+    }
+
+    public function test_the_document_declares_nunito(): void
+    {
+        $html = $this->html();
+
+        $this->assertStringContainsString('font-family: "Nunito"', $html);
+        $this->assertStringContainsString('fonts/Nunito-Regular.ttf', $html);
+        $this->assertStringContainsString('fonts/Nunito-Bold.ttf', $html);
+
+        // Bukan URL Google Fonts: itu menuntut jaringan saat PDF dibuat dan
+        // gagal diam-diam di server tanpa internet keluar.
+        $this->assertStringNotContainsString('fonts.googleapis.com', $html);
+        $this->assertStringNotContainsString('fonts.gstatic.com', $html);
+    }
+
+    /**
+     * dompdf menulis font olahannya ke storage/fonts. Kalau direktorinya tidak
+     * ada, pembuatan PDF gagal dengan TypeError dari fwrite() — galat yang tidak
+     * menyebut direktori sama sekali.
+     */
+    public function test_the_font_cache_directory_exists_and_is_writable(): void
+    {
+        $this->assertDirectoryExists(storage_path('fonts'));
+        $this->assertDirectoryIsWritable(storage_path('fonts'));
+    }
+
+    /** Huruf beraksen dan em dash harus utuh, bukan kotak kosong. */
+    public function test_accented_names_and_dashes_survive(): void
+    {
+        $pasta = Menu::create([
+            'name' => 'Papardelle Al Ragù',
+            'menu_category_id' => MenuCategory::create(['name' => 'Pasta'])->id,
+        ]);
+
+        $this->reservation->menus()->sync([
+            $pasta->id => ['pax' => 12, 'remark' => 'tanpa keju — saus dipisah'],
+        ]);
+
+        $html = $this->html();
+
+        $this->assertStringContainsString('Papardelle Al Ragù', $html);
+        $this->assertStringContainsString('tanpa keju — saus dipisah', $html);
+
+        $this->actingAs($this->staff)->get($this->url())->assertOk();
+    }
+
     /** Aturan #4 CLAUDE.md: remark tampil penuh, juga di kertas. */
     public function test_a_long_remark_is_not_truncated(): void
     {

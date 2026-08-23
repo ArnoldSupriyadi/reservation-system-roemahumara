@@ -210,6 +210,11 @@ sudo chown -R deployer:www-data storage bootstrap/cache
 sudo chmod -R 775 storage bootstrap/cache
 ```
 
+> Termasuk `storage/fonts`, yang dipakai dompdf untuk menyimpan font olahan saat
+> membuat PDF reservasi. Direktorinya ikut repositori, tapi kalau tidak bisa
+> ditulis, pembuatan PDF gagal dengan `TypeError` dari `fwrite()` — pesan yang
+> tidak menyebut direktori sama sekali.
+
 ### Migrasi awal
 
 ```bash
