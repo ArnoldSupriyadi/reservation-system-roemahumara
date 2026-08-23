@@ -11,6 +11,7 @@ use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\View\PanelsRenderHook;
 use Filament\Widgets\AccountWidget;
 use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -78,6 +79,10 @@ class CmsPanelProvider extends PanelProvider
                 'reservations/{reservation}/pdf',
                 ReservationPdfController::class
             )->name('reservations.pdf'))
+            // Tab bulan di daftar reservasi dibuat selebar tabelnya. Disuntikkan
+            // sebagai <style> karena CSS Filament dibangun terpisah dan tidak
+            // memuat kelas Tailwind milik app.css.
+            ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('filament.tabs-full-width'))
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

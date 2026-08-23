@@ -17,7 +17,7 @@ class MasterSeeder extends Seeder
             'VIP 1', 'VIP 2', 'FOYER', 'KORIDOR', 'SOFA REGULAR', 'REGULAR', 'OUTDOOR',
             'BALLROOM 1', 'BALLROOM 2', 'BALLROOM 3', 'BALLROOM 4', 'ALL BALLROOM',
         ];
-        $eventTypes = ['TEST FOOD', 'PRIVATE', 'MEETING', 'LUNCH', 'DINNER', 'GATHERING'];
+        $eventTypes = ['TEST FOOD', 'PRIVATE', 'MEETING', 'LUNCH', 'DINNER', 'GATHERING', 'BIRTHDAY', 'WEDDING', 'OTHER'];
 
         // Urutan tampilnya mengikuti id, dan id mengikuti urutan penyisipan di
         // sini — jadi urutan larik di atas tetap menentukan urutan di layar,

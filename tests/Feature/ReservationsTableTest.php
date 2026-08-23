@@ -271,6 +271,82 @@ class ReservationsTableTest extends TestCase
             ->assertCanNotSeeTableRecords([$this->range]);
     }
 
+    /**
+     * Tab bulan dibuat selebar tabel lewat <style> yang disuntikkan render hook,
+     * bukan kelas Tailwind — CSS Filament dibangun terpisah dan tidak memuatnya.
+     */
+    public function test_the_month_tabs_are_styled_full_width(): void
+    {
+        $this->actingAs($this->admin);
+
+        $html = $this->get('/cms/reservations')->assertOk()->getContent();
+
+        $this->assertStringContainsString('.fi-resource-reservations .fi-tabs', $html);
+        $this->assertStringContainsString('flex: 1 1 0', $html);
+    }
+
+    /**
+     * Gayanya HARUS dibatasi ke halaman reservasi. Tanpa pembatas, setiap tab di
+     * panel ikut melar — termasuk pada resource yang dibuat nanti, jauh dari
+     * perubahan ini dan tanpa ada yang menghubungkannya.
+     */
+    public function test_the_tab_style_is_scoped_to_this_resource(): void
+    {
+        $this->actingAs($this->admin);
+
+        $html = $this->get('/cms/reservations')->assertOk()->getContent();
+
+        preg_match_all('/\.fi-tabs[a-z-]*\s*\{/', $html, $cocok);
+
+        foreach ($cocok[0] as $selektor) {
+            $posisi = strpos($html, $selektor);
+            $sebelum = substr($html, max(0, $posisi - 60), 60);
+
+            $this->assertStringContainsString(
+                'fi-resource-reservations',
+                $sebelum,
+                "Selektor {$selektor} tidak dibatasi ke halaman reservasi."
+            );
+        }
+    }
+
+    /**
+     * Tab bulan sengaja hanya tiga bulan ke belakang sampai tiga ke depan, plus
+     * Semua. Itu BUKAN bug — tapi reservasi di luar jendela itu hanya bisa
+     * dicapai lewat tab Semua, dan untuk acara yang dipesan jauh hari (wedding)
+     * itu perlu diingat.
+     */
+    public function test_the_month_tabs_span_three_months_either_side_of_today(): void
+    {
+        $this->actingAs($this->admin);
+
+        $tabs = array_keys(Livewire::test(ListReservations::class)->instance()->getTabs());
+
+        $this->assertSame('all', array_pop($tabs), 'Tab Semua harus paling akhir.');
+        $this->assertCount(7, $tabs);
+
+        $this->assertSame(Carbon::now()->startOfMonth()->subMonths(3)->format('Y-m'), $tabs[0]);
+        $this->assertSame(Carbon::now()->format('Y-m'), $tabs[3], 'Bulan berjalan di tengah.');
+        $this->assertSame(Carbon::now()->startOfMonth()->addMonths(3)->format('Y-m'), $tabs[6]);
+    }
+
+    /** Reservasi di luar jendela tab tetap terjangkau lewat tab Semua. */
+    public function test_a_reservation_outside_the_window_is_still_reachable(): void
+    {
+        $this->actingAs($this->admin);
+
+        $jauh = Reservation::factory()->create([
+            'reservation_date' => Carbon::now()->startOfMonth()->addMonths(8),
+            'guest_name' => 'PESAN JAUH HARI',
+            'pic_id' => $this->admin->id,
+            'created_by' => $this->admin->id,
+        ]);
+
+        Livewire::test(ListReservations::class)
+            ->set('activeTab', 'all')
+            ->assertCanSeeTableRecords([$jauh]);
+    }
+
     public function test_staff_is_not_offered_bulk_delete_but_admin_is(): void
     {
         $staff = User::factory()->create();
