@@ -169,6 +169,26 @@ sudo apt install -y mysql-server
 sudo mysql_secure_installation
 ```
 
+`mysql_secure_installation` bertanya beberapa hal. Jawab `y` untuk semuanya —
+hapus pengguna anonim, tolak login root dari jarak jauh, hapus database test,
+muat ulang tabel privilege.
+
+Pertanyaan pertama, **VALIDATE PASSWORD component**, boleh `y` maupun `n`:
+
+- **`y`** — MySQL menolak sandi lemah. Sandi database ini disimpan sekali di
+  `.env` dan tidak pernah diketik manusia lagi, jadi membuatnya panjang dan acak
+  tidak merepotkan siapa pun. Ini pilihan yang lebih baik.
+- **`n`** — sandi apa pun diterima.
+
+Siapkan sandi databasenya lebih dulu, di terminal biasa:
+
+```bash
+openssl rand -base64 24
+```
+
+**Catat hasilnya.** Nilai itu dipakai dua kali: di perintah `CREATE USER` di
+bawah, dan sebagai `DB_PASSWORD` di `.env` pada bagian 6.
+
 Buat database dan user aplikasi:
 
 ```bash
@@ -180,8 +200,11 @@ CREATE DATABASE roemahumara
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
 
+-- Ganti dengan hasil `openssl rand -base64 24` di atas. Mengetik placeholder
+-- ini apa adanya ditolak dengan ERROR 1819: ia tidak memuat angka, sehingga
+-- gagal memenuhi kebijakan VALIDATE PASSWORD.
 CREATE USER 'roemahumara'@'localhost'
-  IDENTIFIED BY 'CHANGE_ME_DB_PASSWORD';
+  IDENTIFIED BY 'GANTI_DENGAN_SANDI_ACAK';
 
 -- Sengaja TIDAK diberi ALL PRIVILEGES. Aplikasi tidak perlu DROP DATABASE.
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP, REFERENCES
@@ -196,6 +219,15 @@ Verifikasi:
 ```bash
 mysql -u roemahumara -p roemahumara -e "SELECT 1;"
 ```
+
+> `-p` ditulis tanpa sandi menempel supaya MySQL menanyakannya secara
+> tersembunyi. Menulis `-pSANDI` juga jalan, tapi sandinya tertinggal di riwayat
+> shell.
+>
+> Kalau `CREATE USER` ditolak dengan **ERROR 1819**, sandinya tidak memenuhi
+> kebijakan: minimal 8 karakter dengan huruf besar, huruf kecil, angka, dan
+> karakter khusus. Periksa aturannya dengan
+> `SHOW VARIABLES LIKE 'validate_password%';`
 
 ---
 
