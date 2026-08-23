@@ -20,7 +20,7 @@ keadaan terakhir. **Perbarui setiap kali sebuah bagian selesai**, lalu commit.
 | RAM | 1,9 GiB + swap 2 GiB (sudah ada bawaan, tidak perlu dibuat) |
 | PHP | 8.3.6 di `/usr/bin/php8.3` |
 | Composer | 2.10.2 |
-| Login SSH | `ictumara` |
+| User deploy | `ictumara` — sekaligus akun login SSH |
 | Terakhir diperbarui | 2026-08-23 |
 
 ## Status per bagian
@@ -28,7 +28,7 @@ keadaan terakhir. **Perbarui setiap kali sebuah bagian selesai**, lalu commit.
 | # | Bagian | Status | Catatan |
 |---|---|---|---|
 | 0 | Prasyarat | ✅ | |
-| 1a | Update paket & user deploy | ✅ | Login sebagai `ictumara`, **bukan** `marcom` — lihat "Keputusan tertunda" |
+| 1a | Update paket & user deploy | ✅ | User deploy = `ictumara`, akun yang sudah ada |
 | 1b | Firewall UFW | ✅ | Perintah `ufw` harus pakai `sudo`, kalau tidak muncul "you need to be root" |
 | 1c | Swap | ✅ | Sudah ada 2 GiB bawaan, tidak dibuat ulang |
 | 1d | Kunci SSH | ⏸️ | **Ditunda sengaja.** Akses lewat VPN kantor, jadi belum mendesak. Wajib sebelum server menghadap internet |
@@ -36,7 +36,7 @@ keadaan terakhir. **Perbarui setiap kali sebuah bagian selesai**, lalu commit.
 | 3 | MySQL 8 | ✅ | User `roemahumara`, database `roemahumara`. Sandi ada di catatan pribadi — dipakai lagi di `.env` bagian 6 |
 | 4 | Nginx | ✅ | |
 | 5 | Composer | ✅ | 2.10.2, terikat ke `/usr/bin/php8.3` |
-| 6 | Direktori aplikasi & `.env` | ⏭️ | **Berikutnya.** Keputusan `marcom`/`ictumara` harus selesai lebih dulu |
+| 6 | Direktori aplikasi & `.env` | ⏭️ | **Berikutnya.** Butuh sandi MySQL dari bagian 3 |
 | 7 | Nginx server block | ⬜ | |
 | 8 | SSL Let's Encrypt | ⏸️ | Menunggu domain diarahkan |
 | 9 | Queue worker | ⬜ | |
@@ -47,14 +47,17 @@ keadaan terakhir. **Perbarui setiap kali sebuah bagian selesai**, lalu commit.
 
 Keterangan: ✅ selesai · ⏭️ sedang dikerjakan · ⏸️ ditunda sengaja · ⬜ belum
 
-## Keputusan tertunda
+## Keputusan yang sudah diambil
 
-**`marcom` vs `ictumara`.** RUNBOOK menyebut user `marcom` di 35 tempat,
-sedangkan server dimasuki sebagai `ictumara`. Salah satu harus mengalah
-**sebelum bagian 6**: di sanalah kepemilikan `/var/www/roemahumara` ditetapkan,
-dan runner GitHub Actions nanti berjalan sebagai user yang sama. Kalau keduanya
-tidak konsisten, gejalanya muncul jauh kemudian sebagai "Permission denied" saat
-deploy pertama, bukan saat langkah yang keliru dijalankan.
+**User deploy = `ictumara`** (2026-08-23). RUNBOOK sebelumnya menyebut user
+khusus bernama `marcom`; ke-35 rujukannya diganti karena `ictumara` sudah ada
+dan dipakai untuk masuk server.
+
+Yang perlu disadari: runner GitHub Actions berjalan sebagai akun yang sama
+dengan akun administrasi server, jadi keduanya berbagi hak yang sama. Kalau
+kredensial runner bocor, yang terpapar bukan sekadar hak deploy. Memisahkannya
+nanti masih mungkin — buat user baru, pindahkan kepemilikan
+`/var/www/roemahumara`, daftarkan ulang runner.
 
 ## Yang sengaja belum dikerjakan
 

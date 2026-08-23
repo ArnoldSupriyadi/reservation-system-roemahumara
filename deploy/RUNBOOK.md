@@ -29,7 +29,7 @@ Konvensi yang dipakai di semua file config:
 | Item | Nilai |
 |---|---|
 | Direktori aplikasi | `/var/www/roemahumara` |
-| User deploy | `marcom` |
+| User deploy | `ictumara` |
 | User web | `www-data` |
 | PHP | 8.3 (`/usr/bin/php8.3`) |
 | Database | `roemahumara` |
@@ -59,10 +59,22 @@ Konvensi yang dipakai di semua file config:
 
 ```bash
 sudo apt update && sudo apt upgrade -y
-
-sudo adduser --gecos "" marcom
-sudo usermod -aG sudo marcom
 ```
+
+Seluruh runbook ini memakai user **`ictumara`** — akun non-root yang memiliki
+`/var/www/roemahumara`, menjalankan artisan, dan menjadi identitas runner GitHub
+Actions. Di VPS 192.168.88.33 akun itu **sudah ada**, jadi bagian ini selesai.
+
+Di mesin baru yang belum punya akun tersebut:
+
+```bash
+sudo adduser --gecos "" ictumara
+sudo usermod -aG sudo ictumara
+```
+
+> Keanggotaan grup baru berlaku setelah **login ulang**. Menambahkan diri ke
+> grup `sudo` lalu langsung menjalankan `sudo` di sesi yang sama tetap ditolak,
+> dan pesannya tidak menyebut sebabnya. Keluar, masuk lagi.
 
 ### 1b. Firewall
 
@@ -261,7 +273,7 @@ composer --version
 
 ```bash
 sudo mkdir -p /var/www/roemahumara
-sudo chown -R marcom:www-data /var/www/roemahumara
+sudo chown -R ictumara:www-data /var/www/roemahumara
 sudo chmod -R 2775 /var/www/roemahumara   # setgid: file baru ikut grup www-data
 ```
 
@@ -269,9 +281,9 @@ Clone sekali untuk bootstrap awal (deploy berikutnya lewat rsync dari CI):
 
 ```bash
 cd /var/www
-sudo -u marcom git clone https://github.com/ArnoldSupriyadi/reservation-system-roemahumara.git roemahumara
+sudo -u ictumara git clone https://github.com/ArnoldSupriyadi/reservation-system-roemahumara.git roemahumara
 cd roemahumara
-sudo -u marcom composer install --no-dev --optimize-autoloader
+sudo -u ictumara composer install --no-dev --optimize-autoloader
 ```
 
 ### Konfigurasi `.env`
@@ -286,17 +298,17 @@ Isi yang wajib disesuaikan sekarang:
 | `INITIAL_USER_PASSWORD` | sandi awal semua akun; isi **sebelum** seeder dijalankan |
 
 ```bash
-sudo -u marcom cp .env.production.example .env
-sudo -u marcom php8.3 artisan key:generate
-sudo -u marcom nano .env     # isi APP_URL, DB_PASSWORD, INITIAL_USER_PASSWORD
+sudo -u ictumara cp .env.production.example .env
+sudo -u ictumara php8.3 artisan key:generate
+sudo -u ictumara nano .env     # isi APP_URL, DB_PASSWORD, INITIAL_USER_PASSWORD
 sudo chmod 640 .env
-sudo chown marcom:www-data .env
+sudo chown ictumara:www-data .env
 ```
 
 ### Permission storage
 
 ```bash
-sudo chown -R marcom:www-data storage bootstrap/cache
+sudo chown -R ictumara:www-data storage bootstrap/cache
 sudo chmod -R 775 storage bootstrap/cache
 ```
 
@@ -309,8 +321,8 @@ sudo chmod -R 775 storage bootstrap/cache
 
 ```bash
 cd /var/www/roemahumara
-sudo -u marcom php8.3 artisan migrate --force
-sudo -u marcom php8.3 artisan storage:link
+sudo -u ictumara php8.3 artisan migrate --force
+sudo -u ictumara php8.3 artisan storage:link
 ```
 
 ### Data awal & akun pertama
@@ -331,10 +343,10 @@ Dua perintah, itu saja:
 cd /var/www/roemahumara
 
 # Role, permission, master (area, jenis acara, 137 menu), dan akun admin
-sudo -u marcom php8.3 artisan db:seed --force
+sudo -u ictumara php8.3 artisan db:seed --force
 
 # Sepuluh akun staf
-sudo -u marcom php8.3 artisan db:seed --class=StaffSeeder --force
+sudo -u ictumara php8.3 artisan db:seed --class=StaffSeeder --force
 ```
 
 `db:seed` polos sudah membuat akun admin **`roemahumara@gmail.com`** sekaligus
@@ -353,13 +365,13 @@ Kedua seeder aman diulang.
 Uji sebelum lanjut — harus mencetak `true`:
 
 ```bash
-sudo -u marcom php8.3 artisan tinker --execute="echo var_export(App\Models\User::where('email','roemahumara@gmail.com')->firstOrFail()->can('reservation.delete'), true);"
+sudo -u ictumara php8.3 artisan tinker --execute="echo var_export(App\Models\User::where('email','roemahumara@gmail.com')->firstOrFail()->can('reservation.delete'), true);"
 ```
 
 Kalau hasilnya `false`, rolenya belum terbaca:
 
 ```bash
-sudo -u marcom php8.3 artisan permission:cache-reset
+sudo -u ictumara php8.3 artisan permission:cache-reset
 ```
 
 ---
@@ -425,7 +437,7 @@ Setelah HTTPS aktif, **tiga hal wajib ikut diubah**:
 
 ```bash
 cd /var/www/roemahumara
-sudo -u marcom nano .env
+sudo -u ictumara nano .env
 ```
 
 ```dotenv
@@ -463,7 +475,7 @@ sudo systemctl status roemahumara-queue
 Laravel butuh satu entri cron per menit.
 
 ```bash
-sudo crontab -u marcom -e
+sudo crontab -u ictumara -e
 ```
 
 ```cron
@@ -479,11 +491,11 @@ baik saat dijalankan runner maupun dengan tangan. Beri izin **hanya** untuk dua
 perintah itu; jangan NOPASSWD untuk semua.
 
 ```bash
-sudo visudo -f /etc/sudoers.d/marcom-deploy
+sudo visudo -f /etc/sudoers.d/ictumara-deploy
 ```
 
 ```
-marcom ALL=(root) NOPASSWD: /usr/bin/systemctl reload php8.3-fpm, /usr/bin/systemctl restart roemahumara-queue
+ictumara ALL=(root) NOPASSWD: /usr/bin/systemctl reload php8.3-fpm, /usr/bin/systemctl restart roemahumara-queue
 ```
 
 > Path harus **persis** sama dengan hasil `which systemctl`. Di Ubuntu 22/24
@@ -497,7 +509,7 @@ marcom ALL=(root) NOPASSWD: /usr/bin/systemctl reload php8.3-fpm, /usr/bin/syste
 Uji tanpa password:
 
 ```bash
-sudo -u marcom sudo -n systemctl reload php8.3-fpm && echo "izin sudo siap"
+sudo -u ictumara sudo -n systemctl reload php8.3-fpm && echo "izin sudo siap"
 ```
 
 ---
@@ -526,7 +538,7 @@ Ambil token pendaftaran di **GitHub → repo → Settings → Actions → Runner
 New self-hosted runner** (token berlaku sebentar, ambil tepat sebelum dipakai):
 
 ```bash
-sudo -u marcom -i
+sudo -u ictumara -i
 mkdir -p ~/actions-runner && cd ~/actions-runner
 
 curl -o actions-runner-linux-x64.tar.gz -L \
@@ -549,18 +561,18 @@ Pasang sebagai service supaya hidup lagi setelah VPS di-reboot:
 
 ```bash
 exit   # kembali ke user biasa
-cd /home/marcom/actions-runner
-sudo ./svc.sh install marcom
+cd /home/ictumara/actions-runner
+sudo ./svc.sh install ictumara
 sudo ./svc.sh start
 sudo ./svc.sh status
 ```
 
 ### 12b. Izin runner atas direktori aplikasi
 
-Runner berjalan sebagai `marcom` dan melakukan rsync ke `/var/www/roemahumara`.
+Runner berjalan sebagai `ictumara` dan melakukan rsync ke `/var/www/roemahumara`.
 
 ```bash
-sudo chown -R marcom:www-data /var/www/roemahumara
+sudo chown -R ictumara:www-data /var/www/roemahumara
 sudo chmod -R 2775 /var/www/roemahumara
 ```
 
@@ -582,7 +594,7 @@ langsung push ke `main`. Kalau tahap `deploy` menggantung di status "Queued",
 runnernya belum hidup atau labelnya tidak cocok:
 
 ```bash
-sudo /home/marcom/actions-runner/svc.sh status
+sudo /home/ictumara/actions-runner/svc.sh status
 ```
 
 ---
@@ -614,7 +626,7 @@ rsync -az --delete \
   --exclude='.git' --exclude='.github' --exclude='.env' \
   --exclude='node_modules' --exclude='storage' --exclude='public/storage' \
   --exclude='bootstrap/cache/*.php' --exclude='tests' --exclude='phpunit.xml' \
-  -e "ssh -p 22" ./ marcom@SERVER_IP:/var/www/roemahumara/
+  -e "ssh -p 22" ./ ictumara@SERVER_IP:/var/www/roemahumara/
 ```
 
 > Semua `--exclude` di atas otomatis terlindungi dari `--delete`, karena
@@ -625,7 +637,7 @@ rsync -az --delete \
 ### 13c. Aktivasi di server
 
 ```bash
-ssh marcom@SERVER_IP
+ssh ictumara@SERVER_IP
 cd /var/www/roemahumara
 
 php8.3 artisan down --render="errors::503" --retry=15
@@ -704,12 +716,12 @@ Deploy ini **bukan** zero-downtime (tidak ada folder `releases/`), jadi rollback
 
 # Opsi B - langsung di server (darurat, lebih cepat):
 cd /var/www/roemahumara
-sudo -u marcom php8.3 artisan down
-sudo -u marcom git checkout <COMMIT_LAMA>
-sudo -u marcom composer install --no-dev --optimize-autoloader
-sudo -u marcom php8.3 artisan optimize:clear && sudo -u marcom php8.3 artisan config:cache
+sudo -u ictumara php8.3 artisan down
+sudo -u ictumara git checkout <COMMIT_LAMA>
+sudo -u ictumara composer install --no-dev --optimize-autoloader
+sudo -u ictumara php8.3 artisan optimize:clear && sudo -u ictumara php8.3 artisan config:cache
 sudo systemctl reload php8.3-fpm
-sudo -u marcom php8.3 artisan up
+sudo -u ictumara php8.3 artisan up
 ```
 
 > **Peringatan:** `git checkout` mundur **tidak** membatalkan migration yang sudah jalan.
