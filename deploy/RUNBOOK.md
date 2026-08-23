@@ -1,8 +1,28 @@
 # Runbook Provisioning VPS — Reservation System Roemah Umara
 
-Target: **Ubuntu 22.04 / 24.04 LTS**, stack Nginx + PHP 8.3-FPM + MySQL 8, deploy manual lewat SSH (bagian 12).
+Target: **Ubuntu 22.04 / 24.04 LTS**, stack Nginx + PHP 8.3-FPM + MySQL 8.
+
+Deploy berjalan otomatis setiap push ke `main` lewat self-hosted GitHub Actions
+runner yang dipasang di VPS (bagian 12). Prosedur manualnya tetap ada di bagian
+13 sebagai cadangan.
 
 Semua perintah dijalankan lewat SSH ke VPS. Ganti setiap `CHANGE_ME`.
+
+> **Keadaan saat ini: jaringan lokal, belum HTTPS.**
+>
+> VPS beralamat `192.168.88.33` — alamat privat yang hanya terjangkau dari dalam
+> jaringan Anda. Konsekuensinya sepanjang runbook ini:
+>
+> - **Belum ada SSL.** Let's Encrypt butuh domain publik; bagian 8 dilewati dulu.
+> - **`SESSION_SECURE_COOKIE` harus `false`.** Cookie "secure" hanya dikirim
+>   lewat HTTPS — dibiarkan `true` di alamat http, sesi tidak pernah tersimpan
+>   dan sandi yang benar pun berakhir kembali di halaman login tanpa pesan
+>   kesalahan apa pun.
+> - **GitHub tidak bisa menghubungi VPS.** Itu sebabnya deploy memakai
+>   self-hosted runner yang menghubungi GitHub keluar, bukan sebaliknya.
+> - **Halaman publik hanya terbuka di jaringan lokal.** Nama tamu, PIC, dan
+>   remark yang tampil di sana belum terbaca dari internet. **Itu berubah begitu
+>   domain publik dipasang** — lihat bagian 8.
 
 Konvensi yang dipakai di semua file config:
 
@@ -20,10 +40,11 @@ Konvensi yang dipakai di semua file config:
 ## 0. Prasyarat
 
 - Akses root/sudo ke VPS
-- Domain sudah diarahkan (A record) ke IP VPS — **cek dulu**, Certbot akan gagal kalau DNS belum propagasi:
+- VPS bisa dijangkau dari komputer Anda:
   ```bash
-  dig +short CHANGE_ME_DOMAIN
+  ping -c 2 192.168.88.33
   ```
+- Domain **belum diperlukan**. Baru dibutuhkan saat menyiapkan HTTPS (bagian 8).
 - RAM minimal 2 GB. Di bawah itu MySQL 8 + PHP-FPM akan sesak. Kalau hanya 1 GB, tambahkan swap (langkah 1c).
 
 ---
@@ -109,7 +130,7 @@ opcache.validate_timestamps = 0
 > Konsekuensinya: setiap deploy WAJIB reload PHP-FPM. Deploy di sini dikerjakan
 > manual, jadi tidak ada yang mengingatkan — lupa reload berarti kode lama terus
 > tersaji padahal file di server sudah baru, dan itu terlihat seperti "deploy
-> saya tidak berpengaruh". Langkahnya ada di bagian 12.
+> saya tidak berpengaruh". Langkahnya sudah ada di dalam `deploy/deploy.sh`.
 
 ```bash
 sudo systemctl restart php8.3-fpm
@@ -195,10 +216,19 @@ sudo -u deployer composer install --no-dev --optimize-autoloader
 
 ### Konfigurasi `.env`
 
+Isi yang wajib disesuaikan sekarang:
+
+| Kunci | Nilai untuk kondisi sekarang |
+|---|---|
+| `APP_URL` | `http://192.168.88.33` |
+| `SESSION_SECURE_COOKIE` | `false` — **wajib**, selama masih HTTP |
+| `DB_PASSWORD` | sandi MySQL dari bagian 3 |
+| `INITIAL_USER_PASSWORD` | sandi awal semua akun; isi **sebelum** seeder dijalankan |
+
 ```bash
 sudo -u deployer cp .env.production.example .env
 sudo -u deployer php8.3 artisan key:generate
-sudo -u deployer nano .env     # isi APP_URL, DB_PASSWORD, MAIL_*
+sudo -u deployer nano .env     # isi APP_URL, DB_PASSWORD, INITIAL_USER_PASSWORD
 sudo chmod 640 .env
 sudo chown deployer:www-data .env
 ```
@@ -295,7 +325,7 @@ sudo -u deployer php8.3 artisan tinker --execute="echo var_export(App\Models\Use
 ```bash
 cd /var/www/roemahumara
 sudo cp deploy/nginx/roemahumara.conf /etc/nginx/sites-available/roemahumara
-sudo sed -i 's/CHANGE_ME_DOMAIN/your-domain.com/g' /etc/nginx/sites-available/roemahumara
+# server_name sudah berisi 192.168.88.33; ganti ke domain saat HTTPS disiapkan
 
 sudo ln -sf /etc/nginx/sites-available/roemahumara /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
@@ -303,25 +333,53 @@ sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Cek via HTTP dulu (`http://your-domain.com`) sebelum lanjut ke SSL.
+Cek lewat `http://192.168.88.33` dari komputer di jaringan yang sama.
 
 ---
 
-## 8. SSL dengan Let's Encrypt
+## 8. SSL dengan Let's Encrypt — **nanti, saat domain siap**
+
+**Lewati bagian ini sekarang.** Certbot memverifikasi kepemilikan domain lewat
+internet, dan `192.168.88.33` tidak terjangkau dari sana. Selama masih jaringan
+lokal, aksesnya `http://192.168.88.33`.
+
+Kerjakan langkah di bawah **hanya** setelah domain diarahkan ke IP publik VPS:
 
 ```bash
+# 1. Pastikan DNS sudah propagasi — Certbot gagal kalau belum
+dig +short domain-anda.com
+
+# 2. Ganti server_name di server block dari IP ke domain
+sudo sed -i 's/192.168.88.33/domain-anda.com/' /etc/nginx/sites-available/roemahumara
+sudo nginx -t && sudo systemctl reload nginx
+
+# 3. Terbitkan sertifikat
 sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d your-domain.com -d www.your-domain.com
-
-# Renewal otomatis sudah dipasang lewat systemd timer. Uji:
-sudo certbot renew --dry-run
+sudo certbot --nginx -d domain-anda.com -d www.domain-anda.com
 ```
 
-Setelah SSL aktif, pastikan `.env` sudah `APP_URL=https://...` dan `SESSION_SECURE_COOKIE=true`, lalu:
+Setelah HTTPS aktif, **tiga hal wajib ikut diubah**:
 
 ```bash
-sudo -u deployer php8.3 artisan config:cache
+cd /var/www/roemahumara
+sudo -u deployer nano .env
 ```
+
+```dotenv
+APP_URL=https://domain-anda.com
+SESSION_SECURE_COOKIE=true
+```
+
+lalu perbarui secret `APP_URL` di GitHub (dipakai smoke test), dan jalankan
+`php8.3 artisan config:cache`.
+
+> **Yang perlu disadari sebelum menekan tombol itu.** Halaman publik `/`
+> menampilkan nama tamu, perusahaan, PIC, dan remark reservasi tanpa perlu login
+> — keputusan yang diambil sadar pada 2026-08-22 (aturan #10 CLAUDE.md). Selama
+> di jaringan lokal, itu hanya terbaca orang kantor. Begitu domain publik aktif,
+> semuanya terbaca siapa saja di internet dan bisa terindeks mesin pencari.
+> Pertimbangkan ulang di titik itu: menariknya kembali cukup dengan menghapus
+> kolomnya dari `select()` di `PublicCalendarController`.
 
 ---
 
@@ -353,7 +411,9 @@ sudo crontab -u deployer -e
 
 ## 11. Izin sudo terbatas untuk deploy
 
-Langkah deploy di bagian 12 perlu `systemctl restart` dan `reload` tanpa prompt password. Beri izin **hanya** untuk dua perintah itu — jangan NOPASSWD untuk semua.
+Langkah deploy perlu `systemctl restart` dan `reload` tanpa prompt password —
+baik saat dijalankan runner maupun dengan tangan. Beri izin **hanya** untuk dua
+perintah itu; jangan NOPASSWD untuk semua.
 
 ```bash
 sudo visudo -f /etc/sudoers.d/deployer-deploy
@@ -363,29 +423,115 @@ sudo visudo -f /etc/sudoers.d/deployer-deploy
 deployer ALL=(root) NOPASSWD: /usr/bin/systemctl reload php8.3-fpm, /usr/bin/systemctl restart roemahumara-queue
 ```
 
-> Path harus **persis** sama dengan hasil `which systemctl`. Di Ubuntu 22/24 lokasinya
-> `/usr/bin/systemctl` (`/bin` hanya symlink, dan sudoers mencocokkan string secara literal —
-> menulis `/bin/systemctl` akan membuat aturan ini tidak pernah cocok). Cek dulu:
+> Path harus **persis** sama dengan hasil `which systemctl`. Di Ubuntu 22/24
+> lokasinya `/usr/bin/systemctl` — `/bin` hanya symlink, dan sudoers mencocokkan
+> string secara literal, jadi menulis `/bin/systemctl` membuat aturan ini tidak
+> pernah cocok. Cek dulu:
 > ```bash
 > which systemctl
 > ```
 
+Uji tanpa password:
+
 ```bash
-sudo chmod 440 /etc/sudoers.d/deployer-deploy
+sudo -u deployer sudo -n systemctl reload php8.3-fpm && echo "izin sudo siap"
 ```
 
 ---
 
-## 12. Prosedur deploy manual
+## 12. Deploy otomatis: self-hosted runner
 
-Deploy dikerjakan dengan tangan lewat SSH. Sebelumnya ada `deploy/deploy.sh` yang
-dipanggil GitHub Actions; keduanya dihapus 2026-08-22 karena rilis akan dilakukan
-bertahap dan diawasi. Urutan di bawah adalah isi skrip itu, dipindahkan ke sini
-supaya tidak hilang.
+Setiap push ke `main` memicu `.github/workflows/deploy.yml`. Alurnya dua tahap:
+
+| Tahap | Berjalan di | Melakukan |
+|---|---|---|
+| `build` | runner GitHub | `npm ci`, `npm run build`, unggah `public/build` sebagai artifact |
+| `deploy` | runner di VPS | checkout, ambil artifact, rsync ke `/var/www/roemahumara`, jalankan `deploy.sh`, smoke test |
+
+Aset di-build di runner GitHub, bukan di VPS. `npm run build` rutin memakai
+lebih dari 1 GB RAM; di VPS kecil ia kena OOM-kill di tengah jalan dan
+meninggalkan `public/build` rusak — situs hidup tapi tanpa gaya sama sekali.
+Itu juga membuat VPS tidak perlu memasang Node.
+
+### 12a. Pasang runner di VPS
+
+Runner **menghubungi GitHub keluar** untuk mengambil pekerjaan. Tidak ada port
+yang perlu dibuka ke internet — inilah yang membuat pola ini cocok untuk VPS
+beralamat privat.
+
+Ambil token pendaftaran di **GitHub → repo → Settings → Actions → Runners →
+New self-hosted runner** (token berlaku sebentar, ambil tepat sebelum dipakai):
+
+```bash
+sudo -u deployer -i
+mkdir -p ~/actions-runner && cd ~/actions-runner
+
+curl -o actions-runner-linux-x64.tar.gz -L \
+  https://github.com/actions/runner/releases/latest/download/actions-runner-linux-x64-2.328.0.tar.gz
+tar xzf actions-runner-linux-x64.tar.gz
+
+./config.sh \
+  --url https://github.com/ArnoldSupriyadi/reservation-system-roemahumara \
+  --token TOKEN_DARI_GITHUB \
+  --name roemahumara-vps \
+  --labels self-hosted,roemahumara \
+  --unattended
+```
+
+> **Label `roemahumara` wajib.** Workflow menargetkan
+> `runs-on: [self-hosted, roemahumara]`. Tanpa label itu pekerjaan menggantung
+> selamanya menunggu runner yang tidak pernah ada, tanpa pesan kesalahan.
+
+Pasang sebagai service supaya hidup lagi setelah VPS di-reboot:
+
+```bash
+exit   # kembali ke user biasa
+cd /home/deployer/actions-runner
+sudo ./svc.sh install deployer
+sudo ./svc.sh start
+sudo ./svc.sh status
+```
+
+### 12b. Izin runner atas direktori aplikasi
+
+Runner berjalan sebagai `deployer` dan melakukan rsync ke `/var/www/roemahumara`.
+
+```bash
+sudo chown -R deployer:www-data /var/www/roemahumara
+sudo chmod -R 2775 /var/www/roemahumara
+```
+
+### 12c. Secret yang dibutuhkan
+
+**GitHub → repo → Settings → Secrets and variables → Actions:**
+
+| Secret | Nilai | Keterangan |
+|---|---|---|
+| `APP_URL` | `http://192.168.88.33` | Dipakai smoke test di akhir deploy. Ganti ke `https://domain-anda.com` setelah HTTPS aktif |
+
+Hanya satu. Kredensial SSH tidak diperlukan sama sekali — runner sudah berada di
+dalam server.
+
+### 12d. Uji sebelum mengandalkannya
+
+Jalankan manual dulu lewat **Actions → Deploy ke VPS → Run workflow**, jangan
+langsung push ke `main`. Kalau tahap `deploy` menggantung di status "Queued",
+runnernya belum hidup atau labelnya tidak cocok:
+
+```bash
+sudo /home/deployer/actions-runner/svc.sh status
+```
+
+---
+
+## 13. Prosedur deploy manual (cadangan)
+
+Dipakai kalau runner sedang mati atau Anda ingin merilis tanpa menunggu GitHub.
+Hasil akhirnya sama dengan yang dilakukan workflow.
 
 **Urutannya tidak boleh diacak.** Alasan tiap langkah ada di catatan setelahnya.
 
-### 12a. Build aset di komputer lokal, bukan di server
+### 13a. Build aset di komputer lokal, bukan di server
 
 ```bash
 composer install --no-dev --prefer-dist --optimize-autoloader
@@ -398,7 +544,7 @@ test -f public/build/manifest.json || echo "BUILD GAGAL — jangan lanjut"
 > jalan dan meninggalkan `public/build` rusak — situs hidup tapi tanpa CSS. Build
 > di mesin lokal membuat VPS tidak perlu Node sama sekali.
 
-### 12b. Kirim ke server
+### 13b. Kirim ke server
 
 ```bash
 rsync -az --delete \
@@ -413,7 +559,7 @@ rsync -az --delete \
 > `public/storage` di server tidak ikut terhapus. Jangan menambahkan
 > `--delete-excluded`.
 
-### 12c. Aktivasi di server
+### 13c. Aktivasi di server
 
 ```bash
 ssh deployer@SERVER_IP
@@ -454,10 +600,10 @@ php8.3 artisan up
 > ada. Jalankan `php8.3 artisan up` sendiri setelah masalahnya diperiksa, jangan
 > tinggalkan situs mati.
 
-### 12d. Smoke test
+### 13d. Smoke test
 
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' --max-time 20 https://your-domain.com
+curl -s -o /dev/null -w '%{http_code}\n' --max-time 20 http://192.168.88.33
 ```
 
 Harus `200`.
@@ -471,13 +617,13 @@ Harus `200`.
 sudo systemctl status nginx php8.3-fpm roemahumara-queue --no-pager
 
 # Aplikasi merespons
-curl -I https://your-domain.com
+curl -I http://192.168.88.33
 
 # .env TIDAK bisa diakses publik — harus 403 atau 404
-curl -I https://your-domain.com/.env
+curl -I http://192.168.88.33/.env
 
 # Debug mode mati — halaman error tidak boleh menampilkan stack trace
-curl -s https://your-domain.com/halaman-tidak-ada | grep -ci "stack trace"   # harus 0
+curl -s http://192.168.88.33/halaman-tidak-ada | grep -ci "stack trace"   # harus 0
 
 # Cek log kalau ada error
 tail -50 /var/www/roemahumara/storage/logs/laravel-$(date +%F).log
@@ -491,7 +637,7 @@ sudo tail -50 /var/log/nginx/roemahumara-error.log
 Deploy ini **bukan** zero-downtime (tidak ada folder `releases/`), jadi rollback = deploy ulang commit lama:
 
 ```bash
-# Opsi A - revert commit di git lalu ulangi prosedur deploy bagian 12.
+# Opsi A - revert commit lalu push; workflow menjalankan deploy sendiri.
 
 # Opsi B - langsung di server (darurat, lebih cepat):
 cd /var/www/roemahumara

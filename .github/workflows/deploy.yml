@@ -1,0 +1,105 @@
+name: Deploy ke VPS
+
+# Dua tahap yang sengaja dipisah.
+#
+# Aset di-build di runner GitHub, bukan di VPS. `npm run build` rutin memakai
+# lebih dari 1 GB RAM; di VPS kecil ia kena OOM-kill di tengah jalan dan
+# meninggalkan public/build rusak — situs hidup tapi tanpa gaya sama sekali.
+# Membangunnya di runner GitHub juga membuat VPS tidak perlu memasang Node.
+#
+# Tahap deploy berjalan di self-hosted runner DI DALAM jaringan Anda. VPS
+# beralamat privat (192.168.88.33) dan tidak bisa dihubungi dari internet;
+# runner-lah yang menghubungi GitHub keluar untuk mengambil pekerjaan, sehingga
+# tidak ada satu pun port yang perlu dibuka ke luar.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  # Cegah dua deploy berjalan bersamaan dan saling menimpa berkas di server.
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build aset
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Pastikan build benar-benar jadi
+        run: |
+          test -f public/build/manifest.json \
+            || { echo "::error::public/build/manifest.json tidak ada - build gagal diam-diam"; exit 1; }
+
+      - name: Simpan hasil build
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-build
+          path: public/build
+          retention-days: 1
+
+  deploy:
+    name: Deploy di VPS
+    needs: build
+    runs-on: [self-hosted, roemahumara]
+    timeout-minutes: 15
+
+    env:
+      APP_DIR: /var/www/roemahumara
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ambil hasil build
+        uses: actions/download-artifact@v4
+        with:
+          name: public-build
+          path: public/build
+
+      - name: Kirim ke direktori aplikasi
+        run: |
+          # --delete membersihkan berkas yang sudah dihapus dari repo.
+          # Semua --exclude di bawah OTOMATIS terlindungi dari penghapusan
+          # karena --delete-excluded TIDAK dipakai. Itu yang menjaga .env,
+          # storage/, dan public/storage tetap aman. JANGAN menambahkan
+          # --delete-excluded.
+          rsync -a --delete \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.env' \
+            --exclude='node_modules' \
+            --exclude='storage' \
+            --exclude='public/storage' \
+            --exclude='bootstrap/cache/*.php' \
+            --exclude='tests' \
+            --exclude='phpunit.xml' \
+            ./ "${APP_DIR}/"
+
+      - name: Jalankan deploy
+        run: |
+          chmod +x "${APP_DIR}/deploy/deploy.sh"
+          APP_DIR="${APP_DIR}" "${APP_DIR}/deploy/deploy.sh"
+
+      - name: Smoke test
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+        run: |
+          # Beri jeda agar PHP-FPM selesai reload.
+          sleep 5
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "${APP_URL}")
+          echo "HTTP ${code} dari ${APP_URL}"
+          [ "$code" = "200" ] || { echo "::error::Smoke test gagal (HTTP ${code})"; exit 1; }
