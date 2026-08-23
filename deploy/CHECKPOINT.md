@@ -18,6 +18,8 @@ keadaan terakhir. **Perbarui setiap kali sebuah bagian selesai**, lalu commit.
 | OS | Ubuntu 24.04.4 LTS |
 | Hostname | `cms-ru-reservation` |
 | RAM | 1,9 GiB + swap 2 GiB (sudah ada bawaan, tidak perlu dibuat) |
+| PHP | 8.3.6 di `/usr/bin/php8.3` |
+| Composer | 2.10.2 |
 | Login SSH | `ictumara` |
 | Terakhir diperbarui | 2026-08-23 |
 
@@ -33,8 +35,8 @@ keadaan terakhir. **Perbarui setiap kali sebuah bagian selesai**, lalu commit.
 | 2 | PHP 8.3 | ✅ | Dari repo Ubuntu sendiri (`noble-updates/universe`). **PPA ondrej tidak dipakai dan tidak dibutuhkan** di 24.04 |
 | 3 | MySQL 8 | ✅ | User `roemahumara`, database `roemahumara`. Sandi ada di catatan pribadi — dipakai lagi di `.env` bagian 6 |
 | 4 | Nginx | ✅ | |
-| 5 | Composer | ⏭️ | **Berikutnya** |
-| 6 | Direktori aplikasi & `.env` | ⬜ | Keputusan `marcom`/`ictumara` harus selesai sebelum ini |
+| 5 | Composer | ✅ | 2.10.2, terikat ke `/usr/bin/php8.3` |
+| 6 | Direktori aplikasi & `.env` | ⏭️ | **Berikutnya.** Keputusan `marcom`/`ictumara` harus selesai lebih dulu |
 | 7 | Nginx server block | ⬜ | |
 | 8 | SSL Let's Encrypt | ⏸️ | Menunggu domain diarahkan |
 | 9 | Queue worker | ⬜ | |
