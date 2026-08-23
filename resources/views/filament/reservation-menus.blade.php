@@ -23,17 +23,16 @@
 
                 <div style="font-size: 0.75rem; color: rgb(107 114 128);">{{ $menu->category?->name }}</div>
 
-                @if (filled($menu->pivot->remark))
-                    {{-- Berlabel, sama seperti halaman publik. Tanpa label, isinya
-                         menempel di bawah nama dan porsi sehingga terbaca seolah
-                         bagian dari nama hidangan.
+                {{-- Selalu tampil, sama seperti halaman publik: letak barisnya tetap,
+                     jadi tidak perlu memastikan sendiri apakah hidangan ini punya
+                     catatan. Berlabel supaya isinya tidak terbaca menyambung dengan
+                     nama dan porsi di atasnya.
 
-                         whitespace-pre-line: catatan berbaris banyak tetap utuh. --}}
-                    <p style="margin-top: 0.25rem; white-space: pre-line; border-left: 2px solid rgb(245 158 11); padding-left: 0.5rem; font-size: 0.875rem;">
-                        <span style="font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;">Catatan:</span>
-                        {{ $menu->pivot->remark }}
-                    </p>
-                @endif
+                     whitespace-pre-line: catatan berbaris banyak tetap utuh. --}}
+                <p style="margin-top: 0.25rem; white-space: pre-line; border-left: 2px solid rgb(245 158 11); padding-left: 0.5rem; font-size: 0.875rem;">
+                    <span style="font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;">Catatan:</span>
+                    {{ filled($menu->pivot->remark) ? $menu->pivot->remark : '—' }}
+                </p>
             </li>
         @endforeach
     </ul>

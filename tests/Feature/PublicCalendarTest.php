@@ -175,8 +175,14 @@ class PublicCalendarTest extends TestCase
             ->assertSee('Catatan:');
     }
 
-    /** Menu tanpa catatan tidak boleh memunculkan label "Catatan:" yang kosong. */
-    public function test_a_menu_without_a_note_shows_no_note_label(): void
+    /**
+     * Menu tanpa catatan TETAP menampilkan barisnya, diisi em dash.
+     *
+     * Sampai 2026-08-23 barisnya disembunyikan saat kosong. Diubah supaya
+     * letaknya tetap: pembaca tidak perlu memastikan sendiri apakah sebuah
+     * hidangan punya catatan atau barisnya kebetulan tidak dirender.
+     */
+    public function test_a_menu_without_a_note_still_shows_the_note_row(): void
     {
         $nasi = Menu::create([
             'name' => 'Nasi Umara',
@@ -189,7 +195,8 @@ class PublicCalendarTest extends TestCase
         $this->get("/?bulan={$this->month}&pilih={$r->id}")
             ->assertOk()
             ->assertSee('Nasi Umara')
-            ->assertDontSee('Catatan:');
+            ->assertSee('Catatan:')
+            ->assertSee('—');
     }
 
     /** Menu opsional: reservasi tanpa menu tetap merender panelnya. */
