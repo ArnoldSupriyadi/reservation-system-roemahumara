@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', 'Jadwal Roemah Umara')</title>
 
-    {{-- Favicon. Dibuat dari ornamen logo gold lewat scripts/buat-favicon.php.
+    {{-- Favicon. Dibuat dari ornamen logo gold lewat scripts/buat-aset-logo.php.
          .ico ditaruh lebih dulu untuk peramban lama yang mengabaikan type PNG;
          yang modern memilih ukuran paling cocok dari daftar di bawahnya. --}}
     <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">

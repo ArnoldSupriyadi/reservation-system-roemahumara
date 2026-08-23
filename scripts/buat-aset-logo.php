@@ -1,13 +1,13 @@
 <?php
 
 /*
- * Membuat favicon dari logo gold.
+ * Membuat aset turunan dari logo gold: favicon dan logo halaman login.
  *
  * Dijalankan sekali dan hasilnya ikut git; ini bukan bagian dari build. Skrip
- * disimpan supaya kalau logonya berganti, favicon-nya bisa dibuat ulang dengan
- * potongan yang sama persis, bukan ditebak lagi:
+ * disimpan supaya kalau logonya berganti, asetnya bisa dibuat ulang dengan
+ * potongan dan ukuran yang sama persis, bukan ditebak lagi:
  *
- *     php scripts/buat-favicon.php
+ *     php scripts/buat-aset-logo.php
  *
  * Yang dipakai HANYA bagian tengah ornamen, bukan logo utuh. Logo utuh berisi
  * tulisan "ROEMAH UMARA" yang di 16px jadi noda tak terbaca, dan ornamen
@@ -101,3 +101,31 @@ foreach ([16, 32] as $ukuran) {
 
 file_put_contents(__DIR__.'/../public/favicon.ico', $ico);
 echo "favicon.ico (16 + 32)\n";
+
+/*
+ * Logo untuk halaman login CMS.
+ *
+ * Berkas aslinya 8000x4500 dan 700 KB — halaman login tidak perlu memikul itu
+ * hanya untuk menampilkannya setinggi beberapa puluh piksel. Dipotong ke batas
+ * isinya lebih dulu (x 564-7437, y 639-3858 hasil pemindaian piksel) supaya
+ * marginnya tidak ikut membuat logo tampak mengambang di tengah kotak login.
+ *
+ * Yang dipakai versi gold, bukan hitam: panel Filament punya mode gelap, dan
+ * logo hitam akan lenyap di sana. Gold terbaca di kedua latar.
+ */
+$isi = ['x1' => 564, 'y1' => 639, 'x2' => 7437, 'y2' => 3858];
+$isiW = $isi['x2'] - $isi['x1'];
+$isiH = $isi['y2'] - $isi['y1'];
+
+$lebarLogo = 900;
+$tinggiLogo = (int) round($lebarLogo * $isiH / $isiW);
+
+$logo = imagecreatetruecolor($lebarLogo, $tinggiLogo);
+imagesavealpha($logo, true);
+imagealphablending($logo, false);
+imagefill($logo, 0, 0, imagecolorallocatealpha($logo, 0, 0, 0, 127));
+imagealphablending($logo, true);
+imagecopyresampled($logo, $src, 0, 0, $isi['x1'], $isi['y1'], $lebarLogo, $tinggiLogo, $isiW, $isiH);
+imagepng($logo, "{$tujuan}/logo-gold.png", 9);
+
+echo "logo-gold.png ({$lebarLogo}x{$tinggiLogo})\n";

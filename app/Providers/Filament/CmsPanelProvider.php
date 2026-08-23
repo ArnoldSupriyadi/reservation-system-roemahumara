@@ -28,10 +28,16 @@ class CmsPanelProvider extends PanelProvider
             ->id('cms')
             ->path('cms')
             ->login()
-            ->brandName('Roemah Umara')
+            ->brandName('Roemah Umara Reservation')
+            // Markup sendiri, bukan url gambar: komponen logo Filament mengganti
+            // teks nama begitu sebuah logo dipasang, sehingga "Reservation" tidak
+            // akan pernah terbaca di halaman login. 'auto' dipakai karena tinggi
+            // dari Filament diterapkan ke seluruh blok dan akan memotong barisnya.
+            ->brandLogo(fn () => view('filament.brand'))
+            ->brandLogoHeight('auto')
             // Filament hanya merender satu <link rel="icon">, jadi dipilih yang
             // 32px — ukuran yang dipakai tab peramban di layar biasa maupun
-            // Retina. Berkasnya dibuat scripts/buat-favicon.php dari logo gold.
+            // Retina. Berkasnya dibuat scripts/buat-aset-logo.php dari logo gold.
             ->favicon(asset('img/favicon-32.png'))
             ->navigationGroups([
                 'Reservasi',
