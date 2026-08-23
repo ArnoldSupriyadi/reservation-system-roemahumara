@@ -9,6 +9,36 @@ sendiri ada di [RUNBOOK.md](RUNBOOK.md) — di sini hanya statusnya.
 Berkas ini ikut git, jadi cukup `git pull` di mesin mana pun untuk melihat
 keadaan terakhir. **Perbarui setiap kali sebuah bagian selesai**, lalu commit.
 
+---
+
+# ▶ LANJUT DARI SINI — bagian 7: Nginx server block
+
+Bagian 0–6 sudah selesai. Aplikasi sudah ada di `/var/www/roemahumara`, database
+terisi, akun admin siap. Yang belum: Nginx belum tahu harus menyajikannya.
+
+Masuk ke server, lalu:
+
+```bash
+ssh ictumara@192.168.88.33     # lewat VPN kantor
+
+cd /var/www/roemahumara
+sudo cp deploy/nginx/roemahumara.conf /etc/nginx/sites-available/roemahumara
+sudo ln -sf /etc/nginx/sites-available/roemahumara /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+**Ujinya lewat `http://192.168.88.33/cms/login`, bukan `/`.** Halaman depan masih
+akan gagal dengan `Vite manifest not found` sampai deploy pertama berjalan —
+lihat RUNBOOK bagian 7 untuk sebabnya. Itu bukan tanda pemasangan yang rusak.
+
+Kalau halaman login muncul, tandai bagian 7 ✅ di tabel bawah, commit, lalu
+lanjut ke bagian 9 (queue worker) — bagian 8 sengaja dilewati sampai domainnya
+siap.
+
+---
+
 ## Keadaan server
 
 | | |
@@ -37,9 +67,9 @@ keadaan terakhir. **Perbarui setiap kali sebuah bagian selesai**, lalu commit.
 | 4 | Nginx | ✅ | |
 | 5 | Composer | ✅ | 2.10.2, terikat ke `/usr/bin/php8.3` |
 | 6 | Direktori aplikasi & `.env` | ✅ | Admin `roemahumara@gmail.com` sudah punya role — uji `can('reservation.delete')` mengembalikan `true` |
-| 7 | Nginx server block | ⏭️ | **Berikutnya** |
-| 8 | SSL Let's Encrypt | ⏸️ | Menunggu domain diarahkan |
-| 9 | Queue worker | ⬜ | |
+| 7 | Nginx server block | ⏭️ | **Sedang dikerjakan — lihat "LANJUT DARI SINI" di atas** |
+| 8 | SSL Let's Encrypt | ⏸️ | Menunggu domain diarahkan — **lewati**, lanjut ke 9 |
+| 9 | Queue worker | ⬜ | Setelah 7 |
 | 10 | Scheduler cron | ⬜ | |
 | 11 | Sudo terbatas untuk deploy | ⬜ | |
 | 12 | Self-hosted runner | ⬜ | |
