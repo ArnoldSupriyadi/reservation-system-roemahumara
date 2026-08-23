@@ -445,7 +445,7 @@ class ReservationsTableTest extends TestCase
 
         Livewire::test(ListReservations::class)
             ->set('activeTab', 'all')
-            ->filterTable('bulan', ['bulan' => $jauh->reservation_date->format('Y-m')])
+            ->filterTable('bulan', $jauh->reservation_date->format('Y-m'))
             ->assertCanSeeTableRecords([$jauh])
             ->assertCanNotSeeTableRecords([$this->singleTime, $this->range, $this->noRemark]);
     }

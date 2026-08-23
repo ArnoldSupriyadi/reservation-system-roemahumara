@@ -13,7 +13,6 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Select;
 use Filament\Support\Enums\FontFamily;
 use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Columns\TextColumn;
@@ -168,35 +167,23 @@ class ReservationsTable
                     ->toggle(),
 
                 /*
-                 * Filter bulan dan rentang tanggal.
-                 *
-                 * Keduanya BERTUMPUK dengan tab bulan di atas tabel — tab
-                 * menyaring lebih dulu, filter mempersempit di dalamnya. Memilih
-                 * bulan yang berbeda dari tab yang aktif menghasilkan tabel
-                 * kosong tanpa menjelaskan kenapa, jadi filter bulan memakai
-                 * Filter berskema sendiri alih-alih SelectFilter: hanya bentuk
-                 * itu yang bisa membawa helperText untuk menyebutkan tab Semua.
+                 * Filter bulan dan rentang tanggal BERTUMPUK dengan tab bulan di
+                 * atas tabel: tab menyaring lebih dulu, filter mempersempit di
+                 * dalamnya. Memilih bulan yang berbeda dari tab yang aktif
+                 * menghasilkan tabel kosong — itu perilaku yang benar, tapi perlu
+                 * diingat kalau suatu saat ada yang melaporkannya sebagai bug.
                  */
-                Filter::make('bulan')
+                SelectFilter::make('bulan')
                     ->label('Bulan')
-                    ->schema([
-                        Select::make('bulan')
-                            ->label('Bulan')
-                            ->searchable()
-                            ->placeholder('Semua bulan')
-                            ->options(fn () => self::monthOptions())
-                            ->helperText('Bertumpuk dengan tab di atas tabel. Untuk mencari di luar tab, pilih tab Semua dulu.'),
-                    ])
+                    ->searchable()
+                    ->options(fn () => self::monthOptions())
                     ->query(fn (Builder $query, array $data) => $query->when(
-                        $data['bulan'] ?? null,
+                        $data['value'] ?? null,
                         fn (Builder $q, string $bulan) => $q->whereRaw(
                             "DATE_FORMAT(reservation_date, '%Y-%m') = ?",
                             [$bulan]
                         )
-                    ))
-                    ->indicateUsing(fn (array $data): array => filled($data['bulan'] ?? null)
-                        ? [Indicator::make(Carbon::createFromFormat('Y-m', $data['bulan'])->translatedFormat('F Y'))->removeField('bulan')]
-                        : []),
+                    )),
 
                 Filter::make('rentang_tanggal')
                     ->label('Rentang tanggal')
