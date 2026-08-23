@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Area;
 use App\Models\EventType;
-use App\Models\MenuStyle;
+use App\Models\Menu;
 use Database\Seeders\MasterSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -19,7 +19,7 @@ class MasterSeederTest extends TestCase
 
         $this->assertSame(12, Area::count());
         $this->assertSame(6, EventType::count());
-        $this->assertSame(2, MenuStyle::count());
+        $this->assertSame(137, Menu::count(), 'Seluruh hidangan dari menu.json.');
     }
 
     /**

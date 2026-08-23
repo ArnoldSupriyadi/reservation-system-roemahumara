@@ -7,7 +7,7 @@
         'email' => 'Email',
         'pic_id' => 'PIC',
         'event_type_id' => 'Event',
-        'menu_style_id' => 'Menu style',
+        
         'area_id' => 'Area',
         'start_time' => 'Jam mulai',
         'end_time' => 'Jam selesai',

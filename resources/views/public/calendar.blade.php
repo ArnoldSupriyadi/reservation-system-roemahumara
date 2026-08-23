@@ -148,14 +148,28 @@
                     <dd class="text-sm font-bold">{{ $selected->pax }} orang</dd>
                 </div>
                 <div>
-                    <dt class="text-[10px] font-black uppercase tracking-widest">Menu style</dt>
-                    <dd class="text-sm font-bold">{{ $selected->menuStyle?->name ?? '—' }}</dd>
+                    <dt class="text-[10px] font-black uppercase tracking-widest">Menu</dt>
+                    <dd class="text-sm font-bold">{{ $selected->menus->count() ?: '—' }} item</dd>
                 </div>
                 <div>
                     <dt class="text-[10px] font-black uppercase tracking-widest">PIC / Sales</dt>
                     <dd class="text-sm font-bold">{{ $selected->pic?->name ?? '—' }}</dd>
                 </div>
             </dl>
+
+            @if ($selected->menus->isNotEmpty())
+                <div class="mt-4 border-t-[3px] border-ink pt-4">
+                    <dt class="text-[10px] font-black uppercase tracking-widest">Menu dipesan</dt>
+                    <ul class="mt-1 grid gap-x-4 gap-y-1 text-sm font-bold sm:grid-cols-2">
+                        @foreach ($selected->menus as $menu)
+                            <li class="flex justify-between gap-3 border-b border-dashed border-ink/30 py-0.5">
+                                <span>{{ $menu->name }}</span>
+                                <span class="shrink-0 tabular-nums">{{ $menu->pivot->pax }} porsi</span>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
 
             {{-- Aturan #4 CLAUDE.md berlaku juga di sini: remark tampil penuh.
                  JANGAN memakai Str::limit(), words(), atau menyembunyikannya di

@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Area;
 use App\Models\EventType;
-use App\Models\MenuStyle;
+use App\Models\Menu;
 use App\Models\Reservation;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
@@ -49,7 +49,7 @@ class MasterResourceTest extends TestCase
 
         $this->actingAs($admin)->get('/cms/areas')->assertOk();
         $this->actingAs($admin)->get('/cms/event-types')->assertOk();
-        $this->actingAs($admin)->get('/cms/menu-styles')->assertOk();
+        $this->actingAs($admin)->get('/cms/menus')->assertOk();
     }
 
     public function test_staff_cannot_open_user_management(): void
@@ -76,13 +76,18 @@ class MasterResourceTest extends TestCase
         $area->delete();
     }
 
-    /** @return array<string, array{0: string, 1: class-string}> */
+    /**
+     * Atribut tambahan disertakan karena tiap master punya kolom wajibnya
+     * sendiri — Menu butuh kategori sejak menu style diganti daftar hidangan.
+     *
+     * @return array<string, array{0: string, 1: class-string, 2: array<string, string>}>
+     */
     public static function masterPages(): array
     {
         return [
-            'area' => ['/cms/areas', Area::class],
-            'jenis acara' => ['/cms/event-types', EventType::class],
-            'menu style' => ['/cms/menu-styles', MenuStyle::class],
+            'area' => ['/cms/areas', Area::class, []],
+            'jenis acara' => ['/cms/event-types', EventType::class, []],
+            'menu' => ['/cms/menus', Menu::class, ['category' => 'Hidangan Pembuka']],
         ];
     }
 
@@ -95,11 +100,11 @@ class MasterResourceTest extends TestCase
      * yang kosong — memeriksa keberadaan kolom tidak akan menangkap itu.
      */
     #[DataProvider('masterPages')]
-    public function test_master_lists_are_numbered(string $url, string $model): void
+    public function test_master_lists_are_numbered(string $url, string $model, array $tambahan): void
     {
-        $model::create(['name' => 'SATU']);
-        $model::create(['name' => 'DUA']);
-        $model::create(['name' => 'TIGA']);
+        foreach (['SATU', 'DUA', 'TIGA'] as $nama) {
+            $model::create(['name' => $nama] + $tambahan);
+        }
 
         $html = $this->actingAs(User::factory()->admin()->create())
             ->get($url)

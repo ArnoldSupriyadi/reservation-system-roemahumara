@@ -43,7 +43,6 @@ class ReservationNumberTest extends TestCase
             'email' => null,
             'pic_id' => $this->actor->id,
             'event_type_id' => null,
-            'menu_style_id' => null,
             'area_id' => $this->area->id,
             'start_time' => '12:00',
             'end_time' => null,

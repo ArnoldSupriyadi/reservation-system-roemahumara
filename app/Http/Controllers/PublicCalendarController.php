@@ -51,7 +51,8 @@ class PublicCalendarController extends Controller
      *
      * Riwayat pelonggaran, semuanya atas permintaan eksplisit pemilik sistem:
      *
-     * - 2026-08-22: pax dan menu_style_id — keterangan acara, bukan identitas.
+     * - 2026-08-22: pax dan menu style — keterangan acara, bukan identitas.
+     *   Menu style diganti daftar hidangan pada 2026-08-23; kini relasi menus.
      * - 2026-08-22: company.
      * - 2026-08-22: guest_name, pic_id, dan remark. Ini pelonggaran yang jauh
      *   lebih besar dan konsekuensinya perlu diketahui siapa pun yang membaca
@@ -77,13 +78,12 @@ class PublicCalendarController extends Controller
                 'area_id',
                 'event_type_id',
                 'pax',
-                'menu_style_id',
                 'guest_name',
                 'company',
                 'pic_id',
                 'remark',
             ])
-            ->with(['area:id,name', 'eventType:id,name', 'menuStyle:id,name', 'pic:id,name'])
+            ->with(['area:id,name', 'eventType:id,name', 'menus:id,name', 'pic:id,name'])
             ->whereYear('reservation_date', (int) $year)
             ->whereMonth('reservation_date', (int) $monthNumber)
             // Reservasi batal tidak ditampilkan ke umum. Blade menganggap semua

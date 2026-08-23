@@ -32,8 +32,10 @@ class ReservationWriter
 
         $this->guardRules($data, null);
 
+        $menus = $this->pullMenus($data);
+
         try {
-            return DB::transaction(function () use ($data, $idempotencyKey, $actor) {
+            return DB::transaction(function () use ($data, $menus, $idempotencyKey, $actor) {
                 $reservation = new Reservation;
                 $reservation->fill($data);
                 $reservation->reservation_number = Reservation::NUMBER_PREFIX
@@ -42,6 +44,8 @@ class ReservationWriter
                 $reservation->created_by = $actor->id;
                 $reservation->version = 1;
                 $reservation->save();
+
+                $reservation->menus()->sync($menus ?? []);
 
                 return $reservation;
             });
@@ -65,7 +69,9 @@ class ReservationWriter
         int $expectedVersion,
         User $actor
     ): Reservation {
-        return DB::transaction(function () use ($reservation, $data, $expectedVersion, $actor) {
+        $menus = $this->pullMenus($data);
+
+        return DB::transaction(function () use ($reservation, $data, $menus, $expectedVersion, $actor) {
             $fresh = Reservation::whereKey($reservation->getKey())
                 ->lockForUpdate()
                 ->firstOrFail();
@@ -82,6 +88,13 @@ class ReservationWriter
 
             try {
                 $fresh->save();
+
+                // null berarti kunci menu_items memang tidak dikirim — update
+                // parsial yang tidak menyentuh menu. Larik kosong berarti
+                // dikirim tapi kosong: pengguna menghapus semua menunya.
+                if ($menus !== null) {
+                    $fresh->menus()->sync($menus);
+                }
             } catch (QueryException $e) {
                 if ($this->violates($e, self::DEDUPE_INDEX)) {
                     throw new DuplicateReservationException($this->findDuplicate($data));
@@ -92,6 +105,32 @@ class ReservationWriter
 
             return $fresh;
         });
+    }
+
+    /**
+     * Mengeluarkan pilihan menu dari data dan mengubahnya jadi bentuk sync().
+     *
+     * Dikeluarkan, bukan sekadar dibaca: kalau menu_items ikut masuk ke fill(),
+     * Eloquent akan mencoba menyimpannya sebagai kolom dan gagal dengan galat
+     * SQL yang tidak menunjuk penyebabnya.
+     *
+     * @return array<int, array{pax: int}>|null null bila kuncinya tidak dikirim
+     */
+    private function pullMenus(array &$data): ?array
+    {
+        if (! array_key_exists('menu_items', $data)) {
+            return null;
+        }
+
+        $items = $data['menu_items'];
+        unset($data['menu_items']);
+
+        return collect($items ?? [])
+            ->filter(fn ($baris) => filled($baris['menu_id'] ?? null))
+            ->mapWithKeys(fn ($baris) => [
+                (int) $baris['menu_id'] => ['pax' => max(1, (int) ($baris['pax'] ?? 1))],
+            ])
+            ->all();
     }
 
     /**

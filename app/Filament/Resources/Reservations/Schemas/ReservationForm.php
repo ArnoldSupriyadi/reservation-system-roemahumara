@@ -6,7 +6,7 @@ use App\Enums\Ability;
 use App\Enums\ReservationStatus;
 use App\Models\Area;
 use App\Models\EventType;
-use App\Models\MenuStyle;
+use App\Models\Menu;
 use App\Models\Reservation;
 use App\Models\User;
 use App\Support\TimeInput;
@@ -14,6 +14,7 @@ use Closure;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -88,11 +89,6 @@ class ReservationForm
                     Select::make('event_type_id')
                         ->label('Event')
                         ->options(fn () => EventType::query()->active()->orderBy('id')->pluck('name', 'id'))
-                        ->helperText('Opsional'),
-
-                    Select::make('menu_style_id')
-                        ->label('Menu style')
-                        ->options(fn () => MenuStyle::query()->active()->orderBy('id')->pluck('name', 'id'))
                         ->helperText('Opsional'),
 
                     // Wajib. Area yang kosong membuat ConflictChecker melewati
@@ -175,6 +171,49 @@ class ReservationForm
                             : 'Anda tidak punya hak untuk menetapkan CONFIRMED.'),
                 ]),
 
+            /*
+             * Menu bersifat opsional dan boleh berisi banyak item, masing-masing
+             * dengan jumlah porsinya sendiri.
+             *
+             * Kuncinya 'menu_items', bukan 'menus'. Kalau memakai nama relasinya,
+             * Filament akan mencoba mengisi dan menyimpannya sendiri lewat
+             * relationship handling, dan penulisan pivot lolos dari
+             * ReservationWriter — melanggar aturan #5 CLAUDE.md sekaligus
+             * membuat sinkronisasinya terjadi di luar transaksi.
+             */
+            Section::make('Menu')
+                ->description('Opsional. Jumlah porsi tiap item boleh berbeda dari jumlah tamu.')
+                ->schema([
+                    Repeater::make('menu_items')
+                        ->hiddenLabel()
+                        ->dehydrated()
+                        ->default([])
+                        ->addActionLabel('Tambah menu')
+                        ->columns(3)
+                        ->schema([
+                            Select::make('menu_id')
+                                ->label('Menu')
+                                ->required()
+                                ->searchable()
+                                ->columnSpan(2)
+                                // Dikelompokkan per kategori: 137 item dalam satu
+                                // daftar rata tidak mungkin ditelusuri dengan mata.
+                                ->options(fn () => self::menuOptions()),
+
+                            TextInput::make('pax')
+                                ->label('Porsi')
+                                ->required()
+                                ->numeric()
+                                ->minValue(1)
+                                ->default(fn (callable $get) => $get('../../pax')),
+                        ])
+                        // Satu menu tidak boleh dipesan dua kali dalam satu
+                        // reservasi; pivot-nya berkunci gabungan dan akan
+                        // menolak dengan galat SQL yang tidak menolong.
+                        ->distinct()
+                        ->columnSpanFull(),
+                ]),
+
             Section::make('Catatan')
                 ->schema([
                     Textarea::make('remark')
@@ -188,6 +227,23 @@ class ReservationForm
                 ->default(fn () => (string) Str::uuid())
                 ->dehydrated(),
         ]);
+    }
+
+    /**
+     * Pilihan menu, dikelompokkan per kategori dan diurutkan menurut alur
+     * hidangan — pembuka lebih dulu, minuman belakangan.
+     *
+     * @return array<string, array<int, string>>
+     */
+    private static function menuOptions(): array
+    {
+        return Menu::query()
+            ->active()
+            ->inMenuOrder()
+            ->get(['id', 'name', 'category'])
+            ->groupBy('category')
+            ->map(fn ($items) => $items->pluck('name', 'id')->all())
+            ->all();
     }
 
     private static function canConfirm(): bool

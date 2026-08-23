@@ -38,7 +38,6 @@ class ReservationInfolist
                     TextEntry::make('pic.name')->label('PIC / Sales'),
                     TextEntry::make('pax')->label('Pax')->numeric(),
                     TextEntry::make('eventType.name')->label('Event')->placeholder('—'),
-                    TextEntry::make('menuStyle.name')->label('Menu style')->placeholder('—'),
                     TextEntry::make('area.name')->label('Area')->placeholder('—'),
 
                     TextEntry::make('status')
@@ -50,6 +49,25 @@ class ReservationInfolist
                             ReservationStatus::Tentative => 'warning',
                             ReservationStatus::Cancelled => 'danger',
                             default => 'gray',
+                        }),
+                ]),
+
+            Section::make('Menu')
+                ->schema([
+                    TextEntry::make('menus.name')
+                        ->hiddenLabel()
+                        ->placeholder('Tidak ada menu dipesan.')
+                        ->columnSpanFull()
+                        ->listWithLineBreaks()
+                        // Porsi ikut ditampilkan: tanpa itu daftar menu hanya
+                        // memberi tahu apa yang dipesan, bukan berapa banyak,
+                        // dan itu justru angka yang dibutuhkan dapur.
+                        ->formatStateUsing(function ($state, $record) {
+                            $menu = $record->menus->firstWhere('name', $state);
+
+                            return $menu === null
+                                ? $state
+                                : $state.' — '.$menu->pivot->pax.' porsi';
                         }),
                 ]),
 

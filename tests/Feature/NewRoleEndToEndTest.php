@@ -127,7 +127,7 @@ class NewRoleEndToEndTest extends TestCase
         // Langkah 7: menu master, pengguna, dan role tetap tertutup.
         $this->get('/cms/areas')->assertForbidden();
         $this->get('/cms/event-types')->assertForbidden();
-        $this->get('/cms/menu-styles')->assertForbidden();
+        $this->get('/cms/menus')->assertForbidden();
         $this->get('/cms/users')->assertForbidden();
         $this->get('/cms/roles')->assertForbidden();
 

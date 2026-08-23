@@ -53,7 +53,6 @@ class ReservationResourceTest extends TestCase
             ->assertFormFieldExists('email')
             ->assertFormFieldExists('pic_id')
             ->assertFormFieldExists('event_type_id')
-            ->assertFormFieldExists('menu_style_id')
             ->assertFormFieldExists('area_id')
             ->assertFormFieldExists('pax')
             ->assertFormFieldExists('start_time')

@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\Area;
 use App\Models\EventType;
-use App\Models\MenuStyle;
 use Illuminate\Database\Seeder;
 
 class MasterSeeder extends Seeder
@@ -19,7 +18,6 @@ class MasterSeeder extends Seeder
             'BALLROOM 1', 'BALLROOM 2', 'BALLROOM 3', 'BALLROOM 4', 'ALL BALLROOM',
         ];
         $eventTypes = ['TEST FOOD', 'PRIVATE', 'MEETING', 'LUNCH', 'DINNER', 'GATHERING'];
-        $menuStyles = ['BUFFET', 'AL CARTE'];
 
         // Urutan tampilnya mengikuti id, dan id mengikuti urutan penyisipan di
         // sini — jadi urutan larik di atas tetap menentukan urutan di layar,
@@ -32,9 +30,9 @@ class MasterSeeder extends Seeder
             EventType::firstOrCreate(['name' => $name]);
         }
 
-        foreach ($menuStyles as $name) {
-            MenuStyle::firstOrCreate(['name' => $name]);
-        }
+        // Daftar hidangan dipisahkan ke seedernya sendiri: isinya 137 item dari
+        // berkas JSON, terlalu besar untuk disisipkan di antara master lain.
+        $this->call(MenuSeeder::class);
 
         $this->linkBallrooms();
     }

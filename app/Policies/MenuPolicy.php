@@ -5,7 +5,7 @@ namespace App\Policies;
 use App\Enums\Ability;
 use App\Models\User;
 
-class MenuStylePolicy
+class MenuPolicy
 {
     protected function ability(): Ability
     {

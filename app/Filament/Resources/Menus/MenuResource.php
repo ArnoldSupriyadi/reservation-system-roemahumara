@@ -1,12 +1,13 @@
 <?php
 
-namespace App\Filament\Resources\MenuStyles;
+namespace App\Filament\Resources\Menus;
 
-use App\Filament\Resources\MenuStyles\Pages\ManageMenuStyles;
-use App\Models\MenuStyle;
+use App\Filament\Resources\Menus\Pages\ManageMenus;
+use App\Models\Menu;
 use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
@@ -18,27 +19,38 @@ use Filament\Tables\Table;
 use Illuminate\Database\QueryException;
 use UnitEnum;
 
-class MenuStyleResource extends Resource
+class MenuResource extends Resource
 {
-    protected static ?string $model = MenuStyle::class;
+    protected static ?string $model = Menu::class;
 
     protected static string | BackedEnum | null $navigationIcon = 'heroicon-o-cake';
 
     protected static string | UnitEnum | null $navigationGroup = 'Master';
 
-    protected static ?string $modelLabel = 'Menu style';
+    protected static ?string $modelLabel = 'Menu';
 
-    protected static ?string $pluralModelLabel = 'Menu style';
+    protected static ?string $pluralModelLabel = 'Menu';
 
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
+            // Nama TIDAK lagi dipaksa huruf kapital. Daftar hidangan dibaca
+            // manusia, dan "Capelli D'angelo Alle Vongole" jauh lebih terbaca
+            // daripada versi kapital semuanya.
             TextInput::make('name')
                 ->label('Nama')
                 ->required()
-                ->maxLength(80)
+                ->maxLength(120)
                 ->unique(ignoreRecord: true)
-                ->dehydrateStateUsing(fn (string $state) => mb_strtoupper(trim($state))),
+                ->dehydrateStateUsing(fn (string $state) => trim($state)),
+
+            // Select, bukan teks bebas: kategori yang salah ketik akan tampil
+            // sebagai kelompok baru di daftar menu tanpa ada yang menyadarinya.
+            Select::make('category')
+                ->label('Kategori')
+                ->required()
+                ->searchable()
+                ->options(array_combine(Menu::CATEGORIES, Menu::CATEGORIES)),
 
             Toggle::make('is_active')
                 ->label('Aktif')
@@ -50,7 +62,9 @@ class MenuStyleResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->defaultSort('id')
+            // Mengikuti urutan kategori di Menu::CATEGORIES, bukan id maupun
+            // abjad — daftar menu dibaca menurut alur hidangan.
+            ->modifyQueryUsing(fn ($query) => $query->inMenuOrder())
             ->paginated(false)
             ->columns([
                 // Nomor urut baris, bukan kolom di database. sort_order sengaja dihapus
@@ -67,6 +81,14 @@ class MenuStyleResource extends Resource
                     ->extraCellAttributes(['style' => 'width:1%; white-space:nowrap']),
 
                 TextColumn::make('name')->label('Nama')->searchable(),
+
+                TextColumn::make('category')
+                    ->label('Kategori')
+                    ->badge()
+                    ->color('gray')
+                    ->searchable()
+                    ->extraHeaderAttributes(['style' => 'width:1%; white-space:nowrap'])
+                    ->extraCellAttributes(['style' => 'width:1%; white-space:nowrap']),
                 // Menyempit juga, supaya kolom Nama yang mengambil sisa lebar tabel.
                 IconColumn::make('is_active')
                     ->label('Aktif')
@@ -77,7 +99,7 @@ class MenuStyleResource extends Resource
             ->recordActions([
                 EditAction::make(),
                 DeleteAction::make()
-                    ->action(function (MenuStyle $record, DeleteAction $action) {
+                    ->action(function (Menu $record, DeleteAction $action) {
                         try {
                             $record->delete();
                         } catch (QueryException $e) {
@@ -102,6 +124,6 @@ class MenuStyleResource extends Resource
 
     public static function getPages(): array
     {
-        return ['index' => ManageMenuStyles::route('/')];
+        return ['index' => ManageMenus::route('/')];
     }
 }

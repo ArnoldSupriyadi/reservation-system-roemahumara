@@ -27,7 +27,7 @@ class ReservationsTable
                 'pic:id,name',
                 'area:id,name',
                 'eventType:id,name',
-                'menuStyle:id,name',
+                'menus:id,name',
             ]))
             ->defaultSort('reservation_date')
             ->paginated(false)
@@ -98,6 +98,15 @@ class ReservationsTable
                     ->label('Area')
                     ->placeholder('—')
                     ->toggleable(),
+
+                TextColumn::make('menus.name')
+                    ->label('Menu')
+                    ->badge()
+                    ->color('gray')
+                    ->limitList(3)
+                    ->expandableLimitedList()
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('pax')
                     ->label('Pax')

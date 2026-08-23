@@ -6,7 +6,7 @@ use App\Enums\ReservationStatus;
 use App\Http\Controllers\PublicCalendarController;
 use App\Models\Area;
 use App\Models\EventType;
-use App\Models\MenuStyle;
+use App\Models\Menu;
 use App\Models\Reservation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -60,7 +60,7 @@ class PublicCalendarTest extends TestCase
      * eksplisit pemilik sistem. Yang tersisa dijaga di sini hanya dua: phone
      * dan email.
      *
-     * Yang DILEPAS dan kini terbit ke publik: pax, menu_style_id, guest_name,
+     * Yang DILEPAS dan kini terbit ke publik: pax, menu, guest_name,
      * pic_id, remark, company. Dicatat apa adanya supaya pelonggaran ini tetap
      * terbaca sebagai keputusan sadar, bukan sebagai test yang lupa diperbarui.
      */
@@ -146,15 +146,34 @@ class PublicCalendarTest extends TestCase
             ->assertDontSee('...');
     }
 
-    public function test_pax_and_menu_style_are_shown(): void
+    public function test_pax_and_the_ordered_menu_are_shown(): void
     {
-        $menu = MenuStyle::create(['name' => 'BUFFET SIANG']);
-        $r = $this->reservation(['pax' => 137, 'menu_style_id' => $menu->id]);
+        $nasi = Menu::create(['name' => 'Nasi Umara', 'category' => 'Aneka Nasi']);
+        $teh = Menu::create(['name' => 'Ice Lemon Tea', 'category' => 'Artisan Flavored Tea']);
+
+        $r = $this->reservation(['pax' => 137]);
+        $r->menus()->sync([$nasi->id => ['pax' => 30], $teh->id => ['pax' => 50]]);
 
         $this->get("/?bulan={$this->month}&pilih={$r->id}")
             ->assertOk()
             ->assertSee('137')
-            ->assertSee('BUFFET SIANG');
+            ->assertSee('Nasi Umara')
+            ->assertSee('Ice Lemon Tea')
+            // Porsinya ikut, bukan hanya nama hidangannya. Justru angka itu yang
+            // membedakan daftar pesanan dari daftar menu biasa.
+            ->assertSee('30 porsi')
+            ->assertSee('50 porsi');
+    }
+
+    /** Menu opsional: reservasi tanpa menu tetap merender panelnya. */
+    public function test_a_reservation_without_any_menu_still_renders(): void
+    {
+        $r = $this->reservation(['guest_name' => 'TANPA MENU']);
+
+        $this->get("/?bulan={$this->month}&pilih={$r->id}")
+            ->assertOk()
+            ->assertSee('TANPA MENU')
+            ->assertDontSee('porsi');
     }
 
     public function test_the_page_shows_what_it_is_supposed_to(): void

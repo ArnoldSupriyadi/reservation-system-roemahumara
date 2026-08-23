@@ -231,7 +231,7 @@ sudo -u deployer php8.3 artisan db:seed --class=MasterSeeder --force
 ```
 
 Yang pertama membuat role `admin` dan `staff` beserta seluruh permission-nya. Yang
-kedua mengisi master area, jenis acara, dan menu style.
+kedua mengisi master area, jenis acara, dan seluruh daftar menu (137 hidangan dalam 24 kategori).
 
 > `db:seed` polos juga membuat akun admin `roemahumara@gmail.com`. Sejak
 > 2026-08-22 itu akun sungguhan, bukan lagi `test@example.com`, jadi

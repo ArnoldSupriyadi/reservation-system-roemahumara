@@ -7,7 +7,7 @@ use App\Models\Reservation;
 use App\Models\User;
 use App\Policies\AreaPolicy;
 use App\Policies\EventTypePolicy;
-use App\Policies\MenuStylePolicy;
+use App\Policies\MenuPolicy;
 use App\Policies\ReservationPolicy;
 use App\Policies\UserPolicy;
 use Database\Seeders\RolePermissionSeeder;
@@ -73,7 +73,7 @@ class ReservationPolicyTest extends TestCase
         $staff = $this->staff();
         $admin = User::factory()->admin()->create();
 
-        foreach ([new AreaPolicy(), new EventTypePolicy(), new MenuStylePolicy(), new UserPolicy()] as $policy) {
+        foreach ([new AreaPolicy(), new EventTypePolicy(), new MenuPolicy(), new UserPolicy()] as $policy) {
             $this->assertFalse($policy->viewAny($staff), $policy::class.' seharusnya menolak staf.');
             $this->assertTrue($policy->viewAny($admin), $policy::class.' seharusnya mengizinkan admin.');
         }

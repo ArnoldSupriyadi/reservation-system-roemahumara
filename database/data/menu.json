@@ -1,0 +1,29 @@
+{
+  "restaurant": "Roemah Umara",
+  "categories": [
+    { "category": "Hidangan Pembuka", "items": ["Bakso Udang", "Kulit Ayam Goreng Umara", "Abon-Abon Kepiting Soka", "Umara Platter"] },
+    { "category": "Aneka Jajanan Ringan", "items": ["Singkong Goreng Sambal Roa", "Tahu Isi", "Risoles Mayo", "Perkedel Jagung", "Pisang Goreng Emas", "Sosis Solo", "Tape Roll", "Chicken Thigh Garlic"] },
+    { "category": "Selada", "items": ["Rujak Buah Musim", "Traditional Caesar Salad", "Beef Pomelo Salad", "Portuguese Carne Salada"] },
+    { "category": "Sop", "items": ["Sop Iga", "Sop Iga Konro", "Rawon Buntut", "Empal Gentong", "Ayam Garang Asem", "Asem-Asem Bandeng"] },
+    { "category": "Hidangan Nasi & Mie", "items": ["Nasi Umara", "Nasi Jamblang", "Nasi Goreng Lidah Juara", "Nasi Goreng Kambing Umara", "Nasi Goreng Cakalang", "Nasi Goreng Kampung", "Nasi Ayam Betutu", "Nasi Goreng Se'i Sapi Kecombrang", "Nasi Goreng Brebes", "Bihun Kari Sapi", "Udon Rempah Aceh", "Pad Thai", "Mie Goreng Mamak"] },
+    { "category": "Pasta", "items": ["Capelli D'angelo Alle Vongole", "Papardelle Al Funghi", "Papardelle Al Ragù"] },
+    { "category": "Lauk Unggas", "items": ["Ayam Goreng Bawang", "Butter Chicken Indian Style", "Sate Ayam Roemah Umara", "Ayam Pansuh", "Ayam Goreng Kremes", "Ayam Pepes", "Bebek Kari Kuah", "Bebek Berempa", "Ayam Asap Kecombrang"] },
+    { "category": "Lauk Daging", "items": ["Sapi Muda Lada Hitam", "Dendeng Bukit Paso", "Paru Asam Manis", "Lidah Cabe Ijo", "Empal Goreng Serundeng", "Lamb Shank Bumbu Kapulaga"] },
+    { "category": "Boga Bahari", "items": ["Udang Gandum", "Gurame Goreng Saus Mangga", "Udang Pete Balacan"] },
+    { "category": "Aneka Hidangan Sayuran", "items": ["Gulai Daun Singkong Honje", "Tumis Buncis Ebi", "Oseng-Oseng Pucuk Labu", "Kangkung Hotplate", "Acar Kuning", "Tumis Kecipir Teri Medan"] },
+    { "category": "Spesial Menu Anak", "items": ["Fish & Chip", "Spaghetti Chicken Bolognaise", "French Fries"] },
+    { "category": "Aneka Nasi", "items": ["Nasi Putih", "Nasi Daun Jeruk", "Lontong"] },
+    { "category": "Aneka Sambal", "items": ["Sambal Terasi", "Sambal Ijo", "Sambal Matah", "Sambal Bawang"] },
+    { "category": "Hidangan Penutup", "items": ["Fruit Platters", "Es Bubur Sumsum", "Bajigur Brulee", "Es Kopyor Durian", "Es Teler Cake", "Onde-Onde Premium", "Bandros Kalapa", "Banana Brioche"] },
+    { "category": "Signature Rempah Umara", "items": ["Nusantara Breeze", "Rempah Ginger", "Orange Passion", "Tamarind Virgin Mojito"] },
+    { "category": "Signature Healthy Drink", "items": ["Tropicana Avocado", "Emerald Lychee Cloud", "Green Pineapple", "Green Paradise"] },
+    { "category": "Smoothies", "items": ["Choco Protein", "Pineapple Booster", "Blueberry Delight", "Golden Sunshine", "Crimson Spice"] },
+    { "category": "Fresh Juice", "items": ["Fresh Squeezed Orange", "Fresh Watermelon Juice", "Fresh Honeydew Juice", "Fresh Pineapple Juice", "Fresh Strawberry Juice", "Fresh Mix Juice (2 Choices)"] },
+    { "category": "Tea Selection", "items": ["English Breakfast Tea", "Earl Grey", "Pure Oolong", "Javanese Jasmine", "Lychee Tea", "Mango Tea", "Blackcurrant Tea", "Chamomile Dream", "Peppermint", "Tea Krampoel", "Exotic Especia"] },
+    { "category": "Artisan Flavored Tea", "items": ["Ice House Blend Tea", "Ice Lemon Tea", "Ice Lychee Tea", "Ice Strawberry Tea", "Ice Passion Tea", "Ice Peach Tea"] },
+    { "category": "Classic Coffee & Chocolate Selection", "items": ["Black Coffee", "Single Espresso", "Double Espresso", "Cappucino", "Cappuccino Caramel", "Coffee Latte", "Rempah Coffee", "Butterscotch Latte", "Passion Sunrise", "Salted Butterscotch Brew", "Chocolate"] },
+    { "category": "Manual Brew & Cold Brew Selection", "items": ["Single Origin Kerinci", "Single Origin Gayo", "Single Origin Papandayan Anaerob"] },
+    { "category": "Soft Drink", "items": ["Soda Water", "Coca Cola", "Tonic Water", "Coca Cola Zero", "Sprite"] },
+    { "category": "Mineral Water", "items": ["Aqua Reflection Still", "Aqua Reflections Sparkling"] }
+  ]
+}

@@ -4,7 +4,7 @@ Dari repositori kosong sampai halaman publik terbuka. Sekitar 10 menit, sebagian
 menunggu `composer install`.
 
 **Tidak ada data yang perlu dibawa dari mesin lama.** Seluruh isi database dibangkitkan
-ulang dari seeder: role, permission, master area/jenis acara/gaya menu, akun masuk, dan
+ulang dari seeder: role, permission, master area/jenis acara/menu, akun masuk, dan
 reservasi contoh. Tidak perlu dump, tidak perlu ekspor.
 
 ---

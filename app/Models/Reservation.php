@@ -6,6 +6,7 @@ use App\Enums\ReservationStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
@@ -30,7 +31,6 @@ class Reservation extends Model
         'email',
         'pic_id',
         'event_type_id',
-        'menu_style_id',
         'area_id',
         'start_time',
         'end_time',
@@ -64,9 +64,16 @@ class Reservation extends Model
         return $this->belongsTo(EventType::class);
     }
 
-    public function menuStyle(): BelongsTo
+    /**
+     * Menu yang dipesan, masing-masing dengan jumlah porsinya sendiri.
+     *
+     * Jumlah porsi TIDAK selalu sama dengan pax reservasi: minuman kerap
+     * dipesan lebih banyak daripada jumlah tamu, hidangan anak lebih sedikit.
+     * Karena itu pax ada di tabel penghubung, bukan diturunkan dari reservasi.
+     */
+    public function menus(): BelongsToMany
     {
-        return $this->belongsTo(MenuStyle::class);
+        return $this->belongsToMany(Menu::class)->withPivot('pax');
     }
 
     public function createdBy(): BelongsTo
@@ -90,7 +97,6 @@ class Reservation extends Model
                 'email',
                 'pic_id',
                 'event_type_id',
-                'menu_style_id',
                 'area_id',
                 'start_time',
                 'end_time',

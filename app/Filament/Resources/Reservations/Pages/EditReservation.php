@@ -42,6 +42,13 @@ class EditReservation extends EditRecord
     {
         $this->loadedVersion = $this->getRecord()->version;
 
+        // Pivot menu tidak ikut terisi sendiri karena repeaternya sengaja tidak
+        // memakai nama relasi — penulisannya harus lewat ReservationWriter,
+        // bukan relationship handling Filament (aturan #5 CLAUDE.md).
+        $data['menu_items'] = $this->getRecord()->menus
+            ->map(fn ($menu) => ['menu_id' => $menu->id, 'pax' => $menu->pivot->pax])
+            ->all();
+
         return $data;
     }
 

@@ -180,13 +180,33 @@ jadi idempotency-nya mencegah data kembar.
     itulah yang dulu membuat CreateReservation lompat ke halaman view.
     `ReservationFilamentTest::test_creating_redirects_back_to_the_list` menjaganya.
 
-14. **Master (Area, EventType, MenuStyle) tidak punya kolom urutan.** Daftarnya
+14. **Master (Area, EventType, Menu) tidak punya kolom urutan.** Daftarnya
     diurutkan `id`. `sort_order` dihapus 2026-08-22 karena menuntut pengelola
     memikirkan angka setiap menambah baris, padahal isinya belasan dan urutan
     tampilnya tidak pernah jadi persoalan. Urutan larik di `MasterSeeder` tetap
     menentukan urutan di layar, karena id mengikuti urutan penyisipan.
 
-15. **Menambah status baru butuh migrasi, bukan hanya case enum.** Kolom `status`
+15. **Menu dipesan lewat pivot, bukan kolom.** Satu reservasi bisa memesan banyak
+    menu, masing-masing dengan porsinya sendiri di `menu_reservation.pax`. Porsi
+    TIDAK diturunkan dari `reservations.pax` — minuman kerap dipesan lebih banyak
+    daripada jumlah tamu.
+
+    Repeaternya di form bernama **`menu_items`, bukan `menus`**. Memakai nama
+    relasi membuat Filament menyimpan pivotnya sendiri lewat relationship
+    handling, sehingga penulisan lolos dari `ReservationWriter` (aturan #5) dan
+    terjadi di luar transaksi. Writer yang melakukan `sync()`, di dalam transaksi
+    yang sama dengan penyimpanan reservasinya.
+
+    Pada `update()`, kunci `menu_items` yang **tidak dikirim** berarti "jangan
+    sentuh menu"; larik **kosong** berarti "hapus semua". Menyamakan keduanya
+    membuat perubahan pax saja diam-diam menghapus pesanan.
+
+    Kategori menu ada di `Menu::CATEGORIES`, bukan diambil dari nilai unik di
+    database — salah ketik akan melahirkan kelompok baru di layar tanpa ada yang
+    menyadarinya. `MenuSeeder` menolak jalan kalau `database/data/menu.json`
+    memuat kategori yang belum terdaftar.
+
+16. **Menambah status baru butuh migrasi, bukan hanya case enum.** Kolom `status`
     bertipe ENUM MySQL. Menambah case di `App\Enums\ReservationStatus` tanpa
     `ALTER TABLE ... MODIFY COLUMN` menghasilkan "Data truncated for column
     'status'" saat menyimpan. Pakai `DB::statement()`, bukan `$table->enum()->change()`

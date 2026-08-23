@@ -30,7 +30,6 @@ class ReservationFactory extends Factory
             'email' => null,
             'pic_id' => User::factory(),
             'event_type_id' => null,
-            'menu_style_id' => null,
             // Area wajib di database sejak 2026-08-22. Area yang sudah ada dipakai
             // ulang, bukan dibuat baru setiap kali — kalau setiap reservasi punya
             // areanya sendiri, test bentrok tidak akan pernah menemukan bentrok
