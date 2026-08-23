@@ -36,8 +36,8 @@ keadaan terakhir. **Perbarui setiap kali sebuah bagian selesai**, lalu commit.
 | 3 | MySQL 8 | ✅ | User `roemahumara`, database `roemahumara`. Sandi ada di catatan pribadi — dipakai lagi di `.env` bagian 6 |
 | 4 | Nginx | ✅ | |
 | 5 | Composer | ✅ | 2.10.2, terikat ke `/usr/bin/php8.3` |
-| 6 | Direktori aplikasi & `.env` | ⏭️ | **Berikutnya.** Butuh sandi MySQL dari bagian 3 |
-| 7 | Nginx server block | ⬜ | |
+| 6 | Direktori aplikasi & `.env` | ✅ | Admin `roemahumara@gmail.com` sudah punya role — uji `can('reservation.delete')` mengembalikan `true` |
+| 7 | Nginx server block | ⏭️ | **Berikutnya** |
 | 8 | SSL Let's Encrypt | ⏸️ | Menunggu domain diarahkan |
 | 9 | Queue worker | ⬜ | |
 | 10 | Scheduler cron | ⬜ | |

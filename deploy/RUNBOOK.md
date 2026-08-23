@@ -305,6 +305,38 @@ sudo chmod 640 .env
 sudo chown ictumara:www-data .env
 ```
 
+Periksa hasilnya sebelum lanjut — menyunting di nano gampang menggeser nilai ke
+baris tetangga:
+
+```bash
+sudo -u ictumara php8.3 artisan config:clear
+grep '^DB_' .env
+sudo -u ictumara php8.3 artisan db:show
+```
+
+`config:clear` bukan basa-basi: selama config masih ter-cache, `.env` yang sudah
+dibetulkan tidak berpengaruh sama sekali dan errornya tidak berubah sedikit pun.
+
+`db:show` harus menampilkan database `roemahumara` dengan 0 tabel. Kalau gagal,
+bacalah nama pengguna di dalam pesan errornya — `Access denied for user
+'localhost'@'localhost'` berarti `DB_USERNAME` terisi `localhost`, yaitu nilai
+milik `DB_HOST`.
+
+> Menguji sandinya langsung ke MySQL, tanpa Laravel:
+>
+> ```bash
+> mysql --user=roemahumara --password --host=127.0.0.1 --database=roemahumara -e "SELECT 1;"
+> ```
+>
+> Bentuk panjang dipakai supaya pasangan nama dan nilainya tidak bisa tergeser.
+> Di bentuk pendek, `-p RAHASIA` dengan spasi TIDAK berlaku — sandinya harus
+> menempel (`-pRAHASIA`), dan kalau tidak, MySQL membaca token berikutnya sebagai
+> nama pengguna.
+>
+> `-h 127.0.0.1` sengaja disertakan karena itulah yang dipakai Laravel. MySQL
+> memperlakukan `roemahumara@localhost` (socket) dan `roemahumara@127.0.0.1`
+> (TCP) sebagai dua identitas berbeda; bagian 3 hanya membuat yang pertama.
+
 ### Permission storage
 
 ```bash
