@@ -169,7 +169,27 @@ class PublicCalendarTest extends TestCase
             ->assertSee('50 porsi')
             // Catatan per hidangan ikut terbaca publik, sama seperti remark
             // reservasi yang sudah dilepas sebelumnya.
-            ->assertSee('Tidak pedas');
+            ->assertSee('Tidak pedas')
+            // Berlabel, bukan teks telanjang. Tanpa label, catatannya menempel
+            // di bawah porsi dan terbaca seolah bagian dari nama hidangan.
+            ->assertSee('Catatan:');
+    }
+
+    /** Menu tanpa catatan tidak boleh memunculkan label "Catatan:" yang kosong. */
+    public function test_a_menu_without_a_note_shows_no_note_label(): void
+    {
+        $nasi = Menu::create([
+            'name' => 'Nasi Umara',
+            'menu_category_id' => MenuCategory::create(['name' => 'Aneka Nasi'])->id,
+        ]);
+
+        $r = $this->reservation();
+        $r->menus()->sync([$nasi->id => ['pax' => 30, 'remark' => null]]);
+
+        $this->get("/?bulan={$this->month}&pilih={$r->id}")
+            ->assertOk()
+            ->assertSee('Nasi Umara')
+            ->assertDontSee('Catatan:');
     }
 
     /** Menu opsional: reservasi tanpa menu tetap merender panelnya. */

@@ -168,9 +168,15 @@
                                     <span class="shrink-0 tabular-nums">{{ $menu->pivot->pax }} porsi</span>
                                 </div>
                                 @if (filled($menu->pivot->remark))
-                                    {{-- Catatan per hidangan tampil penuh, sama seperti
-                                         remark reservasi. Aturan #4 CLAUDE.md. --}}
+                                    {{-- Berlabel "Catatan", bukan teks telanjang. Tanpa
+                                         label, isinya menempel persis di bawah nama dan
+                                         porsi sehingga terbaca seolah bagian dari nama
+                                         hidangan — "Tape Roll 10 porsi sajikan pas tamu
+                                         datang saja".
+
+                                         Tampil penuh, aturan #4 CLAUDE.md. --}}
                                     <p class="mt-0.5 whitespace-pre-line border-s-2 border-amber-500 ps-2 text-xs font-normal">
+                                        <span class="font-black uppercase tracking-wide">Catatan:</span>
                                         {{ $menu->pivot->remark }}
                                     </p>
                                 @endif
