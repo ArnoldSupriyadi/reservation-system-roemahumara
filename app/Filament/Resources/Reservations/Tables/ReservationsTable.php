@@ -5,7 +5,6 @@ namespace App\Filament\Resources\Reservations\Tables;
 use App\Enums\ReservationStatus;
 use App\Models\Area;
 use App\Models\EventType;
-use App\Models\Reservation;
 use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -167,24 +166,13 @@ class ReservationsTable
                     ->toggle(),
 
                 /*
-                 * Filter bulan dan rentang tanggal BERTUMPUK dengan tab bulan di
-                 * atas tabel: tab menyaring lebih dulu, filter mempersempit di
-                 * dalamnya. Memilih bulan yang berbeda dari tab yang aktif
-                 * menghasilkan tabel kosong — itu perilaku yang benar, tapi perlu
-                 * diingat kalau suatu saat ada yang melaporkannya sebagai bug.
+                 * Filter rentang tanggal BERTUMPUK dengan tab bulan di atas
+                 * tabel: tab menyaring lebih dulu, filter mempersempit di
+                 * dalamnya. Memilih tanggal di luar bulan yang aktif
+                 * menghasilkan tabel kosong — itu perilaku yang benar, tapi
+                 * perlu diingat kalau suatu saat dilaporkan sebagai bug. Tab
+                 * Semua adalah satu-satunya yang tidak ikut menyaring.
                  */
-                SelectFilter::make('bulan')
-                    ->label('Bulan')
-                    ->searchable()
-                    ->options(fn () => self::monthOptions())
-                    ->query(fn (Builder $query, array $data) => $query->when(
-                        $data['value'] ?? null,
-                        fn (Builder $q, string $bulan) => $q->whereRaw(
-                            "DATE_FORMAT(reservation_date, '%Y-%m') = ?",
-                            [$bulan]
-                        )
-                    )),
-
                 Filter::make('rentang_tanggal')
                     ->label('Rentang tanggal')
                     ->schema([
@@ -254,30 +242,6 @@ class ReservationsTable
             ])
             ->emptyStateHeading('Belum ada reservasi')
             ->emptyStateDescription('Tekan tombol tambah untuk mencatat reservasi pertama.');
-    }
-
-    /**
-     * Bulan yang BENAR-BENAR punya reservasi, bukan rentang tetap.
-     *
-     * Tab di atas tabel hanya mencakup tiga bulan ke belakang sampai tiga ke
-     * depan. Reservasi yang dipesan jauh hari — pernikahan biasanya enam bulan
-     * sampai setahun di muka — jatuh di luar jendela itu dan hanya bisa dicapai
-     * lewat tab Semua. Daftar ini dibangun dari data, jadi bulan seperti itu
-     * selalu punya jalan masuk sendiri.
-     *
-     * @return array<string, string>
-     */
-    private static function monthOptions(): array
-    {
-        return Reservation::query()
-            ->selectRaw("DATE_FORMAT(reservation_date, '%Y-%m') AS bulan")
-            ->distinct()
-            ->orderByDesc('bulan')
-            ->pluck('bulan')
-            ->mapWithKeys(fn (string $bulan) => [
-                $bulan => Carbon::createFromFormat('Y-m', $bulan)->translatedFormat('F Y'),
-            ])
-            ->all();
     }
 
     private static function timeRange($record): string
