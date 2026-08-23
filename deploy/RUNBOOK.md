@@ -80,6 +80,15 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
 ### 1d. Matikan login password SSH
 
+> **Boleh ditunda selama VPS masih di jaringan lokal.** Langkah ini melindungi
+> dari serangan tebak-sandi dari internet, sementara `192.168.88.33` hanya
+> terjangkau lewat jaringan kantor atau VPN. Risiko menjalankannya justru lebih
+> nyata: satu kekeliruan pada penyiapan SSH key membuat Anda terkunci di luar,
+> dan pemulihannya menuntut akses konsol lewat hypervisor.
+>
+> **WAJIB dikerjakan sebelum VPS punya IP publik** — lihat daftar di bagian 8.
+> Bot pemindai menemukan port 22 yang baru terbuka dalam hitungan menit.
+
 Lakukan **setelah** memastikan login dengan SSH key berhasil, kalau tidak kamu terkunci di luar.
 
 ```bash
@@ -345,6 +354,21 @@ sudo certbot --nginx -d reservation.roemahumara.com
 
 > Tanpa `-d www.` — ini subdomain, dan `www.reservation.roemahumara.com` tidak
 > lazim dipakai. Menambahkannya membuat Certbot gagal kalau DNS-nya tidak ada.
+
+### Sebelum menghubungkan ke internet
+
+Selama di jaringan lokal, beberapa langkah pengerasan boleh ditunda. Begitu VPS
+punya IP publik, semuanya jadi wajib:
+
+- [ ] **Matikan login password SSH** (bagian 1d). Pastikan dulu SSH key benar-benar
+      bekerja, lalu jalankan. Port 22 yang terbuka ke internet dipindai bot dalam
+      hitungan menit.
+- [ ] **Batasi akses SSH** kalau memungkinkan — hanya dari IP kantor, lewat
+      `sudo ufw allow from IP_KANTOR to any port 22` lalu hapus aturan
+      `OpenSSH` yang terbuka untuk semua.
+- [ ] **Ganti sandi awal semua akun.** Sebelas akun masih memakai sandi yang sama
+      dari `INITIAL_USER_PASSWORD`.
+- [ ] **Timbang ulang data tamu di halaman publik** — lihat catatan di bawah.
 
 Setelah HTTPS aktif, **tiga hal wajib ikut diubah**:
 
