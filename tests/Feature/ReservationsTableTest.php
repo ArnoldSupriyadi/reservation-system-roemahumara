@@ -347,6 +347,81 @@ class ReservationsTableTest extends TestCase
             ->assertCanSeeTableRecords([$jauh]);
     }
 
+    /**
+     * Sekali klik pada judul kolom Tanggal harus langsung mengubah urutan.
+     *
+     * Sebelum 2026-08-23 tidak begitu. Filament menyimpan urutan aktif di
+     * properti tableSort, sementara defaultSort() diterapkan langsung ke kueri
+     * tanpa mengisi properti itu. Akibatnya tabel TAMPIL terurut menaik padahal
+     * tableSort masih null, dan klik pertama — yang menyetel "menaik" — tidak
+     * mengubah apa pun yang terlihat. Baru klik kedua terasa bekerja.
+     */
+    public function test_one_click_on_the_date_header_actually_changes_the_order(): void
+    {
+        $this->actingAs($this->admin);
+
+        $sebelum = Livewire::test(ListReservations::class);
+
+        $awal = $this->guestNamesFrom($sebelum->html());
+        $this->assertSame(['Ibu There', 'Dharmadi', 'Tanti'], $awal, 'Bawaannya menaik.');
+
+        $sesudah = $this->guestNamesFrom(
+            $sebelum->call('sortTable', 'reservation_date')->html()
+        );
+
+        $this->assertNotSame($awal, $sesudah, 'Klik pertama tidak mengubah urutan sama sekali.');
+        $this->assertSame(['Tanti', 'Dharmadi', 'Ibu There'], $sesudah, 'Klik pertama harus memberi yang terbaru dulu.');
+    }
+
+    /**
+     * SETIAP klik harus mengubah urutan, bukan hanya yang pertama.
+     *
+     * Filament memutar tiga keadaan: menaik, menurun, lalu tanpa urutan — dan
+     * yang ketiga tampil persis sama dengan bawaan. Tanpa penanganan, keluhan
+     * yang sama muncul lagi begitu pengguna mengklik satu putaran penuh.
+     */
+    public function test_every_click_keeps_changing_the_order(): void
+    {
+        $this->actingAs($this->admin);
+
+        $halaman = Livewire::test(ListReservations::class);
+        $sebelumnya = $this->guestNamesFrom($halaman->html());
+
+        foreach (range(1, 4) as $klik) {
+            $sekarang = $this->guestNamesFrom(
+                $halaman->call('sortTable', 'reservation_date')->html()
+            );
+
+            $this->assertNotSame($sebelumnya, $sekarang, "Klik ke-{$klik} tidak mengubah apa pun.");
+
+            $sebelumnya = $sekarang;
+        }
+    }
+
+    /** Kolom lain tetap bisa diurutkan, dan klik pertamanya pun langsung terasa. */
+    public function test_sorting_by_another_column_still_works(): void
+    {
+        $this->actingAs($this->admin);
+
+        $halaman = Livewire::test(ListReservations::class);
+        $awal = $this->guestNamesFrom($halaman->html());
+
+        $sesudah = $this->guestNamesFrom($halaman->call('sortTable', 'pax')->html());
+
+        $this->assertNotSame($awal, $sesudah);
+        // pax 5, 40, 3 -> menaik: Tanti (3), Ibu There (5), Dharmadi (40)
+        $this->assertSame(['Tanti', 'Ibu There', 'Dharmadi'], $sesudah);
+    }
+
+    /** @return array<int, string> */
+    private function guestNamesFrom(string $html): array
+    {
+        return array_values(array_filter(array_map(
+            fn (string $row) => $this->cell($row, 5),
+            $this->rowsFrom($html),
+        )));
+    }
+
     public function test_staff_is_not_offered_bulk_delete_but_admin_is(): void
     {
         $staff = User::factory()->create();
