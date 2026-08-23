@@ -32,10 +32,7 @@
 
         .kop { border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 14px; }
         .kop td { vertical-align: top; }
-        .kop .kanan { text-align: right; font-size: 8pt; width: 45%; line-height: 1.5; }
-        .merek { font-size: 15pt; font-weight: bold; letter-spacing: 0.5px; }
-        .merek-sub { font-size: 7.5pt; letter-spacing: 3px; color: #555; }
-
+        .kop .kanan { text-align: right; font-size: 8pt; width: 45%; line-height: 1.5; vertical-align: middle; }
         h1 { font-size: 12pt; margin: 0 0 2px; letter-spacing: 1px; }
         .nomor { font-size: 16pt; font-weight: bold; }
 
@@ -71,11 +68,12 @@
 <table class="kop">
     <tr>
         <td>
+            {{-- Logo saja, tanpa teks merek: logonya sendiri sudah memuat tulisan
+                 ROEMAH UMARA, jadi teks di bawahnya hanya mengulang. Dinaikkan
+                 tingginya karena kini ia satu-satunya penanda identitas di kop. --}}
             @if (file_exists(public_path('img/logo-gold.png')))
-                <img src="{{ public_path('img/logo-gold.png') }}" alt="" height="34">
+                <img src="{{ public_path('img/logo-gold.png') }}" alt="Roemah Umara" height="52">
             @endif
-            <div class="merek">Roemah Umara</div>
-            <div class="merek-sub">RESERVATION</div>
         </td>
         <td class="kanan">{{ $venue['address'] }}</td>
     </tr>

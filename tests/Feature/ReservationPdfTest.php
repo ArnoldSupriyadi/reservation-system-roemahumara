@@ -105,12 +105,22 @@ class ReservationPdfTest extends TestCase
         $this->actingAs($mati)->get($this->url())->assertForbidden();
     }
 
-    public function test_the_header_shows_the_brand_and_the_address(): void
+    /**
+     * Kop kiri berisi logo saja — teks "Roemah Umara RESERVATION" dihapus
+     * 2026-08-23 karena logonya sendiri sudah memuat tulisan itu. Yang diperiksa
+     * gambarnya benar-benar dirujuk, bukan sekadar ada teks apa pun: logo yang
+     * gagal dimuat meninggalkan kop kosong tanpa satu pun tanda kesalahan.
+     */
+    public function test_the_header_shows_the_logo_and_the_address(): void
     {
         $html = $this->html();
 
-        $this->assertStringContainsString('Roemah Umara', $html);
-        $this->assertStringContainsString('RESERVATION', $html);
+        $this->assertStringContainsString('img/logo-gold.png', $html, 'Logo tidak dirujuk di kop.');
+        $this->assertFileExists(public_path('img/logo-gold.png'));
+
+        // Teks merek TIDAK boleh kembali; logonya sudah memuatnya.
+        $this->assertStringNotContainsString('<div class="merek">', $html);
+
         $this->assertStringContainsString('Jl. RC. Veteran Raya No.Lot 51', $html);
         $this->assertStringContainsString('Jakarta Selatan, 12330', $html);
     }
