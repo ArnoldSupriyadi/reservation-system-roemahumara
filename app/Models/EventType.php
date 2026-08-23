@@ -16,6 +16,6 @@ class EventType extends Model
 
     public function scopeActive(Builder $query): void
     {
-        $query->where('is_active', true);
+        $query->where($query->qualifyColumn('is_active'), true);
     }
 }

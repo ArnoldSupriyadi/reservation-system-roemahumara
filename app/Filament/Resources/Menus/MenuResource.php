@@ -72,8 +72,8 @@ class MenuResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            // Mengikuti urutan kategori di Menu::CATEGORIES, bukan id maupun
-            // abjad — daftar menu dibaca menurut alur hidangan.
+            // Mengikuti urutan kategori, bukan abjad — daftar menu dibaca
+            // menurut alur hidangan.
             ->modifyQueryUsing(fn ($query) => $query->inMenuOrder())
             ->paginated(false)
             ->columns([
