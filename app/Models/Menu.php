@@ -4,52 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Menu extends Model
 {
-    /**
-     * Kategori hidangan, sekaligus urutan tampilnya.
-     *
-     * Ditulis di sini, bukan diambil dari nilai unik di database, supaya salah
-     * ketik tidak diam-diam melahirkan kategori baru — "Sop" dan "SOP" akan
-     * jadi dua kelompok terpisah di layar tanpa ada yang menyadarinya.
-     * MenuSeederTest memastikan setiap kategori di database/data/menu.json ada
-     * di daftar ini.
-     *
-     * "Gaya Sajian" bukan hidangan. Ia menampung BUFFET dan AL CARTE, dua baris
-     * peninggalan sebelum konsep menu style diganti daftar hidangan pada
-     * 2026-08-23; salah satunya masih dipakai reservasi lama.
-     */
-    public const CATEGORIES = [
-        'Hidangan Pembuka',
-        'Aneka Jajanan Ringan',
-        'Selada',
-        'Sop',
-        'Hidangan Nasi & Mie',
-        'Pasta',
-        'Lauk Unggas',
-        'Lauk Daging',
-        'Boga Bahari',
-        'Aneka Hidangan Sayuran',
-        'Spesial Menu Anak',
-        'Aneka Nasi',
-        'Aneka Sambal',
-        'Hidangan Penutup',
-        'Signature Rempah Umara',
-        'Signature Healthy Drink',
-        'Smoothies',
-        'Fresh Juice',
-        'Tea Selection',
-        'Artisan Flavored Tea',
-        'Classic Coffee & Chocolate Selection',
-        'Manual Brew & Cold Brew Selection',
-        'Soft Drink',
-        'Mineral Water',
-        'Gaya Sajian',
-    ];
-
-    protected $fillable = ['name', 'category', 'is_active'];
+    protected $fillable = ['name', 'menu_category_id', 'is_active'];
 
     protected function casts(): array
     {
@@ -61,24 +21,30 @@ class Menu extends Model
         $query->where('is_active', true);
     }
 
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(MenuCategory::class, 'menu_category_id');
+    }
+
     public function reservations(): BelongsToMany
     {
-        return $this->belongsToMany(Reservation::class)->withPivot('pax');
+        return $this->belongsToMany(Reservation::class)->withPivot('pax', 'remark');
     }
 
     /**
-     * Diurutkan menurut urutan kategori di CATEGORIES, bukan menurut abjad.
-     * Daftar menu yang dibaca manusia mengikuti alur hidangan — pembuka lebih
-     * dulu, minuman belakangan — dan abjad merusak alur itu.
+     * Diurutkan menurut urutan kategori, bukan menurut abjad. Daftar menu yang
+     * dibaca manusia mengikuti alur hidangan — pembuka lebih dulu, minuman
+     * belakangan — dan abjad merusak alur itu.
+     *
+     * Urutan kategori sendiri mengikuti id-nya (aturan #14 CLAUDE.md), jadi
+     * kategori yang ditambahkan belakangan muncul di bawah.
      */
     public function scopeInMenuOrder(Builder $query): void
     {
-        $urutan = collect(self::CATEGORIES)
-            ->map(fn (string $kategori) => '?')
-            ->implode(', ');
-
         $query
-            ->orderByRaw("FIELD(category, {$urutan})", self::CATEGORIES)
-            ->orderBy('name');
+            ->leftJoin('menu_categories', 'menu_categories.id', '=', 'menus.menu_category_id')
+            ->orderBy('menu_categories.id')
+            ->orderBy('menus.name')
+            ->select('menus.*');
     }
 }

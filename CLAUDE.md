@@ -201,10 +201,18 @@ jadi idempotency-nya mencegah data kembar.
     sentuh menu"; larik **kosong** berarti "hapus semua". Menyamakan keduanya
     membuat perubahan pax saja diam-diam menghapus pesanan.
 
-    Kategori menu ada di `Menu::CATEGORIES`, bukan diambil dari nilai unik di
-    database — salah ketik akan melahirkan kelompok baru di layar tanpa ada yang
-    menyadarinya. `MenuSeeder` menolak jalan kalau `database/data/menu.json`
-    memuat kategori yang belum terdaftar.
+    Tiap item yang dipesan boleh punya **catatan sendiri** di
+    `menu_reservation.remark` — "tidak pedas", "saus dipisah". Terpisah dari
+    remark reservasi: yang itu tentang acaranya, yang ini dibaca dapur saat
+    menyiapkan hidangannya. Tampil penuh di CMS dan halaman publik, tidak boleh
+    dipotong (aturan #4).
+
+    Kategori menu adalah **tabel master** `menu_categories`, bisa ditambah lewat
+    `/cms/menu-categories` atau langsung dari form menu. Sampai 2026-08-23 ia
+    konstanta `Menu::CATEGORIES`; itu mencegah salah ketik tapi menuntut
+    menyunting PHP setiap kali kategori baru dibutuhkan. Urutan tampil daftar
+    menu mengikuti id kategori (`Menu::scopeInMenuOrder`), sehingga kategori baru
+    muncul di bawah.
 
 16. **Menambah status baru butuh migrasi, bukan hanya case enum.** Kolom `status`
     bertipe ENUM MySQL. Menambah case di `App\Enums\ReservationStatus` tanpa

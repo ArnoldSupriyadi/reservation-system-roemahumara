@@ -46,7 +46,11 @@ class EditReservation extends EditRecord
         // memakai nama relasi — penulisannya harus lewat ReservationWriter,
         // bukan relationship handling Filament (aturan #5 CLAUDE.md).
         $data['menu_items'] = $this->getRecord()->menus
-            ->map(fn ($menu) => ['menu_id' => $menu->id, 'pax' => $menu->pivot->pax])
+            ->map(fn ($menu) => [
+                'menu_id' => $menu->id,
+                'pax' => $menu->pivot->pax,
+                'remark' => $menu->pivot->remark,
+            ])
             ->all();
 
         return $data;

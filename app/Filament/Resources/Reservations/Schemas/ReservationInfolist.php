@@ -54,21 +54,7 @@ class ReservationInfolist
 
             Section::make('Menu')
                 ->schema([
-                    TextEntry::make('menus.name')
-                        ->hiddenLabel()
-                        ->placeholder('Tidak ada menu dipesan.')
-                        ->columnSpanFull()
-                        ->listWithLineBreaks()
-                        // Porsi ikut ditampilkan: tanpa itu daftar menu hanya
-                        // memberi tahu apa yang dipesan, bukan berapa banyak,
-                        // dan itu justru angka yang dibutuhkan dapur.
-                        ->formatStateUsing(function ($state, $record) {
-                            $menu = $record->menus->firstWhere('name', $state);
-
-                            return $menu === null
-                                ? $state
-                                : $state.' — '.$menu->pivot->pax.' porsi';
-                        }),
+                    View::make('filament.reservation-menus')->columnSpanFull(),
                 ]),
 
             Section::make('Remark')

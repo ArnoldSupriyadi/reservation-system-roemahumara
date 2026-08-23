@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Menu;
+use App\Models\MenuCategory;
 use Illuminate\Database\Seeder;
 use RuntimeException;
 
@@ -32,26 +33,21 @@ class MenuSeeder extends Seeder
 
         $data = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
 
-        $tidakDikenal = collect($data['categories'])
-            ->pluck('category')
-            ->reject(fn (string $kategori) => in_array($kategori, Menu::CATEGORIES, true));
-
-        if ($tidakDikenal->isNotEmpty()) {
-            // Dihentikan, bukan dibiarkan lewat. Kategori yang tidak terdaftar
-            // akan tersimpan tapi tidak pernah muncul di Select master maupun
-            // di urutan tampil — menunya seolah hilang.
-            throw new RuntimeException(
-                'Kategori berikut belum terdaftar di Menu::CATEGORIES: '.$tidakDikenal->join(', ')
-            );
-        }
-
         $jumlah = 0;
 
         foreach ($data['categories'] as $kategori) {
+            // Kategori dibuat lebih dulu. firstOrCreate, bukan create: urutan
+            // id-nya menentukan urutan tampil, dan menjalankan seeder ulang
+            // tidak boleh menggeser urutan yang sudah terbentuk.
+            $master = MenuCategory::firstOrCreate(
+                ['name' => $kategori['category']],
+                ['is_active' => true],
+            );
+
             foreach ($kategori['items'] as $nama) {
                 Menu::firstOrCreate(
                     ['name' => $nama],
-                    ['category' => $kategori['category'], 'is_active' => true],
+                    ['menu_category_id' => $master->id, 'is_active' => true],
                 );
 
                 $jumlah++;

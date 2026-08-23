@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Area;
 use App\Models\EventType;
 use App\Models\Menu;
+use App\Models\MenuCategory;
 use App\Models\Reservation;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
@@ -50,6 +51,7 @@ class MasterResourceTest extends TestCase
         $this->actingAs($admin)->get('/cms/areas')->assertOk();
         $this->actingAs($admin)->get('/cms/event-types')->assertOk();
         $this->actingAs($admin)->get('/cms/menus')->assertOk();
+        $this->actingAs($admin)->get('/cms/menu-categories')->assertOk();
     }
 
     public function test_staff_cannot_open_user_management(): void
@@ -87,7 +89,8 @@ class MasterResourceTest extends TestCase
         return [
             'area' => ['/cms/areas', Area::class, []],
             'jenis acara' => ['/cms/event-types', EventType::class, []],
-            'menu' => ['/cms/menus', Menu::class, ['category' => 'Hidangan Pembuka']],
+            'menu' => ['/cms/menus', Menu::class, []],
+            'kategori menu' => ['/cms/menu-categories', MenuCategory::class, []],
         ];
     }
 
@@ -102,6 +105,21 @@ class MasterResourceTest extends TestCase
     #[DataProvider('masterPages')]
     public function test_master_lists_are_numbered(string $url, string $model, array $tambahan): void
     {
+        /*
+         * Menu butuh kategori yang benar-benar ada; relasinya restrictOnDelete.
+         *
+         * Id-nya diambil dari baris yang baru dibuat, TIDAK dipatok 1.
+         * AUTO_INCREMENT MySQL tidak ikut di-rollback antar test, jadi id 1
+         * hanya benar saat berkas ini dijalankan sendirian — dalam suite penuh
+         * angkanya sudah berjalan dan menunya gagal tersimpan diam-diam.
+         *
+         * Kategorinya dibuat HANYA untuk daftar menu; kalau ikut dibuat saat
+         * menguji daftar kategori, ia jadi baris keempat.
+         */
+        if ($model === Menu::class) {
+            $tambahan['menu_category_id'] = MenuCategory::create(['name' => 'Hidangan Pembuka'])->id;
+        }
+
         foreach (['SATU', 'DUA', 'TIGA'] as $nama) {
             $model::create(['name' => $nama] + $tambahan);
         }

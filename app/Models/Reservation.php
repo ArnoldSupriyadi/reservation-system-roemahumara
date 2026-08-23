@@ -73,7 +73,7 @@ class Reservation extends Model
      */
     public function menus(): BelongsToMany
     {
-        return $this->belongsToMany(Menu::class)->withPivot('pax');
+        return $this->belongsToMany(Menu::class)->withPivot('pax', 'remark');
     }
 
     public function createdBy(): BelongsTo

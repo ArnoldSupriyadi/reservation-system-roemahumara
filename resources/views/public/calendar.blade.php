@@ -162,9 +162,18 @@
                     <dt class="text-[10px] font-black uppercase tracking-widest">Menu dipesan</dt>
                     <ul class="mt-1 grid gap-x-4 gap-y-1 text-sm font-bold sm:grid-cols-2">
                         @foreach ($selected->menus as $menu)
-                            <li class="flex justify-between gap-3 border-b border-dashed border-ink/30 py-0.5">
-                                <span>{{ $menu->name }}</span>
-                                <span class="shrink-0 tabular-nums">{{ $menu->pivot->pax }} porsi</span>
+                            <li class="border-b border-dashed border-ink/30 py-1">
+                                <div class="flex justify-between gap-3">
+                                    <span>{{ $menu->name }}</span>
+                                    <span class="shrink-0 tabular-nums">{{ $menu->pivot->pax }} porsi</span>
+                                </div>
+                                @if (filled($menu->pivot->remark))
+                                    {{-- Catatan per hidangan tampil penuh, sama seperti
+                                         remark reservasi. Aturan #4 CLAUDE.md. --}}
+                                    <p class="mt-0.5 whitespace-pre-line border-s-2 border-amber-500 ps-2 text-xs font-normal">
+                                        {{ $menu->pivot->remark }}
+                                    </p>
+                                @endif
                             </li>
                         @endforeach
                     </ul>

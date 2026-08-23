@@ -23,9 +23,9 @@ class MenuResource extends Resource
 {
     protected static ?string $model = Menu::class;
 
-    protected static string | BackedEnum | null $navigationIcon = 'heroicon-o-cake';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-cake';
 
-    protected static string | UnitEnum | null $navigationGroup = 'Master';
+    protected static string|UnitEnum|null $navigationGroup = 'Master';
 
     protected static ?string $modelLabel = 'Menu';
 
@@ -46,11 +46,21 @@ class MenuResource extends Resource
 
             // Select, bukan teks bebas: kategori yang salah ketik akan tampil
             // sebagai kelompok baru di daftar menu tanpa ada yang menyadarinya.
-            Select::make('category')
+            Select::make('menu_category_id')
                 ->label('Kategori')
                 ->required()
                 ->searchable()
-                ->options(array_combine(Menu::CATEGORIES, Menu::CATEGORIES)),
+                ->preload()
+                ->relationship('category', 'name', fn ($query) => $query->active()->orderBy('id'))
+                // Kategori baru bisa dibuat langsung dari sini, tanpa harus
+                // meninggalkan form menu yang sedang diisi.
+                ->createOptionForm([
+                    TextInput::make('name')
+                        ->label('Nama kategori')
+                        ->required()
+                        ->maxLength(80)
+                        ->unique('menu_categories', 'name'),
+                ]),
 
             Toggle::make('is_active')
                 ->label('Aktif')
@@ -82,7 +92,7 @@ class MenuResource extends Resource
 
                 TextColumn::make('name')->label('Nama')->searchable(),
 
-                TextColumn::make('category')
+                TextColumn::make('category.name')
                     ->label('Kategori')
                     ->badge()
                     ->color('gray')

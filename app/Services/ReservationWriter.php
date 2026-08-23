@@ -128,7 +128,12 @@ class ReservationWriter
         return collect($items ?? [])
             ->filter(fn ($baris) => filled($baris['menu_id'] ?? null))
             ->mapWithKeys(fn ($baris) => [
-                (int) $baris['menu_id'] => ['pax' => max(1, (int) ($baris['pax'] ?? 1))],
+                (int) $baris['menu_id'] => [
+                    'pax' => max(1, (int) ($baris['pax'] ?? 1)),
+                    // Spasi doang bukan catatan; disimpan null supaya tampilan
+                    // tidak memunculkan baris catatan kosong.
+                    'remark' => filled($baris['remark'] ?? null) ? trim($baris['remark']) : null,
+                ],
             ])
             ->all();
     }

@@ -7,6 +7,7 @@ use App\Http\Controllers\PublicCalendarController;
 use App\Models\Area;
 use App\Models\EventType;
 use App\Models\Menu;
+use App\Models\MenuCategory;
 use App\Models\Reservation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -148,11 +149,14 @@ class PublicCalendarTest extends TestCase
 
     public function test_pax_and_the_ordered_menu_are_shown(): void
     {
-        $nasi = Menu::create(['name' => 'Nasi Umara', 'category' => 'Aneka Nasi']);
-        $teh = Menu::create(['name' => 'Ice Lemon Tea', 'category' => 'Artisan Flavored Tea']);
+        $nasi = Menu::create(['name' => 'Nasi Umara', 'menu_category_id' => MenuCategory::create(['name' => 'Aneka Nasi'])->id]);
+        $teh = Menu::create(['name' => 'Ice Lemon Tea', 'menu_category_id' => MenuCategory::create(['name' => 'Artisan Flavored Tea'])->id]);
 
         $r = $this->reservation(['pax' => 137]);
-        $r->menus()->sync([$nasi->id => ['pax' => 30], $teh->id => ['pax' => 50]]);
+        $r->menus()->sync([
+            $nasi->id => ['pax' => 30, 'remark' => 'Tidak pedas'],
+            $teh->id => ['pax' => 50, 'remark' => null],
+        ]);
 
         $this->get("/?bulan={$this->month}&pilih={$r->id}")
             ->assertOk()
@@ -162,7 +166,10 @@ class PublicCalendarTest extends TestCase
             // Porsinya ikut, bukan hanya nama hidangannya. Justru angka itu yang
             // membedakan daftar pesanan dari daftar menu biasa.
             ->assertSee('30 porsi')
-            ->assertSee('50 porsi');
+            ->assertSee('50 porsi')
+            // Catatan per hidangan ikut terbaca publik, sama seperti remark
+            // reservasi yang sudah dilepas sebelumnya.
+            ->assertSee('Tidak pedas');
     }
 
     /** Menu opsional: reservasi tanpa menu tetap merender panelnya. */

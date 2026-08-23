@@ -190,6 +190,7 @@ class ReservationForm
                         ->default([])
                         ->addActionLabel('Tambah menu')
                         ->columns(3)
+                        ->itemLabel(fn (array $state) => filled($state['remark'] ?? null) ? '• ada catatan' : null)
                         ->schema([
                             Select::make('menu_id')
                                 ->label('Menu')
@@ -206,6 +207,17 @@ class ReservationForm
                                 ->numeric()
                                 ->minValue(1)
                                 ->default(fn (callable $get) => $get('../../pax')),
+
+                            // Catatan per hidangan, terpisah dari Remark
+                            // reservasi. Yang ini dibaca dapur saat menyiapkan
+                            // hidangan itu; digabungkan ke Remark reservasi,
+                            // permintaan "tidak pedas" akan tenggelam di antara
+                            // catatan soal sekat ruangan dan pembayaran.
+                            Textarea::make('remark')
+                                ->label('Catatan')
+                                ->rows(2)
+                                ->columnSpanFull()
+                                ->placeholder('Tidak pedas, tanpa kacang, saus dipisah…'),
                         ])
                         // Satu menu tidak boleh dipesan dua kali dalam satu
                         // reservasi; pivot-nya berkunci gabungan dan akan
@@ -239,9 +251,10 @@ class ReservationForm
     {
         return Menu::query()
             ->active()
+            ->with('category:id,name')
             ->inMenuOrder()
-            ->get(['id', 'name', 'category'])
-            ->groupBy('category')
+            ->get()
+            ->groupBy(fn (Menu $menu) => $menu->category?->name ?? 'Tanpa kategori')
             ->map(fn ($items) => $items->pluck('name', 'id')->all())
             ->all();
     }

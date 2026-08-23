@@ -83,7 +83,7 @@ class PublicCalendarController extends Controller
                 'pic_id',
                 'remark',
             ])
-            ->with(['area:id,name', 'eventType:id,name', 'menus:id,name', 'pic:id,name'])
+            ->with(['area:id,name', 'eventType:id,name', 'menus:id,name,menu_category_id', 'menus.category:id,name', 'pic:id,name'])
             ->whereYear('reservation_date', (int) $year)
             ->whereMonth('reservation_date', (int) $monthNumber)
             // Reservasi batal tidak ditampilkan ke umum. Blade menganggap semua
