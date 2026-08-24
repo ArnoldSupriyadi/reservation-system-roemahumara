@@ -81,10 +81,13 @@ php artisan serve
 
 Akun itu dibuat seeder dan berperan `admin`.
 
-`INITIAL_USER_PASSWORD` tidak ada di `.env.example` dengan nilai sungguhan —
-repositori ini publik, jadi sandi yang masuk ke kode akan terbit permanen di
-riwayat git. Isi sendiri di `.env` mesin barumu; kalau dibiarkan kosong, sandinya
-jatuh ke `password` yang jelas terlihat placeholder.
+`INITIAL_USER_PASSWORD` sengaja kosong di `.env.example` — repositori ini publik,
+jadi sandi yang masuk ke kode akan terbit permanen di riwayat git. Isi sendiri di
+`.env` mesin barumu **sebelum** menjalankan `db:seed`. Kalau dibiarkan kosong,
+seeder berhenti dengan pesan yang menyebut penyebabnya; ia tidak akan membuat
+akun bersandi placeholder.
+
+Akun staf tidak ikut seeder — buat lewat `/cms/users` setelah masuk sebagai admin.
 
 ## 4. Memastikan semuanya benar
 

@@ -295,7 +295,7 @@ Isi yang wajib disesuaikan sekarang:
 | `APP_URL` | `http://192.168.88.33` |
 | `SESSION_SECURE_COOKIE` | `false` — **wajib**, selama masih HTTP |
 | `DB_PASSWORD` | sandi MySQL dari bagian 3 |
-| `INITIAL_USER_PASSWORD` | sandi awal semua akun; isi **sebelum** seeder dijalankan |
+| `INITIAL_USER_PASSWORD` | sandi akun admin pertama; isi **sebelum** seeder dijalankan. Seeder berhenti kalau masih kosong |
 
 ```bash
 sudo -u ictumara cp .env.production.example .env
@@ -364,35 +364,54 @@ di bawah, `/cms/login` terbuka tapi tidak ada satu pun akun yang bisa masuk, dan
 form reservasi tidak punya pilihan area maupun jenis acara. Anda terkunci di luar
 sistem sendiri.
 
-> **Setel `INITIAL_USER_PASSWORD` di `.env` LEBIH DULU.** Sandi awal semua akun
-> diambil dari sana. Kalau belum disetel, sandinya jatuh ke `password` — dan
-> karena seeder memakai `firstOrCreate`, membetulkan `.env` sesudahnya TIDAK
-> memperbaiki akun yang terlanjur dibuat.
+> **Setel `INITIAL_USER_PASSWORD` di `.env` LEBIH DULU.** Sandi akun admin
+> diambil dari sana. Sejak 2026-08-24 seeder **berhenti dengan pesan jelas**
+> kalau nilainya masih kosong atau masih placeholder, jadi kelalaian ini
+> ketahuan saat itu juga — bukan berhari-hari kemudian di layar login.
 
-Dua perintah, itu saja:
+Satu perintah:
 
 ```bash
 cd /var/www/roemahumara
 
 # Role, permission, master (area, jenis acara, 137 menu), dan akun admin
 sudo -u ictumara php8.3 artisan db:seed --force
-
-# Sepuluh akun staf
-sudo -u ictumara php8.3 artisan db:seed --class=StaffSeeder --force
 ```
 
-`db:seed` polos sudah membuat akun admin **`roemahumara@gmail.com`** sekaligus
-memberinya role dan membersihkan cache permission. Tidak perlu
-`make:filament-user` — itu hanya diperlukan kalau kelak ingin menambah admin
-kedua, dan perintah itu **tidak memberi role sama sekali** sehingga akunnya bisa
-masuk tapi setiap tombol tertutup.
+`db:seed` membuat akun admin **`roemahumara@gmail.com`** sekaligus memberinya
+role dan membersihkan cache permission. Tidak perlu `make:filament-user` — itu
+hanya diperlukan kalau kelak ingin menambah admin kedua, dan perintah itu
+**tidak memberi role sama sekali** sehingga akunnya bisa masuk tapi setiap
+tombol tertutup.
 
-Kedua seeder aman diulang.
+Seeder aman diulang. Kalau akun admin sudah ada, ia dilewati — termasuk
+pemeriksaan `INITIAL_USER_PASSWORD`, karena di server yang sudah berjalan
+sandinya sudah diganti lewat panel dan `.env` tidak lagi relevan.
 
-> **Sandi awalnya sama untuk sebelas akun.** Minta setiap orang menggantinya
-> setelah masuk pertama kali. Selama belum diganti, satu orang yang tahu sandinya
-> bisa masuk sebagai siapa saja dan `activity_log` akan menunjuk orang yang
-> keliru.
+### Akun staf dibuat lewat panel, bukan seeder
+
+Masuk ke `/cms/users` → **New user**, satu per satu. Isi Nama, Email, Password,
+pilih Role **staff**, biarkan toggle **Aktif** menyala.
+
+| Nama | Email |
+|---|---|
+| Denry | denry@roemahumara.com |
+| Jimmy | jimmy@roemahumara.com |
+| Difa | difa@roemahumara.com |
+| Agus Maulana | agus@roemahumara.com |
+| Ivo | ivo@roemahumara.com |
+| Cassie | cassie@roemahumara.com |
+| Joesoef (Pak Ucup) | joesoef@roemahumara.com |
+| Ira Arifin | ira@roemahumara.com |
+| Thea Harun | thea@roemahumara.com |
+| UCR | ucr@roemahumara.com |
+
+Dulu ada `StaffSeeder` yang membuat kesepuluhnya sekaligus dengan satu sandi
+bersama dari `.env`. Dihapus 2026-08-24. Alasannya bukan sekadar kerepotan:
+sandi bersama berarti satu orang yang tahu sandinya bisa masuk sebagai siapa
+saja, memakai nama rekannya sebagai PIC, dan `activity_log` akan menunjuk orang
+yang keliru — persis jaminan yang seharusnya diberikan audit trail. Sepuluh
+formulir sekali seumur pemasangan lebih murah daripada itu.
 
 Uji sebelum lanjut — harus mencetak `true`:
 
@@ -584,8 +603,10 @@ domain publik aktif, semuanya jadi wajib:
       `sudo ufw allow from IP_KANTOR to any port 22` lalu hapus aturan
       `OpenSSH` yang terbuka untuk semua. Catatan: selama SSH tidak ikut
       di-forward di router, dari internet ia memang sudah tidak terjangkau.
-- [ ] **Ganti sandi awal semua akun.** Sebelas akun masih memakai sandi yang sama
-      dari `INITIAL_USER_PASSWORD`.
+- [ ] **Pastikan tiap akun punya sandinya sendiri.** Akun admin lahir dari
+      `INITIAL_USER_PASSWORD`; gantilah lewat panel setelah masuk pertama kali.
+      Akun staf dibuat manual di `/cms/users`, jadi sandinya memang sudah
+      berbeda-beda sejak awal.
 - [ ] **Timbang ulang data tamu di halaman publik** — lihat catatan di bawah.
 
 Setelah HTTPS aktif, **tiga hal wajib ikut diubah**:

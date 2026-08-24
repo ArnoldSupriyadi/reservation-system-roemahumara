@@ -125,5 +125,6 @@ Dicatat di sini supaya tidak hilang; rinciannya di RUNBOOK bagian 8.
 - `SESSION_SECURE_COOKIE` masih `false` — **wajib** jadi `true` begitu HTTPS aktif
 - `APP_URL` masih `http://192.168.88.33` — ikut diganti saat HTTPS aktif, termasuk secret di GitHub
 - Login SSH dengan sandi masih terbuka (bagian 1d)
-- Sebelas akun staf masih memakai sandi awal yang sama dari `INITIAL_USER_PASSWORD`
+- Sepuluh akun staf **belum dibuat** — dibuat manual lewat `/cms/users`, lihat
+  bagian "Akun staf dibuat lewat panel" di RUNBOOK. `StaffSeeder` dihapus 2026-08-24
 - Halaman publik menampilkan nama tamu, perusahaan, dan remark tanpa login

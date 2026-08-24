@@ -61,6 +61,17 @@ Seeder itu sengaja tidak ikut `db:seed` polos, supaya sistem yang baru dipasang 
 berisi tamu palsu. Aman dijalankan berulang: penulisannya lewat `ReservationWriter`,
 jadi idempotency-nya mencegah data kembar.
 
+**Akun.** `db:seed` hanya membuat satu akun: admin `roemahumara@gmail.com`, sandinya
+dari `INITIAL_USER_PASSWORD` di `.env`. Kalau nilai itu kosong atau masih placeholder,
+`DatabaseSeeder` **berhenti** — bukan memakai nilai cadangan. Cadangan `'password'`
+dihapus 2026-08-24 setelah pemasangan VPS lahir bersandi placeholder tanpa satu pun
+tanda, dan login ditolak dengan pesan yang sama persis untuk email tidak terdaftar,
+sandi salah, dan akun nonaktif (Filament menyamakan ketiganya dengan sengaja),
+sehingga penyebabnya mustahil dibedakan dari layar. `firstOrCreate` tidak pernah
+memperbaiki akun yang terlanjur jadi. Akun staf **tidak** dibuat seeder — lewat
+`/cms/users`, masing-masing dengan sandinya sendiri, supaya `activity_log` menunjuk
+orang yang benar. `StaffSeeder` dihapus pada tanggal yang sama.
+
 ## Aturan yang tidak boleh dilanggar
 
 1. **MySQL, bukan SQLite, termasuk untuk test.** `dedupe_key` memakai generated

@@ -9,7 +9,9 @@ use App\Models\Menu;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use RuntimeException;
 use Spatie\Permission\Models\Role;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -52,6 +54,57 @@ class DatabaseSeederTest extends TestCase
         $this->assertTrue($user->is_active, 'Akun tidak aktif ditolak middleware Filament dengan 403.');
         $this->assertTrue($user->hasRole('admin'));
         $this->assertTrue($user->can(Ability::DeleteReservation->value));
+    }
+
+    /**
+     * Penjaga yang lahir dari kejadian 2026-08-24.
+     *
+     * .env.production.example berisi INITIAL_USER_PASSWORD=CHANGE_ME_INITIAL_PASSWORD,
+     * RUNBOOK menyuruh menyalin berkas itu jadi .env, dan langkah menggantinya
+     * terlewat. Akun admin lahir bersandi placeholder tanpa satu pun tanda, lalu
+     * login ditolak dengan pesan yang sama persis dengan "email tidak terdaftar"
+     * — sehingga penyebabnya mustahil dibedakan dari layar.
+     *
+     * @param  string  $password  nilai .env yang tidak boleh diterima
+     */
+    #[DataProvider('placeholderPasswords')]
+    public function test_seeding_refuses_a_placeholder_password(string $password): void
+    {
+        config(['reservation.initial_password' => $password]);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('INITIAL_USER_PASSWORD');
+
+        $this->seed();
+    }
+
+    /** @return array<string, array{string}> */
+    public static function placeholderPasswords(): array
+    {
+        return [
+            'kosong' => [''],
+            'dari .env.production.example' => ['CHANGE_ME_INITIAL_PASSWORD'],
+            'dari .env.example' => ['ganti-nilai-ini-di-env'],
+            'bekas nilai cadangan config' => ['password'],
+        ];
+    }
+
+    /**
+     * Yang ditolak adalah pembuatan akun, bukan seluruh seeder.
+     *
+     * Di server yang sudah berjalan, sandi admin sudah diganti lewat panel dan
+     * .env tidak lagi relevan. Menolak `db:seed` di sana akan menghalangi
+     * penambahan data master — padahal seeder ini justru dirancang aman diulang.
+     */
+    public function test_a_placeholder_password_is_tolerated_once_the_admin_exists(): void
+    {
+        $this->seed();
+
+        config(['reservation.initial_password' => 'CHANGE_ME_INITIAL_PASSWORD']);
+
+        $this->seed();
+
+        $this->assertSame(1, User::where('email', 'roemahumara@gmail.com')->count());
     }
 
     /**
