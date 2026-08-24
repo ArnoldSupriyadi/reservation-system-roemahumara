@@ -68,9 +68,11 @@ dihapus 2026-08-24 setelah pemasangan VPS lahir bersandi placeholder tanpa satu 
 tanda, dan login ditolak dengan pesan yang sama persis untuk email tidak terdaftar,
 sandi salah, dan akun nonaktif (Filament menyamakan ketiganya dengan sengaja),
 sehingga penyebabnya mustahil dibedakan dari layar. `firstOrCreate` tidak pernah
-memperbaiki akun yang terlanjur jadi. Akun staf **tidak** dibuat seeder — lewat
-`/cms/users`, masing-masing dengan sandinya sendiri, supaya `activity_log` menunjuk
-orang yang benar. `StaffSeeder` dihapus pada tanggal yang sama.
+memperbaiki akun yang terlanjur jadi. Sepuluh akun staf ada di `StaffSeeder` (tidak
+ikut `db:seed` polos), memakai sandi dan penjaga yang sama lewat trait
+`Concerns\ReadsInitialPassword` — jangan menyalin penjaganya ke masing-masing seeder.
+Sandi bersama itu keadaan sementara: selama belum diganti masing-masing,
+`activity_log` bisa menunjuk orang yang keliru.
 
 ## Aturan yang tidak boleh dilanggar
 

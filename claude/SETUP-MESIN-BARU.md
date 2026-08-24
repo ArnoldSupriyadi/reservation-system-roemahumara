@@ -87,7 +87,8 @@ jadi sandi yang masuk ke kode akan terbit permanen di riwayat git. Isi sendiri d
 seeder berhenti dengan pesan yang menyebut penyebabnya; ia tidak akan membuat
 akun bersandi placeholder.
 
-Akun staf tidak ikut seeder — buat lewat `/cms/users` setelah masuk sebagai admin.
+Akun staf tidak ikut `db:seed` polos. Kalau memang perlu di mesin lokal:
+`php artisan db:seed --class=StaffSeeder`.
 
 ## 4. Memastikan semuanya benar
 

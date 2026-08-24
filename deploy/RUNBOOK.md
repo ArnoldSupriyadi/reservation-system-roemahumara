@@ -369,7 +369,7 @@ sistem sendiri.
 > kalau nilainya masih kosong atau masih placeholder, jadi kelalaian ini
 > ketahuan saat itu juga — bukan berhari-hari kemudian di layar login.
 
-Satu perintah:
+Dua perintah:
 
 ```bash
 cd /var/www/roemahumara
@@ -384,34 +384,35 @@ hanya diperlukan kalau kelak ingin menambah admin kedua, dan perintah itu
 **tidak memberi role sama sekali** sehingga akunnya bisa masuk tapi setiap
 tombol tertutup.
 
-Seeder aman diulang. Kalau akun admin sudah ada, ia dilewati — termasuk
-pemeriksaan `INITIAL_USER_PASSWORD`, karena di server yang sudah berjalan
-sandinya sudah diganti lewat panel dan `.env` tidak lagi relevan.
+Kedua seeder aman diulang, dan tidak pernah mengembalikan sandi yang sudah
+diganti sendiri oleh penggunanya — keduanya memakai `firstOrCreate`. Khusus
+`db:seed` polos: kalau akun admin sudah ada, pemeriksaan `INITIAL_USER_PASSWORD`
+ikut dilewati, karena di server yang sudah berjalan sandinya sudah diganti lewat
+panel dan `.env` tidak lagi relevan.
 
-### Akun staf dibuat lewat panel, bukan seeder
+### Akun staf
 
-Masuk ke `/cms/users` → **New user**, satu per satu. Isi Nama, Email, Password,
-pilih Role **staff**, biarkan toggle **Aktif** menyala.
+```bash
+sudo -u ictumara php8.3 artisan db:seed --class=StaffSeeder --force
+```
 
-| Nama | Email |
-|---|---|
-| Denry | denry@roemahumara.com |
-| Jimmy | jimmy@roemahumara.com |
-| Difa | difa@roemahumara.com |
-| Agus Maulana | agus@roemahumara.com |
-| Ivo | ivo@roemahumara.com |
-| Cassie | cassie@roemahumara.com |
-| Joesoef (Pak Ucup) | joesoef@roemahumara.com |
-| Ira Arifin | ira@roemahumara.com |
-| Thea Harun | thea@roemahumara.com |
-| UCR | ucr@roemahumara.com |
+Sepuluh akun: Denry, Jimmy, Difa, Agus Maulana, Ivo, Cassie, Joesoef (Pak Ucup),
+Ira Arifin, Thea Harun, UCR — semuanya `@roemahumara.com`, berperan `staff`.
 
-Dulu ada `StaffSeeder` yang membuat kesepuluhnya sekaligus dengan satu sandi
-bersama dari `.env`. Dihapus 2026-08-24. Alasannya bukan sekadar kerepotan:
-sandi bersama berarti satu orang yang tahu sandinya bisa masuk sebagai siapa
-saja, memakai nama rekannya sebagai PIC, dan `activity_log` akan menunjuk orang
-yang keliru — persis jaminan yang seharusnya diberikan audit trail. Sepuluh
-formulir sekali seumur pemasangan lebih murah daripada itu.
+Sandinya sama untuk kesepuluhnya, dari `INITIAL_USER_PASSWORD` yang sama dengan
+akun admin. Seeder ini juga **berhenti** kalau nilai itu belum diisi — di sini
+taruhannya sepuluh kali lipat: satu kali jalan dengan `.env` yang salah
+menghasilkan sepuluh akun yang tidak bisa dimasuki sekaligus, dan `firstOrCreate`
+tidak akan memperbaiki satu pun dari mereka.
+
+> **Sandi bersama itu keadaan sementara, bukan keadaan akhir.** Selama belum
+> diganti, satu orang yang tahu sandinya bisa masuk sebagai siapa saja, memakai
+> nama rekannya sebagai PIC, dan `activity_log` akan menunjuk orang yang keliru —
+> persis jaminan yang seharusnya diberikan audit trail. Minta setiap orang
+> menggantinya lewat menu profil setelah masuk pertama kali.
+
+Kalau ada yang lupa sandinya kemudian: `/cms/users` → Edit → isi kolom Password.
+Kosongkan kolom itu kalau tidak ingin mengubahnya.
 
 Uji sebelum lanjut — harus mencetak `true`:
 
@@ -603,10 +604,9 @@ domain publik aktif, semuanya jadi wajib:
       `sudo ufw allow from IP_KANTOR to any port 22` lalu hapus aturan
       `OpenSSH` yang terbuka untuk semua. Catatan: selama SSH tidak ikut
       di-forward di router, dari internet ia memang sudah tidak terjangkau.
-- [ ] **Pastikan tiap akun punya sandinya sendiri.** Akun admin lahir dari
-      `INITIAL_USER_PASSWORD`; gantilah lewat panel setelah masuk pertama kali.
-      Akun staf dibuat manual di `/cms/users`, jadi sandinya memang sudah
-      berbeda-beda sejak awal.
+- [ ] **Ganti sandi awal semua akun.** Sebelas akun (admin + sepuluh staf) lahir
+      dengan sandi yang sama dari `INITIAL_USER_PASSWORD`. Selama belum diganti,
+      `activity_log` tidak bisa dipercaya menunjuk orang yang benar.
 - [ ] **Timbang ulang data tamu di halaman publik** — lihat catatan di bawah.
 
 Setelah HTTPS aktif, **tiga hal wajib ikut diubah**:
