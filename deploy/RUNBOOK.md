@@ -448,24 +448,110 @@ rsync -avz --delete public/build/ ictumara@192.168.88.33:/var/www/roemahumara/pu
 
 ---
 
-## 8. SSL dengan Let's Encrypt — **nanti, saat domain siap**
+## 8. Domain publik: DNS, port forwarding, dan SSL
 
-**Lewati bagian ini sekarang.** Certbot memverifikasi kepemilikan domain lewat
-internet, dan `192.168.88.33` tidak terjangkau dari sana. Selama masih jaringan
-lokal, aksesnya `http://192.168.88.33`.
+Bagian inilah yang mengubah sistem dari "hanya kantor" menjadi "terbuka di
+internet". Urutannya tidak boleh dibalik:
 
-Kerjakan langkah di bawah **hanya** setelah domain diarahkan ke IP publik VPS:
+**DNS → port forwarding → verifikasi dari luar → Certbot.**
+
+Certbot gagal kalau salah satu langkah di depannya belum benar, dan pesan
+gagalnya tidak menunjuk penyebab sebenarnya — ia hanya bilang tidak bisa
+memverifikasi domain. Jadi jangan menjalankan Certbot untuk "mengetes apakah
+sudah jalan".
+
+### 8.1 DNS — sudah selesai, tidak perlu dikerjakan
+
+Diperiksa 2026-08-24:
 
 ```bash
-# 1. Pastikan DNS sudah propagasi — Certbot gagal kalau belum.
-#    Hasilnya harus IP PUBLIK VPS, bukan 192.168.88.33.
-dig +short reservation.roemahumara.com
+dig +short reservation.roemahumara.com     # → 103.138.40.54
+dig +short NS roemahumara.com              # → ns1/ns2.niagahoster.com
+```
 
-# 2. server_name TIDAK perlu diubah — sudah memuat domain ini sejak awal.
-#    Cukup pastikan konfigurasinya masih sah:
+A record-nya sudah ada. Yang perlu disadari: **`103.138.40.54` bukan IP VPS** —
+itu IP publik koneksi internet kantor (`ip-40-54.balifiber.id`). VPS-nya berada
+di belakang NAT dengan alamat privat `192.168.88.33`.
+
+Itu memang bentuk yang dipakai di sini dan tidak perlu diperbaiki. Yang
+menghubungkan IP publik kantor ke VPS adalah **port forwarding** di bagian 8.2,
+bukan pencatatan DNS tambahan. Menambah A record kedua ke `192.168.88.33` justru
+merusak — alamat privat tidak berarti apa-apa bagi pengunjung di luar.
+
+DNS domain ini dikelola di **panel Niagahoster**. Kalau A record perlu diubah,
+di sanalah tempatnya, bukan di tempat VPS berada.
+
+> **Belum terjawab: apakah `103.138.40.54` statis?**
+> Kalau BaliFiber memberikan IP dinamis, alamat itu berubah sewaktu-waktu dan
+> domainnya akan menunjuk ke pelanggan BaliFiber yang lain — sistem terlihat
+> "hilang" tanpa ada yang berubah di server. Tanyakan ke BaliFiber sebelum
+> go-live. Kalau ternyata dinamis, port forwarding saja tidak cukup: perlu DDNS
+> yang memperbarui A record otomatis.
+
+### 8.2 Port forwarding di router kantor
+
+Yang perlu diteruskan dari router ke VPS:
+
+| Port publik | Tujuan | Dipakai untuk |
+|---|---|---|
+| 80/TCP | `192.168.88.33:80` | Verifikasi HTTP-01 Certbot, lalu redirect ke HTTPS |
+| 443/TCP | `192.168.88.33:443` | Lalu lintas aplikasi sesungguhnya |
+
+Port 80 **tidak boleh dilewati**. Certbot memverifikasi kepemilikan domain
+dengan mengambil berkas lewat port 80; kalau tertutup, sertifikat tidak terbit
+meski 443 sudah benar.
+
+**Dua hambatan yang sudah terlihat dan harus dibereskan lebih dulu:**
+
+1. **Port 443 sudah dipakai mesin lain.** Pemeriksaan pada 2026-08-24
+   menunjukkan `https://103.138.40.54/` menjawab dengan header
+   `Server: Microsoft-HTTPAPI/2.0` — sebuah layanan Windows, bukan VPS Ubuntu
+   ini. Berarti 443 sudah diteruskan ke komputer lain di kantor. Cari tahu itu
+   layanan apa dan siapa pemakainya sebelum mengubah aturannya; mengarahkan 443
+   ke VPS akan mematikannya. Kalau layanan itu harus tetap hidup, keduanya tidak
+   bisa memakai 443 pada IP publik yang sama — salah satunya harus pindah port,
+   atau perlu satu reverse proxy di depan keduanya.
+
+2. **Port 80 belum menjawab sama sekali** — belum di-forward, atau diblokir
+   BaliFiber. Sebagian ISP di Indonesia memblokir port 80 dan 443 masuk pada
+   paket non-bisnis. Kalau setelah aturan forwarding dibuat port 80 tetap
+   tertutup dari luar, itu blokir ISP dan bukan salah konfigurasi router —
+   tanyakan ke BaliFiber apakah paketnya mengizinkan inbound 80/443.
+
+Pastikan juga UFW di VPS mengizinkan keduanya:
+
+```bash
+sudo ufw status
+# harus ada "Nginx Full", atau 80/tcp dan 443/tcp ALLOW
+sudo ufw allow 'Nginx Full'
+```
+
+### 8.3 Verifikasi dari luar — wajib sebelum Certbot
+
+Menguji dari dalam jaringan kantor **tidak sah**. Router sering tidak melayani
+hairpin NAT, sehingga hasilnya bisa gagal padahal dari internet berhasil, atau
+sebaliknya terlihat berhasil karena permintaannya tidak pernah keluar.
+
+Ujilah dari koneksi yang benar-benar di luar: HP dengan data seluler, WiFi
+kantor dimatikan.
+
+```
+http://reservation.roemahumara.com/cms/login
+```
+
+Yang benar: halaman login Filament muncul. Halaman depan `/` masih akan gagal
+dengan `Vite manifest not found` sampai deploy pertama berjalan (bagian 12) —
+sebabnya dijelaskan di bagian 7.
+
+Lanjut ke 8.4 **hanya** kalau langkah ini berhasil.
+
+### 8.4 Terbitkan sertifikat dengan Certbot
+
+```bash
+# server_name TIDAK perlu diubah — roemahumara.conf sudah memuat domain ini
+# sejak awal, berdampingan dengan IP privatnya.
 sudo nginx -t && sudo systemctl reload nginx
 
-# 3. Terbitkan sertifikat
 sudo apt install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d reservation.roemahumara.com
 ```
@@ -473,17 +559,31 @@ sudo certbot --nginx -d reservation.roemahumara.com
 > Tanpa `-d www.` — ini subdomain, dan `www.reservation.roemahumara.com` tidak
 > lazim dipakai. Menambahkannya membuat Certbot gagal kalau DNS-nya tidak ada.
 
+Certbot menambahkan sendiri blok `:443` dan redirect dari `:80` ke dalam
+konfigurasi Nginx. Jangan menulis blok SSL manual di `roemahumara.conf` —
+keduanya akan bentrok.
+
+Uji perpanjangan otomatisnya:
+
+```bash
+sudo certbot renew --dry-run
+```
+
+Perpanjangan itu juga memakai port 80. Kalau port 80 ditutup setelah sertifikat
+terbit, sertifikatnya mati diam-diam 90 hari kemudian.
+
 ### Sebelum menghubungkan ke internet
 
-Selama di jaringan lokal, beberapa langkah pengerasan boleh ditunda. Begitu VPS
-punya IP publik, semuanya jadi wajib:
+Selama di jaringan lokal, beberapa langkah pengerasan boleh ditunda. Begitu
+domain publik aktif, semuanya jadi wajib:
 
 - [ ] **Matikan login password SSH** (bagian 1d). Pastikan dulu SSH key benar-benar
       bekerja, lalu jalankan. Port 22 yang terbuka ke internet dipindai bot dalam
       hitungan menit.
 - [ ] **Batasi akses SSH** kalau memungkinkan — hanya dari IP kantor, lewat
       `sudo ufw allow from IP_KANTOR to any port 22` lalu hapus aturan
-      `OpenSSH` yang terbuka untuk semua.
+      `OpenSSH` yang terbuka untuk semua. Catatan: selama SSH tidak ikut
+      di-forward di router, dari internet ia memang sudah tidak terjangkau.
 - [ ] **Ganti sandi awal semua akun.** Sebelas akun masih memakai sandi yang sama
       dari `INITIAL_USER_PASSWORD`.
 - [ ] **Timbang ulang data tamu di halaman publik** — lihat catatan di bawah.
@@ -507,10 +607,10 @@ lalu perbarui secret `APP_URL` di GitHub (dipakai smoke test), dan jalankan
 > menampilkan nama tamu, perusahaan, PIC, dan remark reservasi tanpa perlu login
 > — keputusan yang diambil sadar pada 2026-08-22 (aturan #10 CLAUDE.md). Selama
 > di jaringan lokal, itu hanya terbaca orang kantor. Begitu domain publik aktif,
-> semuanya terbaca siapa saja di internet dan bisa terindeks mesin pencari.
+> semuanya terbaca siapa saja di internet dan bisa terindeks mesin pencari,
+> sedangkan remark di sistem ini terbiasa memuat keterangan pembayaran.
 > Pertimbangkan ulang di titik itu: menariknya kembali cukup dengan menghapus
 > kolomnya dari `select()` di `PublicCalendarController`.
-
 ---
 
 ## 9. Queue worker
