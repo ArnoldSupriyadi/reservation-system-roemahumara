@@ -11,41 +11,33 @@ keadaan terakhir. **Perbarui setiap kali sebuah bagian selesai**, lalu commit.
 
 ---
 
-# ▶ LANJUT DARI SINI — bagian 12: self-hosted runner
+# ▶ PEMASANGAN SERVER SELESAI — sisanya di luar server
 
-Bagian 0–11 sudah selesai dan semuanya sudah diuji (lihat catatan di tabel
-bawah). Yang tersisa di server tinggal satu: deploy otomatis.
+Bagian 0–12 selesai dan sudah diuji. Sistem berjalan di
+`http://192.168.88.33`, deploy otomatis sudah terbukti (Success, 46 detik,
+2026-08-24). Setiap push ke `main` sekarang memicu deploy sendiri.
 
-Ini bagian terbesar yang tersisa, dan **satu-satunya yang menuntut token dari
-GitHub yang hanya berlaku sebentar** — jadi ambil tokennya tepat sebelum
-dipakai, bukan disiapkan jauh hari.
+Bagian 13 bukan langkah pemasangan — itu prosedur cadangan, dibaca hanya kalau
+runner mati dan Anda perlu merilis dengan tangan.
 
-Urutannya ada di RUNBOOK bagian 12a–12d. Ringkasnya:
+**Yang tersisa hanya bagian 8: membuka sistem ke internet.** Kerjanya bukan di
+server melainkan di router kantor dan di BaliFiber, jadi tidak ada perintah yang
+bisa dijalankan lewat SSH untuk menuntaskannya. Lihat "Yang sedang menunggu
+pihak lain" di bawah.
 
-1. **12a** — ambil token di GitHub → repo → Settings → Actions → Runners →
-   New self-hosted runner, lalu `config.sh` di VPS. **Label `roemahumara`
-   wajib**; tanpa itu pekerjaan menggantung di "Queued" selamanya tanpa pesan
-   kesalahan. Pasang sebagai service lewat `svc.sh install` supaya hidup lagi
-   setelah reboot.
-2. **12b** — kembalikan kepemilikan `/var/www/roemahumara` ke
-   `ictumara:www-data` mode 2775.
-3. **12c** — pasang satu secret di GitHub: `APP_URL` = `http://192.168.88.33`.
-   **Persis itu, tanpa path tambahan** — smoke test menuntut HTTP 200 dari
-   alamat itu apa adanya.
-4. **12d** — jalankan manual lewat Actions → Run workflow. Jangan langsung push
-   ke `main`.
+Sebelum bagian 8 dikerjakan, dua hal ini berhenti jadi opsional:
 
-Yang perlu disadari sebelum mulai: `sudo -l -U ictumara` menunjukkan
-`(ALL : ALL) ALL` — akun ini punya sudo penuh, dan runner berjalan sebagai akun
-itu. Lihat "Keputusan yang sudah diambil" di bawah.
+- **Kunci SSH (bagian 1d)** — port 22 yang menghadap internet dipindai bot dalam
+  hitungan menit. Selama SSH tidak ikut di-forward di router, ia memang belum
+  terjangkau; tapi jangan mengandalkan itu.
+- **Sandi awal sebelas akun staf** masih sama semua.
 
-**Deploy pertama juga yang memperbaiki HTTP 500 di `/`.** `public/build`
-dibangun di runner GitHub lalu dikirim ke server; sampai itu terjadi, halaman
-depan memang gagal dan itu bukan kerusakan.
-
-Bagian 8 (domain publik) berjalan **paralel** dan tidak menghalangi 12 —
-kerjanya di router kantor, bukan di server. Lihat "Yang sedang menunggu pihak
-lain" di bawah.
+Dan satu keputusan yang perlu diambil sadar, bukan dilewati: halaman `/`
+menampilkan nama tamu, perusahaan, PIC, dan remark **tanpa login**, sedangkan
+remark di sistem ini terbiasa memuat keterangan pembayaran. Di jaringan lokal
+itu hanya terbaca orang kantor. Begitu port 80 dibuka, terbaca siapa saja dan
+bisa terindeks mesin pencari. Menariknya kembali cukup menghapus kolomnya dari
+`select()` di `PublicCalendarController`.
 
 ---
 
@@ -63,7 +55,7 @@ lain" di bawah.
 | PHP | 8.3.6 di `/usr/bin/php8.3` |
 | Composer | 2.10.2 |
 | User deploy | `ictumara` — sekaligus akun login SSH |
-| Terakhir diperbarui | 2026-08-24 |
+| Terakhir diperbarui | 2026-08-24 (bagian 12 selesai) |
 
 ## Status per bagian
 
@@ -79,13 +71,13 @@ lain" di bawah.
 | 4 | Nginx | ✅ | |
 | 5 | Composer | ✅ | 2.10.2, terikat ke `/usr/bin/php8.3` |
 | 6 | Direktori aplikasi & `.env` | ✅ | Admin `roemahumara@gmail.com` sudah punya role — uji `can('reservation.delete')` mengembalikan `true` |
-| 7 | Nginx server block | ✅ | `/cms/login` → HTTP 200. `/` → HTTP 500 (`Vite manifest not found`) — **wajar**, `public/build` baru terisi saat deploy pertama (bagian 12) |
+| 7 | Nginx server block | ✅ | `/cms/login` → HTTP 200. `/` sempat HTTP 500 (`Vite manifest not found`) sampai deploy pertama mengisi `public/build` — sekarang 200 |
 | 8 | Domain publik: DNS, port forward, SSL | ⏭️ | DNS ✅ sudah diarahkan. Port forwarding **belum** — menunggu pihak lain, lihat di bawah |
 | 9 | Queue worker | ✅ | `active (running)`, `enabled` — ikut hidup setelah reboot. Diuji 2026-08-24 |
 | 10 | Scheduler cron | ✅ | Dipasang lewat berkas (`crontab -u ictumara /tmp/ru-cron`), bukan editor. Terbukti jalan tiap menit di `/var/log/syslog` |
 | 11 | Sudo terbatas untuk deploy | ✅ | Dipasang lewat berkas + `visudo -cf`, bukan `visudo` interaktif. `sudo -l -U ictumara` memastikan **kedua** perintah tercakup, bukan hanya yang diuji |
-| 12 | Self-hosted runner | ⏭️ | **Berikutnya.** Deploy pertama ini juga yang memperbaiki HTTP 500 di `/` |
-| 13 | Deploy manual (cadangan) | ⬜ | Hanya dibaca kalau 12 bermasalah |
+| 12 | Self-hosted runner | ✅ | Deploy manual pertama Success dalam 46 detik (2026-08-24). `/` kini HTTP 200, aset Vite termuat |
+| 13 | Deploy manual (cadangan) | — | Bukan langkah pemasangan. Prosedur cadangan, dibaca kalau runner mati |
 
 Keterangan: ✅ selesai · ⏭️ sedang dikerjakan · ⏸️ ditunda sengaja · ⬜ belum
 
