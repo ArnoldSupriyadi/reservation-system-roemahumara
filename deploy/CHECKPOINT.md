@@ -11,42 +11,39 @@ keadaan terakhir. **Perbarui setiap kali sebuah bagian selesai**, lalu commit.
 
 ---
 
-# ▶ LANJUT DARI SINI — bagian 11: izin sudo terbatas
+# ▶ LANJUT DARI SINI — bagian 12: self-hosted runner
 
-Bagian 0–10 sudah selesai. Aplikasi disajikan Nginx, queue worker hidup sebagai
-service, dan scheduler jalan tiap menit — semuanya sudah diuji (lihat catatan di
-tabel bawah).
+Bagian 0–11 sudah selesai dan semuanya sudah diuji (lihat catatan di tabel
+bawah). Yang tersisa di server tinggal satu: deploy otomatis.
 
-Masuk ke server, lalu **cek dulu path systemctl-nya** — sudoers mencocokkan
-string secara literal, jadi salah path membuat aturannya tidak pernah cocok:
+Ini bagian terbesar yang tersisa, dan **satu-satunya yang menuntut token dari
+GitHub yang hanya berlaku sebentar** — jadi ambil tokennya tepat sebelum
+dipakai, bukan disiapkan jauh hari.
 
-```bash
-ssh ictumara@192.168.88.33     # lewat VPN kantor
+Urutannya ada di RUNBOOK bagian 12a–12d. Ringkasnya:
 
-which systemctl                # harus /usr/bin/systemctl
-sudo visudo -f /etc/sudoers.d/ictumara-deploy
-```
+1. **12a** — ambil token di GitHub → repo → Settings → Actions → Runners →
+   New self-hosted runner, lalu `config.sh` di VPS. **Label `roemahumara`
+   wajib**; tanpa itu pekerjaan menggantung di "Queued" selamanya tanpa pesan
+   kesalahan. Pasang sebagai service lewat `svc.sh install` supaya hidup lagi
+   setelah reboot.
+2. **12b** — kembalikan kepemilikan `/var/www/roemahumara` ke
+   `ictumara:www-data` mode 2775.
+3. **12c** — pasang satu secret di GitHub: `APP_URL` = `http://192.168.88.33`.
+   **Persis itu, tanpa path tambahan** — smoke test menuntut HTTP 200 dari
+   alamat itu apa adanya.
+4. **12d** — jalankan manual lewat Actions → Run workflow. Jangan langsung push
+   ke `main`.
 
-Isi dengan satu baris ini (sesuaikan kalau `which` tadi menunjukkan path lain):
+Yang perlu disadari sebelum mulai: `sudo -l -U ictumara` menunjukkan
+`(ALL : ALL) ALL` — akun ini punya sudo penuh, dan runner berjalan sebagai akun
+itu. Lihat "Keputusan yang sudah diambil" di bawah.
 
-```
-ictumara ALL=(root) NOPASSWD: /usr/bin/systemctl reload php8.3-fpm, /usr/bin/systemctl restart roemahumara-queue
-```
+**Deploy pertama juga yang memperbaiki HTTP 500 di `/`.** `public/build`
+dibangun di runner GitHub lalu dikirim ke server; sampai itu terjadi, halaman
+depan memang gagal dan itu bukan kerusakan.
 
-Simpan di nano: Ctrl+O → Enter → Ctrl+X. `visudo` akan menolak menyimpan kalau
-sintaksnya salah — itu memang gunanya, jangan menyunting berkas sudoers dengan
-editor biasa.
-
-Ujinya:
-
-```bash
-sudo -u ictumara sudo -n systemctl reload php8.3-fpm && echo "izin sudo siap"
-```
-
-Kalau muncul "izin sudo siap" tanpa diminta sandi, tandai bagian 11 ✅ di tabel
-bawah, commit, lalu lanjut ke bagian 12 (self-hosted runner).
-
-Bagian 8 (domain publik) berjalan **paralel** dan tidak menghalangi 11–12 —
+Bagian 8 (domain publik) berjalan **paralel** dan tidak menghalangi 12 —
 kerjanya di router kantor, bukan di server. Lihat "Yang sedang menunggu pihak
 lain" di bawah.
 
@@ -86,8 +83,8 @@ lain" di bawah.
 | 8 | Domain publik: DNS, port forward, SSL | ⏭️ | DNS ✅ sudah diarahkan. Port forwarding **belum** — menunggu pihak lain, lihat di bawah |
 | 9 | Queue worker | ✅ | `active (running)`, `enabled` — ikut hidup setelah reboot. Diuji 2026-08-24 |
 | 10 | Scheduler cron | ✅ | Dipasang lewat berkas (`crontab -u ictumara /tmp/ru-cron`), bukan editor. Terbukti jalan tiap menit di `/var/log/syslog` |
-| 11 | Sudo terbatas untuk deploy | ⏭️ | **Berikutnya** |
-| 12 | Self-hosted runner | ⬜ | |
+| 11 | Sudo terbatas untuk deploy | ✅ | Dipasang lewat berkas + `visudo -cf`, bukan `visudo` interaktif. `sudo -l -U ictumara` memastikan **kedua** perintah tercakup, bukan hanya yang diuji |
+| 12 | Self-hosted runner | ⏭️ | **Berikutnya.** Deploy pertama ini juga yang memperbaiki HTTP 500 di `/` |
 | 13 | Deploy manual (cadangan) | ⬜ | Hanya dibaca kalau 12 bermasalah |
 
 Keterangan: ✅ selesai · ⏭️ sedang dikerjakan · ⏸️ ditunda sengaja · ⬜ belum
@@ -106,7 +103,8 @@ dan dipakai untuk masuk server.
 
 Yang perlu disadari: runner GitHub Actions berjalan sebagai akun yang sama
 dengan akun administrasi server, jadi keduanya berbagi hak yang sama. Kalau
-kredensial runner bocor, yang terpapar bukan sekadar hak deploy. Memisahkannya
+kredensial runner bocor, yang terpapar bukan sekadar hak deploy — `sudo -l -U ictumara`
+pada 2026-08-24 memastikan akun ini memang `(ALL : ALL) ALL`. Memisahkannya
 nanti masih mungkin — buat user baru, pindahkan kepemilikan
 `/var/www/roemahumara`, daftarkan ulang runner.
 
