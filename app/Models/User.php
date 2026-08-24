@@ -17,6 +17,11 @@ class User extends Authenticatable implements FilamentUser
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, Notifiable;
 
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return true;
+    }
+
     /**
      * Mencerminkan default(true) pada kolom is_active di database.
      *
