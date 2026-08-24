@@ -11,27 +11,42 @@ keadaan terakhir. **Perbarui setiap kali sebuah bagian selesai**, lalu commit.
 
 ---
 
-# ▶ LANJUT DARI SINI — bagian 9: queue worker
+# ▶ LANJUT DARI SINI — bagian 11: izin sudo terbatas
 
-Bagian 0–7 sudah selesai. Nginx sudah menyajikan aplikasinya:
-`http://192.168.88.33/cms/login` menjawab **HTTP 200** (diuji 2026-08-24).
+Bagian 0–10 sudah selesai. Aplikasi disajikan Nginx, queue worker hidup sebagai
+service, dan scheduler jalan tiap menit — semuanya sudah diuji (lihat catatan di
+tabel bawah).
 
-Masuk ke server, lalu:
+Masuk ke server, lalu **cek dulu path systemctl-nya** — sudoers mencocokkan
+string secara literal, jadi salah path membuat aturannya tidak pernah cocok:
 
 ```bash
 ssh ictumara@192.168.88.33     # lewat VPN kantor
 
-cd /var/www/roemahumara
-sudo cp deploy/systemd/roemahumara-queue.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now roemahumara-queue
-sudo systemctl status roemahumara-queue
+which systemctl                # harus /usr/bin/systemctl
+sudo visudo -f /etc/sudoers.d/ictumara-deploy
 ```
 
-Kalau statusnya `active (running)`, tandai bagian 9 ✅ di tabel bawah, commit,
-lalu lanjut ke bagian 10 (cron scheduler).
+Isi dengan satu baris ini (sesuaikan kalau `which` tadi menunjukkan path lain):
 
-Bagian 8 (domain publik) berjalan **paralel** dan tidak menghalangi 9–12 —
+```
+ictumara ALL=(root) NOPASSWD: /usr/bin/systemctl reload php8.3-fpm, /usr/bin/systemctl restart roemahumara-queue
+```
+
+Simpan di nano: Ctrl+O → Enter → Ctrl+X. `visudo` akan menolak menyimpan kalau
+sintaksnya salah — itu memang gunanya, jangan menyunting berkas sudoers dengan
+editor biasa.
+
+Ujinya:
+
+```bash
+sudo -u ictumara sudo -n systemctl reload php8.3-fpm && echo "izin sudo siap"
+```
+
+Kalau muncul "izin sudo siap" tanpa diminta sandi, tandai bagian 11 ✅ di tabel
+bawah, commit, lalu lanjut ke bagian 12 (self-hosted runner).
+
+Bagian 8 (domain publik) berjalan **paralel** dan tidak menghalangi 11–12 —
 kerjanya di router kantor, bukan di server. Lihat "Yang sedang menunggu pihak
 lain" di bawah.
 
@@ -69,9 +84,9 @@ lain" di bawah.
 | 6 | Direktori aplikasi & `.env` | ✅ | Admin `roemahumara@gmail.com` sudah punya role — uji `can('reservation.delete')` mengembalikan `true` |
 | 7 | Nginx server block | ✅ | `/cms/login` → HTTP 200. `/` → HTTP 500 (`Vite manifest not found`) — **wajar**, `public/build` baru terisi saat deploy pertama (bagian 12) |
 | 8 | Domain publik: DNS, port forward, SSL | ⏭️ | DNS ✅ sudah diarahkan. Port forwarding **belum** — menunggu pihak lain, lihat di bawah |
-| 9 | Queue worker | ⬜ | **Berikutnya** |
-| 10 | Scheduler cron | ⬜ | |
-| 11 | Sudo terbatas untuk deploy | ⬜ | |
+| 9 | Queue worker | ✅ | `active (running)`, `enabled` — ikut hidup setelah reboot. Diuji 2026-08-24 |
+| 10 | Scheduler cron | ✅ | Dipasang lewat berkas (`crontab -u ictumara /tmp/ru-cron`), bukan editor. Terbukti jalan tiap menit di `/var/log/syslog` |
+| 11 | Sudo terbatas untuk deploy | ⏭️ | **Berikutnya** |
 | 12 | Self-hosted runner | ⬜ | |
 | 13 | Deploy manual (cadangan) | ⬜ | Hanya dibaca kalau 12 bermasalah |
 
