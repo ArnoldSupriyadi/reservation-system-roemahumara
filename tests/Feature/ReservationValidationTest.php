@@ -137,8 +137,8 @@ class ReservationValidationTest extends TestCase
 
         $r = Reservation::sole();
 
-        $this->assertSame('12:00:00', $r->start_time);
-        $this->assertSame('15:00:00', $r->end_time);
+        $this->assertSame('12:00', (string) $r->start_time);
+        $this->assertSame('15:00', (string) $r->end_time);
     }
 
     public function test_an_unparseable_time_is_refused(): void
@@ -169,7 +169,7 @@ class ReservationValidationTest extends TestCase
             ->call('create')
             ->assertHasNoFormErrors();
 
-        $this->assertSame('11:00:00', Reservation::sole()->start_time);
+        $this->assertSame('11:00', (string) Reservation::sole()->start_time);
     }
 
     /** Spec 11 nomor 14, bagian kedua: submit ulang mengalihkan ke record itu. */

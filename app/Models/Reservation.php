@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\JamCast;
 use App\Enums\ReservationStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -43,6 +44,10 @@ class Reservation extends Model
     {
         return [
             'reservation_date' => 'date',
+            // Kolomnya TIME di MySQL dan tetap begitu; yang berubah cuma
+            // bentuknya di PHP. Lihat App\Support\Jam untuk alasannya.
+            'start_time' => JamCast::class,
+            'end_time' => JamCast::class,
             'status' => ReservationStatus::class,
             'pax' => 'integer',
             'version' => 'integer',

@@ -24,11 +24,11 @@ class ReservationInfolist
                     TextEntry::make('start_time')
                         ->label('Jam')
                         ->formatStateUsing(function ($record) {
-                            $start = substr((string) $record->start_time, 0, 5);
+                            $start = (string) $record->start_time;
 
                             return blank($record->end_time)
                                 ? $start.' (jam tunggal)'
-                                : $start.'–'.substr((string) $record->end_time, 0, 5).' (rentang)';
+                                : $start.'–'.$record->end_time.' (rentang)';
                         }),
 
                     TextEntry::make('guest_name')->label('Nama tamu'),

@@ -149,9 +149,9 @@
             <td class="label">Jam</td>
             <td class="nilai">
                 @if (blank($reservation->end_time))
-                    {{ substr($reservation->start_time, 0, 5) }} (jam tunggal)
+                    {{ $reservation->start_time }} (jam tunggal)
                 @else
-                    {{ substr($reservation->start_time, 0, 5) }}–{{ substr($reservation->end_time, 0, 5) }}
+                    {{ $reservation->start_time }}–{{ $reservation->end_time }}
                 @endif
             </td>
         </tr>

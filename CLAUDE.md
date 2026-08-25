@@ -328,7 +328,52 @@ Sandi bersama itu keadaan sementara: selama belum diganti masing-masing,
     menu mengikuti id kategori (`Menu::scopeInMenuOrder`), sehingga kategori baru
     muncul di bawah.
 
-16. **Menambah status baru butuh migrasi, bukan hanya case enum.** Kolom `status`
+16. **Jam adalah `App\Support\Jam`, bukan string.** `start_time` dan `end_time`
+    di-cast lewat `App\Casts\JamCast`. Sebelum 2026-08-25 keduanya string mentah
+    dari MySQL, dan tujuh tempat menulis `substr((string) $r->start_time, 0, 5)`
+    sendiri-sendiri — tujuh salinan aturan "buang detiknya".
+
+    **Kolom databasenya TETAP `TIME`.** Jangan mengubahnya: `dedupe_key` adalah
+    generated stored column yang memakai `TIME_FORMAT()` di dalam MySQL
+    (aturan #1). Yang berubah hanya bentuknya di PHP.
+
+    **Tiga bentuk, tiga alasan, dan ketiganya punya test:**
+
+    | Cara | Hasil | Dipakai |
+    |---|---|---|
+    | `__toString()` | `11:00` | seluruh tampilan |
+    | `JamCast::serialize()` | `11:00` | `attributesToArray()` → isian form Filament |
+    | `jsonSerialize()` | `11:00:00` | `activity_log` |
+
+    `serialize()` **wajib ada**. Filament mengisi form dari
+    `$record->attributesToArray()`; tanpa itu yang masuk ke state Livewire adalah
+    objek `Jam`, dan halaman Edit tumbang dengan HTTP 500 "Property type not
+    supported in Livewire".
+
+    `jsonSerialize()` sengaja `H:i:s` **demi kesinambungan riwayat**. spatie
+    mencatat nilai sesudah cast (`LogsActivity::logChanges`), dan seluruh entri
+    yang tercatat sebelum kelas ini ada berisi `'11:00:00'` apa adanya dari
+    MySQL. Menyerialkan `H:i` akan membelah riwayat satu reservasi jadi dua
+    bentuk, dan itu **tidak bisa diperbaiki belakangan** — entri lama sudah
+    tersimpan.
+
+    **Pembagian tugas dengan `TimeInput`:** TimeInput membaca ketikan manusia
+    (`11`, `11.00`, `12.00-15.00`), Jam adalah nilainya. `TimeInput::split()`
+    dipakai form untuk memecah rentang sebelum ada nilai jam terbentuk.
+
+    `Jam::dari()` mengembalikan **null** untuk yang tidak terbaca, tidak
+    melempar: penolakan input adalah tugas validasi form, dan melempar di sini
+    akan membuat halaman daftar tumbang gara-gara satu baris lama yang datanya
+    aneh.
+
+    **Yang masih belum beres:** acara yang melewati tengah malam (22:00–01:00)
+    membuat `ConflictChecker` menghitung jendela terbalik — `end` lebih kecil
+    daripada `start` — sehingga pengecekan bentrok untuk baris itu praktis mati
+    tanpa peringatan. Memakai Jam tidak memperbaikinya; yang memperbaikinya cuma
+    memperlakukan `end < start` sebagai "berakhir esok harinya", atau menyimpan
+    tanggal-dan-jam penuh.
+
+17. **Menambah status baru butuh migrasi, bukan hanya case enum.** Kolom `status`
     bertipe ENUM MySQL. Menambah case di `App\Enums\ReservationStatus` tanpa
     `ALTER TABLE ... MODIFY COLUMN` menghasilkan "Data truncated for column
     'status'" saat menyimpan. Pakai `DB::statement()`, bukan `$table->enum()->change()`

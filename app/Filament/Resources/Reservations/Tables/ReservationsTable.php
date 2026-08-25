@@ -285,12 +285,12 @@ class ReservationsTable
 
     private static function timeRange($record): string
     {
-        $start = substr((string) $record->start_time, 0, 5);
+        $start = (string) $record->start_time;
 
         if (blank($record->end_time)) {
             return $start;
         }
 
-        return $start.'–'.substr((string) $record->end_time, 0, 5);
+        return $start.'–'.$record->end_time;
     }
 }

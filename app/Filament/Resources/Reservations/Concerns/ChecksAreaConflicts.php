@@ -101,7 +101,7 @@ trait ChecksAreaConflicts
             ->map(fn (Reservation $other) => sprintf(
                 '%s jam %s',
                 $other->guest_name,
-                substr((string) $other->start_time, 0, 5)
+                (string) $other->start_time
             ))
             ->join(', ');
     }

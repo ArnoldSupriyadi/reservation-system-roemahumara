@@ -70,7 +70,7 @@ class ReservationFilamentTest extends TestCase
         $r = Reservation::sole();
 
         $this->assertSame('08112233445', $r->phone, 'Nomor HP harus dinormalkan.');
-        $this->assertSame('12:00:00', $r->start_time);
+        $this->assertSame('12:00', (string) $r->start_time);
         $this->assertNull($r->end_time);
         $this->assertSame(1, $r->version);
         $this->assertSame($this->staff->id, $r->created_by);
@@ -86,8 +86,8 @@ class ReservationFilamentTest extends TestCase
 
         $r = Reservation::sole();
 
-        $this->assertSame('12:00:00', $r->start_time);
-        $this->assertSame('15:00:00', $r->end_time);
+        $this->assertSame('12:00', (string) $r->start_time);
+        $this->assertSame('15:00', (string) $r->end_time);
     }
 
     public function test_na_phone_is_rejected(): void

@@ -35,7 +35,7 @@ class ReservationModelTest extends TestCase
     {
         $r = Reservation::factory()->withRange()->create();
 
-        $this->assertSame('15:00:00', $r->end_time);
+        $this->assertSame('15:00', (string) $r->end_time);
     }
 
     public function test_relations_resolve(): void

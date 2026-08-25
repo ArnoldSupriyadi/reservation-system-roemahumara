@@ -68,7 +68,7 @@
                                         >
                                             @php $status = \App\Enums\ReservationStatus::publicOrDefault($r->status); @endphp
 
-                                            {{ substr($r->start_time, 0, 5) }}
+                                            {{ $r->start_time }}
                                             <span class="block truncate font-black">{{ $r->guest_name }}</span>
                                             @if ($r->area)
                                                 <span class="block font-normal">{{ $r->area->name }}</span>
@@ -121,9 +121,9 @@
                     <dt class="text-[10px] font-black uppercase tracking-widest">Jam</dt>
                     <dd class="text-sm font-bold">
                         @if (blank($selected->end_time))
-                            {{ substr($selected->start_time, 0, 5) }} (jam tunggal)
+                            {{ $selected->start_time }} (jam tunggal)
                         @else
-                            {{ substr($selected->start_time, 0, 5) }}–{{ substr($selected->end_time, 0, 5) }}
+                            {{ $selected->start_time }}–{{ $selected->end_time }}
                         @endif
                     </dd>
                 </div>

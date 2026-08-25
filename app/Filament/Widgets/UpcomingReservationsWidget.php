@@ -254,12 +254,12 @@ class UpcomingReservationsWidget extends TableWidget
      */
     private static function rentangJam(Reservation $record): string
     {
-        $mulai = substr((string) $record->start_time, 0, 5);
+        $mulai = (string) $record->start_time;
 
         if (blank($record->end_time)) {
             return $mulai;
         }
 
-        return $mulai.'–'.substr((string) $record->end_time, 0, 5);
+        return $mulai.'–'.$record->end_time;
     }
 }

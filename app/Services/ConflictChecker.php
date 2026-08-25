@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Enums\ReservationStatus;
 use App\Models\Area;
 use App\Models\Reservation;
-use Illuminate\Support\Carbon;
+use App\Support\Jam;
 use Illuminate\Support\Collection;
 
 class ConflictChecker
@@ -18,8 +18,8 @@ class ConflictChecker
     public function check(
         ?int $areaId,
         string $date,
-        string $startTime,
-        ?string $endTime,
+        Jam|string $startTime,
+        Jam|string|null $endTime,
         ?int $ignoreId = null
     ): Collection {
         if ($areaId === null) {
@@ -58,23 +58,20 @@ class ConflictChecker
      * Rentang efektif sebuah reservasi dalam menit sejak tengah malam.
      * Reservasi tanpa end_time diasumsikan berdurasi default.
      *
+     * Menerima Jam maupun string: pemanggilnya bisa berupa model yang sudah
+     * ter-cast, atau array mentah dari form dan seeder.
+     *
      * @return array{0: int, 1: int}
      */
-    private function window(string $startTime, ?string $endTime): array
+    private function window(Jam|string $startTime, Jam|string|null $endTime): array
     {
-        $start = $this->minutes($startTime);
+        $start = Jam::dari($startTime)->menitSejakTengahMalam();
+        $selesai = Jam::dari($endTime);
 
-        $end = $endTime !== null
-            ? $this->minutes($endTime)
+        $end = $selesai !== null
+            ? $selesai->menitSejakTengahMalam()
             : $start + config('reservation.default_duration_minutes');
 
         return [$start, $end];
-    }
-
-    private function minutes(string $time): int
-    {
-        $parsed = Carbon::createFromFormat('H:i', substr($time, 0, 5));
-
-        return $parsed->hour * 60 + $parsed->minute;
     }
 }

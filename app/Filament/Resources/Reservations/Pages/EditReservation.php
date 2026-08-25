@@ -89,7 +89,7 @@ class EditReservation extends EditRecord
                         'Sudah ada reservasi atas nama %s pada %s jam %s.',
                         $existing->guest_name,
                         $existing->reservation_date->format('d/m/Y'),
-                        substr((string) $existing->start_time, 0, 5)
+                        (string) $existing->start_time
                     )
                     : 'Reservasi dengan tanggal, nama, dan jam mulai yang sama sudah ada.',
             ]);
