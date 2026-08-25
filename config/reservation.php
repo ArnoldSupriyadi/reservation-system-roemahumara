@@ -30,6 +30,21 @@ return [
     'initial_password' => env('INITIAL_USER_PASSWORD'),
 
     /*
+     * Jam paling malam yang boleh dipesan.
+     *
+     * Ditegakkan di form Filament dan di ReservationWriter — dua lapis, sama
+     * seperti kewajiban menjelaskan bentrok di Remark. TIDAK ditegakkan sebagai
+     * CHECK constraint di database: ini aturan bisnis, bukan bentuk data, dan
+     * jam tutup venue lebih mungkin berubah daripada struktur tabelnya.
+     *
+     * Berlaku untuk jam mulai maupun jam selesai. Batas ini juga yang membuat
+     * acara tidak pernah melewati tengah malam — tanpa itu, reservasi 22:00-01:00
+     * membuat ConflictChecker menghitung jendela terbalik (end lebih kecil
+     * daripada start) dan pengecekan bentrok untuk barisnya mati tanpa peringatan.
+     */
+    'jam_tutup' => env('RESERVATION_CLOSING_TIME', '22:00'),
+
+    /*
      * Identitas venue untuk kop dokumen cetak.
      *
      * Di sini, bukan di dalam Blade: alamat berubah lebih sering daripada tata

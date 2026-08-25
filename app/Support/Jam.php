@@ -79,6 +79,31 @@ final class Jam implements JsonSerializable, Stringable
         };
     }
 
+    /**
+     * Jam tutup venue, dari config('reservation.jam_tutup').
+     *
+     * Di sini, bukan diketik ulang di form dan writer: dua salinan aturan yang
+     * sama berangsur berbeda, dan yang satu akan menolak apa yang diterima yang
+     * lain.
+     */
+    public static function tutup(): self
+    {
+        return self::dari(config('reservation.jam_tutup'))
+            ?? throw new \RuntimeException(
+                'RESERVATION_CLOSING_TIME di .env tidak terbaca sebagai jam: '
+                .var_export(config('reservation.jam_tutup'), true)
+            );
+    }
+
+    /**
+     * Lebih malam daripada jam tutup. Tepat pukul tutup masih boleh — "sampai
+     * pukul 22:00" berarti 22:00 termasuk.
+     */
+    public function melewatiJamTutup(): bool
+    {
+        return self::tutup()->sebelum($this);
+    }
+
     public function sebelum(self $lain): bool
     {
         return $this->menitSejakTengahMalam() < $lain->menitSejakTengahMalam();

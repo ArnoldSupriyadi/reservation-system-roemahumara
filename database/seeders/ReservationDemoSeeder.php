@@ -55,7 +55,7 @@ class ReservationDemoSeeder extends Seeder
             [12, null, '18:00', '21:00', 'Ibu Ratna'],
             [17, 'confirmed', '07:00', null, 'Komunitas Sepeda Pagi'],
             [17, 'tentative', '13:00', '16:00', 'Bapak Surya'],
-            [17, 'confirmed', '20:00', '23:00', 'Keluarga Tanuwijaya'],
+            [17, 'confirmed', '19:00', '22:00', 'Keluarga Tanuwijaya'],
             [22, 'tentative', '10:15', '12:45', 'Ibu Melati'],
             [26, 'confirmed', '16:00', '19:30', 'PT Bangun Karya'],
             // Contoh yang batal: tampil dicoret di kalender staf, dan sama

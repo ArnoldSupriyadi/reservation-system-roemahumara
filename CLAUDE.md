@@ -366,14 +366,40 @@ Sandi bersama itu keadaan sementara: selama belum diganti masing-masing,
     akan membuat halaman daftar tumbang gara-gara satu baris lama yang datanya
     aneh.
 
-    **Yang masih belum beres:** acara yang melewati tengah malam (22:00–01:00)
-    membuat `ConflictChecker` menghitung jendela terbalik — `end` lebih kecil
-    daripada `start` — sehingga pengecekan bentrok untuk baris itu praktis mati
-    tanpa peringatan. Memakai Jam tidak memperbaikinya; yang memperbaikinya cuma
-    memperlakukan `end < start` sebagai "berakhir esok harinya", atau menyimpan
-    tanggal-dan-jam penuh.
+    Acara yang melewati tengah malam akan membuat `ConflictChecker` menghitung
+    jendela terbalik — `end` lebih kecil daripada `start` — sehingga pengecekan
+    bentrok untuk baris itu mati tanpa peringatan. Keadaan itu **tidak bisa
+    terbentuk** selama aturan #17 berlaku; kalau jam tutup kelak dihapus atau
+    disetel lewat tengah malam, bug ini hidup kembali.
 
-17. **Menambah status baru butuh migrasi, bukan hanya case enum.** Kolom `status`
+17. **Jam mulai dan jam selesai tidak boleh melewati jam tutup.** Batasnya di
+    `config('reservation.jam_tutup')`, bawaannya **22:00**, bisa diubah lewat
+    `RESERVATION_CLOSING_TIME` di `.env`. Tepat pukul tutup masih boleh — "sampai
+    pukul 22:00" berarti 22:00 termasuk.
+
+    **Jam mulai ikut dibatasi, bukan hanya jam selesai.** Reservasi tanpa jam
+    selesai diasumsikan berdurasi default oleh `ConflictChecker`, jadi jam mulai
+    23:00 menghasilkan jendela yang berakhir esok hari — persis keadaan yang
+    batas ini ada untuk mencegahnya (lihat aturan #16).
+
+    **Dua lapis, dan itu disengaja:** form Filament (pesan ramah, menunjuk
+    kolomnya, dan **memeriksa kedua ujung rentang** yang diketik di kolom Jam
+    mulai — tanpa itu "19.00-23.00" lolos dan baru ditolak writer dengan pesan
+    yang tidak menunjuk kolom), dan `ReservationWriter` (berlaku untuk seeder,
+    tinker, dan kode lain). **Sengaja TIDAK ada CHECK constraint di database** —
+    ini aturan bisnis, bukan bentuk data, dan jam tutup venue lebih mungkin
+    berubah daripada struktur tabelnya. Bandingkan dengan `area_id` yang
+    `NOT NULL` di aturan #12: yang itu bentuk data.
+
+    Angkanya dibaca lewat `Jam::tutup()`, **jangan mengetiknya ulang** di form
+    atau writer — dua salinan aturan yang sama berangsur berbeda, dan yang satu
+    akan menolak apa yang diterima yang lain.
+
+    Data lama yang sudah melanggar **tidak diusik**: batas ini berlaku saat
+    menyimpan, bukan saat membaca. `ReservationDemoSeeder` diperbaiki
+    2026-08-25 karena satu barisnya berjam 20:00–23:00.
+
+18. **Menambah status baru butuh migrasi, bukan hanya case enum.** Kolom `status`
     bertipe ENUM MySQL. Menambah case di `App\Enums\ReservationStatus` tanpa
     `ALTER TABLE ... MODIFY COLUMN` menghasilkan "Data truncated for column
     'status'" saat menyimpan. Pakai `DB::statement()`, bukan `$table->enum()->change()`

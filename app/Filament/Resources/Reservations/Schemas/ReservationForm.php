@@ -9,6 +9,7 @@ use App\Models\EventType;
 use App\Models\Menu;
 use App\Models\Reservation;
 use App\Models\User;
+use App\Support\Jam;
 use App\Support\TimeInput;
 use Closure;
 use Filament\Forms\Components\DatePicker;
@@ -111,7 +112,8 @@ class ReservationForm
                         ->required()
                         ->maxLength(20)
                         ->placeholder('11.00')
-                        ->helperText('Boleh 11, 11.00, atau 11:00. Menulis 12.00-15.00 di sini akan otomatis terpecah.')
+                        ->helperText(fn () => 'Boleh 11, 11.00, atau 11:00. Menulis 12.00-15.00 di sini akan otomatis terpecah. '
+                            .'Paling malam '.Jam::tutup().'.')
                         ->rules([
                             fn (): Closure => function (string $attribute, $value, Closure $fail) {
                                 $split = TimeInput::split($value);
@@ -124,6 +126,23 @@ class ReservationForm
 
                                 if ($split['end'] !== null && $split['end'] <= $split['start']) {
                                     $fail('Pada rentang yang diketik di sini, jam selesai harus lebih lambat daripada jam mulai.');
+
+                                    return;
+                                }
+
+                                // Kedua ujung rentang yang diketik di kolom ini
+                                // ikut diperiksa: kalau hanya jam mulainya,
+                                // "20.00-23.00" akan lolos dari sini dan baru
+                                // ditolak ReservationWriter dengan pesan yang
+                                // jauh lebih kaku.
+                                foreach (['start' => 'Jam mulai', 'end' => 'Jam selesai'] as $ujung => $label) {
+                                    $jam = Jam::dari($split[$ujung]);
+
+                                    if ($jam?->melewatiJamTutup()) {
+                                        $fail("{$label} {$jam} melewati jam tutup ".Jam::tutup().'.');
+
+                                        return;
+                                    }
                                 }
                             },
                         ]),
@@ -158,6 +177,12 @@ class ReservationForm
 
                                 if ($start !== null && $end <= $start) {
                                     $fail('Jam selesai harus lebih lambat daripada jam mulai.');
+
+                                    return;
+                                }
+
+                                if (Jam::dari($end)?->melewatiJamTutup()) {
+                                    $fail('Jam selesai '.$end.' melewati jam tutup '.Jam::tutup().'.');
                                 }
                             },
                         ]),

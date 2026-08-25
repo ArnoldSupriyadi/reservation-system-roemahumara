@@ -7,6 +7,7 @@ use App\Exceptions\InvalidReservationException;
 use App\Exceptions\StaleReservationException;
 use App\Models\Reservation;
 use App\Models\User;
+use App\Support\Jam;
 use App\Support\TimeInput;
 use Carbon\CarbonInterface;
 use Illuminate\Database\QueryException;
@@ -140,7 +141,8 @@ class ReservationWriter
 
     /**
      * Aturan isi yang berlaku untuk setiap penulisan, termasuk yang tidak lewat
-     * form: area wajib, dan bentrok area wajib punya penjelasan di Remark.
+     * form: area wajib, jam tidak melewati jam tutup, dan bentrok area wajib
+     * punya penjelasan di Remark.
      *
      * Halaman Filament memeriksa hal yang sama lebih dulu dengan pesan yang
      * ramah. Penjagaan di sini bukan pengulangan yang sia-sia — tanpa ia,
@@ -153,6 +155,8 @@ class ReservationWriter
         if (blank($state['area_id'])) {
             throw InvalidReservationException::missingArea();
         }
+
+        $this->guardClosingTime($state);
 
         if (filled($state['remark'])) {
             return;
@@ -176,6 +180,29 @@ class ReservationWriter
 
         if ($conflicts->isNotEmpty()) {
             throw InvalidReservationException::unexplainedConflict($conflicts);
+        }
+    }
+
+    /**
+     * Jam mulai maupun jam selesai tidak boleh lebih malam daripada jam tutup.
+     *
+     * Jam mulai ikut diperiksa, bukan hanya jam selesai: reservasi tanpa jam
+     * selesai diasumsikan berdurasi default oleh ConflictChecker, jadi jam mulai
+     * 23:00 menghasilkan jendela yang berakhir esok hari — persis keadaan yang
+     * batas ini ada untuk mencegahnya.
+     *
+     * @param  array{start_time: string, end_time: mixed}  $state
+     */
+    private function guardClosingTime(array $state): void
+    {
+        $tutup = Jam::tutup();
+
+        foreach (['start_time' => 'Jam mulai', 'end_time' => 'Jam selesai'] as $kunci => $label) {
+            $jam = Jam::dari($state[$kunci]);
+
+            if ($jam?->melewatiJamTutup()) {
+                throw InvalidReservationException::afterClosingTime($label, (string) $jam, (string) $tutup);
+            }
         }
     }
 
