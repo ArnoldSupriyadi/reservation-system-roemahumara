@@ -400,6 +400,19 @@ Sandi bersama itu keadaan sementara: selama belum diganti masing-masing,
     `TwentyFourHourClockTest` memeriksa kelima permukaannya sekaligus dengan jam
     19:00, dipilih justru karena angkanya berubah di format 12 jam.
 
+    **Kolom jam adalah `TextInput`, bukan `TimePicker`, dan itu keputusan sadar
+    (2026-08-25).** Kolom Jam mulai menerima `12.00-15.00` dan memecahnya sendiri
+    jadi dua kolom — kemampuan yang mati begitu diganti komponen pemilih waktu,
+    dan yang dipakai staf saat mencatat sambil menerima telepon. `TimePicker`
+    bawaannya juga `native(true)`, artinya `<input type="time">` yang ditampilkan
+    browser menurut locale sistem: di komputer berlocale Amerika kotaknya
+    berbunyi `07:00 PM`, dan test tidak bisa menangkapnya karena itu terjadi di
+    peramban. Gantinya, kolomnya diberi `->datalist()` berisi saran jam sampai
+    jam tutup, dan **gema hasil bacaan** di `hint()` — "Dibaca 12:00–15:00",
+    merah kalau melewati jam tutup. Gema itu menangkap salah ketik yang paling
+    mahal: bukan yang ditolak sistem, melainkan yang diterima dengan arti lain,
+    seperti mengetik `9` untuk maksud jam sembilan malam.
+
     Angkanya dibaca lewat `Jam::tutup()`, **jangan mengetiknya ulang** di form
     atau writer — dua salinan aturan yang sama berangsur berbeda, dan yang satu
     akan menolak apa yang diterima yang lain.

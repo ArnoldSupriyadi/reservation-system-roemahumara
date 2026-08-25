@@ -26,6 +26,13 @@ use Illuminate\Support\Str;
 
 class ReservationForm
 {
+    /**
+     * Jam paling awal yang muncul di daftar saran. Bukan jam buka, bukan aturan
+     * — sekadar tempat daftarnya mulai supaya tidak berisi 00:00 sampai 06:00
+     * yang tidak pernah dipakai.
+     */
+    private const AWAL_SARAN_JAM = 7;
+
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
@@ -112,6 +119,26 @@ class ReservationForm
                         ->required()
                         ->maxLength(20)
                         ->placeholder('11.00')
+                        /*
+                         * Daftar saran, bukan pilihan tertutup.
+                         *
+                         * Sengaja TIDAK diganti TimePicker. Kolom ini menerima
+                         * "12.00-15.00" dan memecahnya sendiri jadi dua kolom —
+                         * kemampuan yang hilang begitu diganti komponen pemilih
+                         * waktu, dan yang dipakai staf saat mencatat sambil
+                         * menerima telepon. TimePicker bawaannya juga native,
+                         * yang berarti <input type="time"> dan ditampilkan
+                         * browser menurut locale sistem: di komputer berlocale
+                         * Amerika kotaknya berbunyi 07:00 PM, dan test tidak
+                         * bisa menangkapnya karena itu terjadi di peramban.
+                         */
+                        ->datalist(self::saranJam())
+                        // Menggemakan hasil bacaan begitu kursor pindah. Salah
+                        // ketik ketahuan di kolomnya sendiri, bukan setelah
+                        // seluruh formulir diisi dan tombol Simpan ditekan.
+                        ->live(onBlur: true)
+                        ->hint(fn (?string $state) => self::gemaJamMulai($state))
+                        ->hintColor(fn (?string $state) => self::gemaBermasalah(self::gemaJamMulai($state)) ? 'danger' : 'gray')
                         ->helperText(fn () => 'Boleh 11, 11.00, atau 11:00. Menulis 12.00-15.00 di sini akan otomatis terpecah. '
                             .'Paling malam '.Jam::tutup().'.')
                         ->rules([
@@ -162,6 +189,10 @@ class ReservationForm
                         ->label('Jam selesai')
                         ->maxLength(20)
                         ->placeholder('15.00')
+                        ->datalist(self::saranJam())
+                        ->live(onBlur: true)
+                        ->hint(fn (?string $state) => self::gemaJamSelesai($state))
+                        ->hintColor(fn (?string $state) => self::gemaBermasalah(self::gemaJamSelesai($state)) ? 'danger' : 'gray')
                         ->visible(fn (callable $get) => (bool) $get('has_end_time'))
                         ->rules([
                             fn (callable $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
@@ -272,6 +303,97 @@ class ReservationForm
      *
      * @return array<string, array<int, string>>
      */
+    /**
+     * Jam yang lazim dipakai, sebagai saran di kotak isian.
+     *
+     * Ujung atasnya mengikuti jam tutup (aturan #17), jadi daftar ini tidak
+     * pernah menyarankan jam yang akan ditolak validasi. Ujung bawahnya sekadar
+     * tempat daftar ini mulai — **bukan jam buka**, dan bukan aturan: mengetik
+     * 05:00 tetap diterima sistem.
+     *
+     * @return array<int, string>
+     */
+    private static function saranJam(): array
+    {
+        $tutup = Jam::tutup();
+        $saran = [];
+
+        for ($jam = self::AWAL_SARAN_JAM; $jam <= 23; $jam++) {
+            $kandidat = Jam::dari(sprintf('%02d:00', $jam));
+
+            if ($kandidat === null || $kandidat->melewatiJamTutup()) {
+                break;
+            }
+
+            $saran[] = (string) $kandidat;
+        }
+
+        return $saran ?: [(string) $tutup];
+    }
+
+    /**
+     * "Yang saya baca dari ketikanmu adalah ini."
+     *
+     * Lebih menolong daripada sekadar menolak: salah ketik yang paling mahal
+     * bukan yang ditolak sistem, melainkan yang diterima dengan arti lain —
+     * mengetik 9 untuk maksud jam sembilan malam tersimpan sebagai 09:00 tanpa
+     * ada yang keberatan. Gema ini menampakkannya sebelum disimpan.
+     */
+    private static function gemaJamMulai(?string $state): ?string
+    {
+        if (blank($state)) {
+            return null;
+        }
+
+        $split = TimeInput::split($state);
+
+        if ($split['start'] === null) {
+            return 'Tidak dikenali';
+        }
+
+        foreach (['start', 'end'] as $ujung) {
+            $jam = Jam::dari($split[$ujung]);
+
+            if ($jam?->melewatiJamTutup()) {
+                return "Dibaca {$jam} — melewati jam tutup ".Jam::tutup();
+            }
+        }
+
+        return $split['end'] === null
+            ? "Dibaca {$split['start']}"
+            : "Dibaca {$split['start']}–{$split['end']}";
+    }
+
+    private static function gemaJamSelesai(?string $state): ?string
+    {
+        if (blank($state)) {
+            return null;
+        }
+
+        $jam = Jam::dari($state);
+
+        if ($jam === null) {
+            return 'Tidak dikenali';
+        }
+
+        return $jam->melewatiJamTutup()
+            ? "Dibaca {$jam} — melewati jam tutup ".Jam::tutup()
+            : "Dibaca {$jam}";
+    }
+
+    /**
+     * Gema yang menandakan ada yang salah, dipakai memilih warnanya.
+     *
+     * Warna saja bukan satu-satunya penanda — kalimatnya sendiri sudah
+     * menjelaskan masalahnya, jadi yang tidak bisa membedakan merah dari abu-abu
+     * tetap terbantu.
+     */
+    private static function gemaBermasalah(?string $gema): bool
+    {
+        return $gema !== null
+            && (str_contains($gema, 'Tidak dikenali') || str_contains($gema, 'melewati jam tutup'));
+    }
+
     private static function menuOptions(): array
     {
         return Menu::query()
