@@ -418,9 +418,14 @@ Sandi bersama itu keadaan sementara: selama belum diganti masing-masing,
     ulang** di form atau writer — dua salinan aturan yang sama berangsur berbeda, dan yang satu
     akan menolak apa yang diterima yang lain.
 
-    Data lama yang sudah melanggar **tidak diusik**: batas ini berlaku saat
-    menyimpan, bukan saat membaca. `ReservationDemoSeeder` diperbaiki 2026-08-25,
-    dua baris: satu berjam 20:00–23:00, satu lagi mulai 07:00.
+    Data lama yang sudah melanggar **tidak diusik** oleh aturan ini: ia berlaku
+    saat menyimpan, bukan saat membaca — baris seperti itu tetap tampil, tapi
+    tidak bisa disimpan ulang sampai jamnya dibetulkan.
+    `ReservationDemoSeeder` diperbaiki 2026-08-25 (dua baris: satu berjam
+    20:00–23:00, satu lagi mulai 07:00), dan `ReservationDemoSeederTest`
+    menjaganya — data contoh tunduk pada aturan yang sama dengan data sungguhan,
+    dan karena ia menulis lewat `ReservationWriter`, pelanggaran akan
+    menghentikan seedernya di tengah jalan.
 
 18. **Menambah status baru butuh migrasi, bukan hanya case enum.** Kolom `status`
     bertipe ENUM MySQL. Menambah case di `App\Enums\ReservationStatus` tanpa
