@@ -54,22 +54,26 @@ class TimeFieldHelpersTest extends TestCase
     }
 
     /**
-     * Saran berhenti di jam tutup, jadi tidak pernah menawarkan jam yang akan
-     * ditolak validasi begitu dipilih.
+     * Saran berhenti di kedua ujung jam operasional, jadi tidak pernah
+     * menawarkan jam yang akan ditolak validasi begitu dipilih.
      */
-    public function test_the_suggestions_stop_at_closing_time(): void
+    public function test_the_suggestions_stay_inside_operating_hours(): void
     {
         Livewire::test(CreateReservation::class)
+            ->assertSee('08:00')
             ->assertSee('22:00')
+            ->assertDontSee('07:00')
             ->assertDontSee('23:00');
     }
 
-    public function test_the_suggestions_follow_the_configured_closing_time(): void
+    public function test_the_suggestions_follow_the_configured_hours(): void
     {
-        config(['reservation.jam_tutup' => '17:00']);
+        config(['reservation.jam_buka' => '10:00', 'reservation.jam_tutup' => '17:00']);
 
         Livewire::test(CreateReservation::class)
+            ->assertSee('10:00')
             ->assertSee('17:00')
+            ->assertDontSee('09:00')
             ->assertDontSee('18:00');
     }
 
@@ -109,7 +113,14 @@ class TimeFieldHelpersTest extends TestCase
     {
         Livewire::test(CreateReservation::class)
             ->fillForm($this->data(['start_time' => '19.00-23.00']))
-            ->assertSee('melewati jam tutup 22:00');
+            ->assertSee('di luar jam 08:00–22:00');
+    }
+
+    public function test_a_time_before_opening_is_flagged_in_the_echo(): void
+    {
+        Livewire::test(CreateReservation::class)
+            ->fillForm($this->data(['start_time' => '6']))
+            ->assertSee('di luar jam 08:00–22:00');
     }
 
     public function test_the_end_time_field_echoes_too(): void

@@ -19,14 +19,15 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
- * Jam tutup venue: 22:00, dari config('reservation.jam_tutup').
+ * Jam operasional venue: 08:00–22:00, dari config('reservation.jam_buka') dan
+ * config('reservation.jam_tutup').
  *
  * Ditegakkan dua lapis — form Filament dengan pesan yang menunjuk kolomnya, dan
  * ReservationWriter untuk jalur yang melewati form (seeder, tinker, kode yang
  * ditulis nanti). Sengaja BUKAN CHECK constraint di database: ini aturan bisnis,
  * bukan bentuk data, dan jam tutup lebih mungkin berubah daripada tabelnya.
  */
-class ClosingTimeTest extends TestCase
+class OperatingHoursTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -59,8 +60,9 @@ class ClosingTimeTest extends TestCase
         ], $ubah);
     }
 
-    public function test_the_closing_time_comes_from_config(): void
+    public function test_the_operating_hours_come_from_config(): void
     {
+        $this->assertSame('08:00', (string) Jam::buka());
         $this->assertSame('22:00', (string) Jam::tutup());
     }
 
@@ -85,7 +87,7 @@ class ClosingTimeTest extends TestCase
     public function test_the_writer_refuses_an_end_time_after_closing(string $jam): void
     {
         $this->expectException(InvalidReservationException::class);
-        $this->expectExceptionMessage('melewati jam tutup 22:00');
+        $this->expectExceptionMessage('di luar jam operasional 08:00–22:00');
 
         app(ReservationWriter::class)->create(
             $this->data(['start_time' => '19:00', 'end_time' => $jam]),
@@ -114,7 +116,7 @@ class ClosingTimeTest extends TestCase
     public function test_the_writer_refuses_a_start_time_after_closing(): void
     {
         $this->expectException(InvalidReservationException::class);
-        $this->expectExceptionMessage('Jam mulai 23:00 melewati jam tutup 22:00');
+        $this->expectExceptionMessage('Jam mulai 23:00 di luar jam operasional 08:00–22:00');
 
         app(ReservationWriter::class)->create(
             $this->data(['start_time' => '23:00']),
@@ -148,13 +150,64 @@ class ClosingTimeTest extends TestCase
         config(['reservation.jam_tutup' => '17:00']);
 
         $this->expectException(InvalidReservationException::class);
-        $this->expectExceptionMessage('melewati jam tutup 17:00');
+        $this->expectExceptionMessage('di luar jam operasional 08:00–17:00');
 
         app(ReservationWriter::class)->create(
             $this->data(['start_time' => '15:00', 'end_time' => '18:00']),
             (string) Str::uuid(),
             $this->staf
         );
+    }
+
+    /**
+     * Tepat pukul buka masih boleh — "buka 08:00" berarti 08:00 termasuk.
+     */
+    public function test_exactly_at_opening_time_is_allowed(): void
+    {
+        $r = app(ReservationWriter::class)->create(
+            $this->data(['start_time' => '08:00']),
+            (string) Str::uuid(),
+            $this->staf
+        );
+
+        $this->assertSame('08:00', (string) $r->start_time);
+    }
+
+    /**
+     * @param  string  $jam  jam mulai yang lebih pagi daripada jam buka
+     */
+    #[DataProvider('jamSebelumBuka')]
+    public function test_the_writer_refuses_a_start_time_before_opening(string $jam): void
+    {
+        $this->expectException(InvalidReservationException::class);
+        $this->expectExceptionMessage('di luar jam operasional 08:00–22:00');
+
+        app(ReservationWriter::class)->create(
+            $this->data(['start_time' => $jam]),
+            (string) Str::uuid(),
+            $this->staf
+        );
+    }
+
+    /** @return array<string, array{string}> */
+    public static function jamSebelumBuka(): array
+    {
+        return [
+            'satu menit sebelum' => ['07:59'],
+            'sejam sebelum' => ['07:00'],
+            'dini hari' => ['03:00'],
+            'tengah malam' => ['00:00'],
+        ];
+    }
+
+    public function test_the_form_refuses_a_start_time_before_opening(): void
+    {
+        Livewire::test(CreateReservation::class)
+            ->fillForm($this->data(['start_time' => '06:00']))
+            ->call('create')
+            ->assertHasFormErrors(['start_time']);
+
+        $this->assertSame(0, Reservation::count());
     }
 
     public function test_the_form_refuses_an_end_time_after_closing(): void

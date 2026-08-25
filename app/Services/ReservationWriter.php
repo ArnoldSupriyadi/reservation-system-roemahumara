@@ -156,7 +156,7 @@ class ReservationWriter
             throw InvalidReservationException::missingArea();
         }
 
-        $this->guardClosingTime($state);
+        $this->guardOperatingHours($state);
 
         if (filled($state['remark'])) {
             return;
@@ -184,24 +184,30 @@ class ReservationWriter
     }
 
     /**
-     * Jam mulai maupun jam selesai tidak boleh lebih malam daripada jam tutup.
+     * Jam mulai maupun jam selesai harus berada di dalam jam operasional venue.
      *
      * Jam mulai ikut diperiksa, bukan hanya jam selesai: reservasi tanpa jam
      * selesai diasumsikan berdurasi default oleh ConflictChecker, jadi jam mulai
      * 23:00 menghasilkan jendela yang berakhir esok hari — persis keadaan yang
-     * batas ini ada untuk mencegahnya.
+     * batas atas ini ada untuk mencegahnya.
      *
      * @param  array{start_time: string, end_time: mixed}  $state
      */
-    private function guardClosingTime(array $state): void
+    private function guardOperatingHours(array $state): void
     {
+        $buka = Jam::buka();
         $tutup = Jam::tutup();
 
         foreach (['start_time' => 'Jam mulai', 'end_time' => 'Jam selesai'] as $kunci => $label) {
             $jam = Jam::dari($state[$kunci]);
 
-            if ($jam?->melewatiJamTutup()) {
-                throw InvalidReservationException::afterClosingTime($label, (string) $jam, (string) $tutup);
+            if ($jam?->diLuarJamOperasional()) {
+                throw InvalidReservationException::outsideOperatingHours(
+                    $label,
+                    (string) $jam,
+                    (string) $buka,
+                    (string) $tutup,
+                );
             }
         }
     }

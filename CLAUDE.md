@@ -372,15 +372,16 @@ Sandi bersama itu keadaan sementara: selama belum diganti masing-masing,
     terbentuk** selama aturan #17 berlaku; kalau jam tutup kelak dihapus atau
     disetel lewat tengah malam, bug ini hidup kembali.
 
-17. **Jam mulai dan jam selesai tidak boleh melewati jam tutup.** Batasnya di
-    `config('reservation.jam_tutup')`, bawaannya **22:00**, bisa diubah lewat
-    `RESERVATION_CLOSING_TIME` di `.env`. Tepat pukul tutup masih boleh — "sampai
-    pukul 22:00" berarti 22:00 termasuk.
+17. **Jam mulai dan jam selesai harus di dalam jam operasional.** Batasnya di
+    `config('reservation.jam_buka')` dan `config('reservation.jam_tutup')`,
+    bawaannya **08:00–22:00**, bisa diubah lewat `RESERVATION_OPENING_TIME` dan
+    `RESERVATION_CLOSING_TIME` di `.env`. Kedua ujungnya inklusif — "buka 08:00
+    sampai 22:00" berarti keduanya termasuk.
 
     **Jam mulai ikut dibatasi, bukan hanya jam selesai.** Reservasi tanpa jam
     selesai diasumsikan berdurasi default oleh `ConflictChecker`, jadi jam mulai
     23:00 menghasilkan jendela yang berakhir esok hari — persis keadaan yang
-    batas ini ada untuk mencegahnya (lihat aturan #16).
+    batas atas ini ada untuk mencegahnya (lihat aturan #16).
 
     **Dua lapis, dan itu disengaja:** form Filament (pesan ramah, menunjuk
     kolomnya, dan **memeriksa kedua ujung rentang** yang diketik di kolom Jam
@@ -407,19 +408,19 @@ Sandi bersama itu keadaan sementara: selama belum diganti masing-masing,
     bawaannya juga `native(true)`, artinya `<input type="time">` yang ditampilkan
     browser menurut locale sistem: di komputer berlocale Amerika kotaknya
     berbunyi `07:00 PM`, dan test tidak bisa menangkapnya karena itu terjadi di
-    peramban. Gantinya, kolomnya diberi `->datalist()` berisi saran jam sampai
-    jam tutup, dan **gema hasil bacaan** di `hint()` — "Dibaca 12:00–15:00",
-    merah kalau melewati jam tutup. Gema itu menangkap salah ketik yang paling
+    peramban. Gantinya, kolomnya diberi `->datalist()` berisi saran jam sepanjang
+    jam operasional, dan **gema hasil bacaan** di `hint()` — "Dibaca 12:00–15:00",
+    merah kalau di luar jam operasional. Gema itu menangkap salah ketik yang paling
     mahal: bukan yang ditolak sistem, melainkan yang diterima dengan arti lain,
     seperti mengetik `9` untuk maksud jam sembilan malam.
 
-    Angkanya dibaca lewat `Jam::tutup()`, **jangan mengetiknya ulang** di form
-    atau writer — dua salinan aturan yang sama berangsur berbeda, dan yang satu
+    Angkanya dibaca lewat `Jam::buka()` dan `Jam::tutup()`, **jangan mengetiknya
+    ulang** di form atau writer — dua salinan aturan yang sama berangsur berbeda, dan yang satu
     akan menolak apa yang diterima yang lain.
 
     Data lama yang sudah melanggar **tidak diusik**: batas ini berlaku saat
-    menyimpan, bukan saat membaca. `ReservationDemoSeeder` diperbaiki
-    2026-08-25 karena satu barisnya berjam 20:00–23:00.
+    menyimpan, bukan saat membaca. `ReservationDemoSeeder` diperbaiki 2026-08-25,
+    dua baris: satu berjam 20:00–23:00, satu lagi mulai 07:00.
 
 18. **Menambah status baru butuh migrasi, bukan hanya case enum.** Kolom `status`
     bertipe ENUM MySQL. Menambah case di `App\Enums\ReservationStatus` tanpa

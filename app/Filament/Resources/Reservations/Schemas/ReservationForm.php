@@ -26,13 +26,6 @@ use Illuminate\Support\Str;
 
 class ReservationForm
 {
-    /**
-     * Jam paling awal yang muncul di daftar saran. Bukan jam buka, bukan aturan
-     * — sekadar tempat daftarnya mulai supaya tidak berisi 00:00 sampai 06:00
-     * yang tidak pernah dipakai.
-     */
-    private const AWAL_SARAN_JAM = 7;
-
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
@@ -140,7 +133,7 @@ class ReservationForm
                         ->hint(fn (?string $state) => self::gemaJamMulai($state))
                         ->hintColor(fn (?string $state) => self::gemaBermasalah(self::gemaJamMulai($state)) ? 'danger' : 'gray')
                         ->helperText(fn () => 'Boleh 11, 11.00, atau 11:00. Menulis 12.00-15.00 di sini akan otomatis terpecah. '
-                            .'Paling malam '.Jam::tutup().'.')
+                            .'Jam venue '.Jam::buka().'–'.Jam::tutup().'.')
                         ->rules([
                             fn (): Closure => function (string $attribute, $value, Closure $fail) {
                                 $split = TimeInput::split($value);
@@ -165,8 +158,8 @@ class ReservationForm
                                 foreach (['start' => 'Jam mulai', 'end' => 'Jam selesai'] as $ujung => $label) {
                                     $jam = Jam::dari($split[$ujung]);
 
-                                    if ($jam?->melewatiJamTutup()) {
-                                        $fail("{$label} {$jam} melewati jam tutup ".Jam::tutup().'.');
+                                    if ($jam?->diLuarJamOperasional()) {
+                                        $fail("{$label} {$jam} di luar jam operasional ".Jam::buka().'–'.Jam::tutup().'.');
 
                                         return;
                                     }
@@ -212,8 +205,8 @@ class ReservationForm
                                     return;
                                 }
 
-                                if (Jam::dari($end)?->melewatiJamTutup()) {
-                                    $fail('Jam selesai '.$end.' melewati jam tutup '.Jam::tutup().'.');
+                                if (Jam::dari($end)?->diLuarJamOperasional()) {
+                                    $fail('Jam selesai '.$end.' di luar jam operasional '.Jam::buka().'–'.Jam::tutup().'.');
                                 }
                             },
                         ]),
@@ -304,21 +297,20 @@ class ReservationForm
      * @return array<string, array<int, string>>
      */
     /**
-     * Jam yang lazim dipakai, sebagai saran di kotak isian.
+     * Jam operasional venue, jam demi jam, sebagai saran di kotak isian.
      *
-     * Ujung atasnya mengikuti jam tutup (aturan #17), jadi daftar ini tidak
-     * pernah menyarankan jam yang akan ditolak validasi. Ujung bawahnya sekadar
-     * tempat daftar ini mulai — **bukan jam buka**, dan bukan aturan: mengetik
-     * 05:00 tetap diterima sistem.
+     * Kedua ujungnya mengikuti config (aturan #17), jadi daftar ini tidak pernah
+     * menyarankan jam yang akan ditolak validasi. Mulai dari jam buka; menit
+     * ganjil seperti 11:30 tetap boleh diketik sendiri — daftar ini saran, bukan
+     * pilihan tertutup.
      *
      * @return array<int, string>
      */
     private static function saranJam(): array
     {
-        $tutup = Jam::tutup();
         $saran = [];
 
-        for ($jam = self::AWAL_SARAN_JAM; $jam <= 23; $jam++) {
+        for ($jam = Jam::buka()->jam; $jam <= 23; $jam++) {
             $kandidat = Jam::dari(sprintf('%02d:00', $jam));
 
             if ($kandidat === null || $kandidat->melewatiJamTutup()) {
@@ -328,7 +320,7 @@ class ReservationForm
             $saran[] = (string) $kandidat;
         }
 
-        return $saran ?: [(string) $tutup];
+        return $saran ?: [(string) Jam::buka()];
     }
 
     /**
@@ -354,8 +346,8 @@ class ReservationForm
         foreach (['start', 'end'] as $ujung) {
             $jam = Jam::dari($split[$ujung]);
 
-            if ($jam?->melewatiJamTutup()) {
-                return "Dibaca {$jam} — melewati jam tutup ".Jam::tutup();
+            if ($jam?->diLuarJamOperasional()) {
+                return "Dibaca {$jam} — di luar jam ".Jam::buka().'–'.Jam::tutup();
             }
         }
 
@@ -376,8 +368,8 @@ class ReservationForm
             return 'Tidak dikenali';
         }
 
-        return $jam->melewatiJamTutup()
-            ? "Dibaca {$jam} — melewati jam tutup ".Jam::tutup()
+        return $jam->diLuarJamOperasional()
+            ? "Dibaca {$jam} — di luar jam ".Jam::buka().'–'.Jam::tutup()
             : "Dibaca {$jam}";
     }
 
@@ -391,7 +383,7 @@ class ReservationForm
     private static function gemaBermasalah(?string $gema): bool
     {
         return $gema !== null
-            && (str_contains($gema, 'Tidak dikenali') || str_contains($gema, 'melewati jam tutup'));
+            && (str_contains($gema, 'Tidak dikenali') || str_contains($gema, 'di luar jam'));
     }
 
     private static function menuOptions(): array

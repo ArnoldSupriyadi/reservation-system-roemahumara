@@ -80,28 +80,47 @@ final class Jam implements JsonSerializable, Stringable
     }
 
     /**
-     * Jam tutup venue, dari config('reservation.jam_tutup').
+     * Jam buka dan jam tutup venue, dari config.
      *
      * Di sini, bukan diketik ulang di form dan writer: dua salinan aturan yang
      * sama berangsur berbeda, dan yang satu akan menolak apa yang diterima yang
      * lain.
      */
+    public static function buka(): self
+    {
+        return self::dariConfig('reservation.jam_buka', 'RESERVATION_OPENING_TIME');
+    }
+
     public static function tutup(): self
     {
-        return self::dari(config('reservation.jam_tutup'))
+        return self::dariConfig('reservation.jam_tutup', 'RESERVATION_CLOSING_TIME');
+    }
+
+    private static function dariConfig(string $kunci, string $env): self
+    {
+        return self::dari(config($kunci))
             ?? throw new \RuntimeException(
-                'RESERVATION_CLOSING_TIME di .env tidak terbaca sebagai jam: '
-                .var_export(config('reservation.jam_tutup'), true)
+                "{$env} di .env tidak terbaca sebagai jam: ".var_export(config($kunci), true)
             );
     }
 
     /**
-     * Lebih malam daripada jam tutup. Tepat pukul tutup masih boleh — "sampai
-     * pukul 22:00" berarti 22:00 termasuk.
+     * Di luar jam operasional. Tepat pukul buka dan tepat pukul tutup masih
+     * boleh — "buka 08:00 sampai 22:00" berarti keduanya termasuk.
      */
+    public function sebelumJamBuka(): bool
+    {
+        return $this->sebelum(self::buka());
+    }
+
     public function melewatiJamTutup(): bool
     {
         return self::tutup()->sebelum($this);
+    }
+
+    public function diLuarJamOperasional(): bool
+    {
+        return $this->sebelumJamBuka() || $this->melewatiJamTutup();
     }
 
     public function sebelum(self $lain): bool

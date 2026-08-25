@@ -35,13 +35,14 @@ class InvalidReservationException extends Exception
         );
     }
 
-    public static function afterClosingTime(string $field, string $jam, string $tutup): self
+    public static function outsideOperatingHours(string $field, string $jam, string $buka, string $tutup): self
     {
         return new self(sprintf(
-            '%s %s melewati jam tutup %s. Venue tidak menerima acara lebih malam '
-            .'daripada itu; kalau jam tutupnya berubah, setel RESERVATION_CLOSING_TIME di .env.',
+            '%s %s di luar jam operasional %s–%s. Kalau jam venue berubah, setel '
+            .'RESERVATION_OPENING_TIME dan RESERVATION_CLOSING_TIME di .env.',
             $field,
             $jam,
+            $buka,
             $tutup
         ));
     }

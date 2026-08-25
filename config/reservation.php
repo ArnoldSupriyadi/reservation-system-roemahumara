@@ -30,6 +30,12 @@ return [
     'initial_password' => env('INITIAL_USER_PASSWORD'),
 
     /*
+     * Jam paling pagi yang boleh dipesan. Ditegakkan berpasangan dengan
+     * jam_tutup, lewat jalur yang sama persis.
+     */
+    'jam_buka' => env('RESERVATION_OPENING_TIME', '08:00'),
+
+    /*
      * Jam paling malam yang boleh dipesan.
      *
      * Ditegakkan di form Filament dan di ReservationWriter — dua lapis, sama
@@ -37,7 +43,7 @@ return [
      * CHECK constraint di database: ini aturan bisnis, bukan bentuk data, dan
      * jam tutup venue lebih mungkin berubah daripada struktur tabelnya.
      *
-     * Berlaku untuk jam mulai maupun jam selesai. Batas ini juga yang membuat
+     * Keduanya berlaku untuk jam mulai maupun jam selesai. Batas atas juga yang membuat
      * acara tidak pernah melewati tengah malam — tanpa itu, reservasi 22:00-01:00
      * membuat ConflictChecker menghitung jendela terbalik (end lebih kecil
      * daripada start) dan pengecekan bentrok untuk barisnya mati tanpa peringatan.

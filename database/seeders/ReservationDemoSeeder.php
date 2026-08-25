@@ -53,7 +53,7 @@ class ReservationDemoSeeder extends Seeder
             [3, 'tentative', '19:00', null, 'Bapak Hartono'],
             [8, 'confirmed', '11:30', '14:00', 'PT Sinar Abadi'],
             [12, null, '18:00', '21:00', 'Ibu Ratna'],
-            [17, 'confirmed', '07:00', null, 'Komunitas Sepeda Pagi'],
+            [17, 'confirmed', '08:00', null, 'Komunitas Sepeda Pagi'],
             [17, 'tentative', '13:00', '16:00', 'Bapak Surya'],
             [17, 'confirmed', '19:00', '22:00', 'Keluarga Tanuwijaya'],
             [22, 'tentative', '10:15', '12:45', 'Ibu Melati'],
