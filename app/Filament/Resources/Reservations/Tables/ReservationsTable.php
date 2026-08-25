@@ -6,6 +6,7 @@ use App\Enums\ReservationStatus;
 use App\Models\Area;
 use App\Models\EventType;
 use App\Models\User;
+use App\Services\ReservationSpreadsheet;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -240,8 +241,46 @@ class ReservationsTable
                     DeleteBulkAction::make(),
                 ]),
             ])
+            ->headerActions([
+                self::exportExcel(),
+            ])
             ->emptyStateHeading('Belum ada reservasi')
             ->emptyStateDescription('Tekan tombol tambah untuk mencatat reservasi pertama.');
+    }
+
+    /**
+     * Unduh isi tabel sebagai .xlsx.
+     *
+     * Yang diekspor adalah HASIL SARINGAN yang sedang tampak
+     * (getFilteredSortedTableQuery), bukan seluruh tabel — tab bulan, filter
+     * PIC, rentang tanggal, dan pencarian semuanya ikut. Mengekspor seluruh
+     * tabel apa pun yang tampak di layar akan mengejutkan: pengguna menyaring
+     * satu bulan, menekan Export, lalu mendapat berkas berisi segalanya tanpa
+     * ada yang memberi tahu.
+     *
+     * Urutannya pun ikut, sehingga berkasnya terbaca sama dengan layarnya.
+     */
+    private static function exportExcel(): Action
+    {
+        return Action::make('export_excel')
+            ->label('Export Excel')
+            ->icon('heroicon-o-arrow-down-tray')
+            ->color('gray')
+            ->action(function ($livewire) {
+                $spreadsheet = app(ReservationSpreadsheet::class);
+
+                // Tab bulan yang sedang aktif ('2026-08' atau 'all'), dipakai
+                // untuk judul di dalam berkas dan untuk nama berkasnya. Dibaca
+                // lewat property_exists: aksi ini hidup di konfigurasi tabel,
+                // yang juga dipakai halaman lain tanpa tab.
+                $tabAktif = property_exists($livewire, 'activeTab') ? $livewire->activeTab : null;
+
+                return $spreadsheet->unduh(
+                    $livewire->getFilteredSortedTableQuery(),
+                    $spreadsheet->namaBerkas($tabAktif),
+                    $spreadsheet->judul($tabAktif),
+                );
+            });
     }
 
     private static function timeRange($record): string

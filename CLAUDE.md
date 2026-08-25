@@ -80,6 +80,48 @@ Hal lain yang perlu diketahui:
   `resources/views/filament/tabs-full-width.blade.php`. Sorotan hover dibatasi ke
   `.fi-wi-table` supaya tabel di halaman resource tidak ikut berubah.
 
+## Export Excel
+
+Tombol **Export Excel** di toolbar `/cms/reservations`, dilayani
+`App\Services\ReservationSpreadsheet`.
+
+Memakai **openspout**, yang sudah ikut sebagai dependensi Filament — jangan
+menambah `maatwebsite/excel` untuk ini. Sengaja **bukan**
+`Filament\Actions\ExportAction`: yang itu mengantre lewat job batch dan menuntut
+tabel `exports` berikut worker yang hidup, sedangkan setahun penuh data di sistem
+ini masih di bawah dua ratus baris dan selesai seketika. Antrean hanya menambah
+satu bagian yang bisa rusak diam-diam kalau worker mati.
+
+Yang perlu dijaga:
+
+- **Yang diekspor adalah hasil saringan yang sedang tampak**
+  (`getFilteredSortedTableQuery()`), bukan seluruh tabel. Tab bulan, filter,
+  rentang tanggal, pencarian, dan urutannya semua ikut. Menyaring satu bulan lalu
+  mendapat berkas berisi segalanya adalah kejutan yang tidak diminta siapa pun.
+- **Judul dan isi kolom ditulis sebagai satu larik** di `kolom()`. Memisahkannya
+  membuat berkas melenceng satu kolom tanpa ada yang tahu sampai dibuka di Excel.
+- **Susunan berkas: judul, baris kosong, kepala kolom, data.** Baris kosongnya
+  bukan hiasan — tanpa jeda, Excel membaca judul sebagai bagian dari tabel begitu
+  penggunanya menekan Sort/Filter atau membuat PivotTable, dan judulnya ikut
+  tersortir sebagai data. Ditulis sebagai satu sel kosong (`['']`), bukan larik
+  kosong: openspout menulis larik kosong sebagai `<row/>` tanpa isi dan pembaca
+  spreadsheet melewatinya.
+- **Judul dan nama berkas mengikuti KUNCI tab** (`2026-08` / `all`), bukan
+  labelnya. Label dibangun ulang tiap bulan oleh `ListReservations::getTabs()` dan
+  bergantung locale; kuncinya tetap dan bisa dibaca sebagai tanggal.
+- **Nama berkas memuat periode dan waktu pembuatan** —
+  `reservasi-2026-08-2026-08-25-1033.xlsx` berarti "isi Agustus 2026, diambil 25
+  Agustus pukul 10:33". Periodenya menjawab "isinya apa", jamnya menjawab "yang
+  mana yang paling baru" ketika bulan yang sama diekspor berkali-kali.
+- **Berkas sementara lalu `->download()`, bukan `openToBrowser()`.** Aksi Filament
+  berjalan di dalam permintaan Livewire; menulis langsung ke output akan
+  menyisipkan isi berkas ke tengah balasan JSON-nya.
+
+Testnya **membaca kembali** berkas yang dihasilkan. Berkas .xlsx yang rusak tetap
+terkirim dengan status 200 dan content-type yang benar — yang ketahuan hanya saat
+Excel menolaknya. Pembacanya menyalakan `SHOULD_PRESERVE_EMPTY_ROWS` supaya baris
+kosong pemisah judul ikut terlihat.
+
 ## Database
 
 Development dan test memakai database **terpisah**:
