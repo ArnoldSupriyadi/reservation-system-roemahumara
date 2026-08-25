@@ -36,7 +36,7 @@ class ReservationInfolist
                     TextEntry::make('phone')->label('HP'),
                     TextEntry::make('email')->label('Email')->placeholder('—'),
                     TextEntry::make('pic.name')->label('PIC / Sales'),
-                    TextEntry::make('pax')->label('Pax')->numeric(),
+                    TextEntry::make('pax')->label('Pax')->formatStateUsing(fn ($record) => $record->paxLabel().' orang'),
                     TextEntry::make('eventType.name')->label('Event')->placeholder('—'),
                     TextEntry::make('area.name')->label('Area')->placeholder('—'),
 

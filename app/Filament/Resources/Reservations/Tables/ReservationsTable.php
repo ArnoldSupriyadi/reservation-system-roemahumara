@@ -113,9 +113,13 @@ class ReservationsTable
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
 
+                // Rentang dirakit Reservation::paxLabel(), bukan di sini —
+                // lima tampilan menulis hal yang sama, dan lima salinan akan
+                // berangsur berbeda.
                 TextColumn::make('pax')
                     ->label('Pax')
-                    ->numeric()
+                    ->formatStateUsing(fn ($record) => $record->paxLabel())
+                    ->description(fn ($record) => $record->pax_max === null ? null : 'perkiraan')
                     ->sortable()
                     ->alignEnd(),
 

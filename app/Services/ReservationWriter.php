@@ -157,6 +157,7 @@ class ReservationWriter
         }
 
         $this->guardOperatingHours($state);
+        $this->guardPaxRange($state);
 
         if (filled($state['remark'])) {
             return;
@@ -213,13 +214,32 @@ class ReservationWriter
     }
 
     /**
+     * Batas atas pax harus lebih besar daripada batas bawahnya.
+     *
+     * Diperiksa terhadap keadaan HASIL, bukan input mentah — itu sebabnya
+     * mengubah pax saja, tanpa menyentuh pax_max, tetap bisa membuat rentangnya
+     * tidak masuk akal dan tetap tertangkap di sini.
+     *
+     * @param  array{pax: mixed, pax_max: mixed}  $state
+     */
+    private function guardPaxRange(array $state): void
+    {
+        $bawah = (int) $state['pax'];
+        $atas = $state['pax_max'] === null ? null : (int) $state['pax_max'];
+
+        if ($atas !== null && $atas <= $bawah) {
+            throw InvalidReservationException::invalidPaxRange($bawah, $atas);
+        }
+    }
+
+    /**
      * Keadaan reservasi SESUDAH perubahan diterapkan.
      *
      * update() menerima array parsial — `fill()` hanya menimpa kunci yang ada.
      * Memeriksa $data mentah akan menolak perubahan pax yang tidak menyentuh
      * area sama sekali, hanya karena area tidak ikut dikirim.
      *
-     * @return array{area_id: mixed, reservation_date: string, start_time: string, end_time: ?string, remark: ?string, guest_name: string}
+     * @return array{area_id: mixed, reservation_date: string, start_time: string, end_time: ?string, remark: ?string, guest_name: string, pax: mixed, pax_max: mixed}
      */
     private function effectiveState(array $data, ?Reservation $current): array
     {
@@ -234,6 +254,8 @@ class ReservationWriter
             'end_time' => $pick('end_time', $current?->end_time),
             'remark' => $pick('remark', $current?->remark),
             'guest_name' => (string) $pick('guest_name', $current?->guest_name),
+            'pax' => $pick('pax', $current?->pax),
+            'pax_max' => $pick('pax_max', $current?->pax_max),
         ];
     }
 

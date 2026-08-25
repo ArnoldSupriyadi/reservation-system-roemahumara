@@ -52,7 +52,10 @@ class ReservationSpreadsheet
             'PIC' => fn (Reservation $r) => $r->pic?->name,
             'Event' => fn (Reservation $r) => $r->eventType?->name,
             'Area' => fn (Reservation $r) => $r->area?->name,
+            // Dua kolom angka, bukan satu kolom teks "10–14": berkas ini
+            // dibaca untuk dijumlah dan disaring, dan teks mematikan keduanya.
             'Pax' => fn (Reservation $r) => $r->pax,
+            'Pax maks' => fn (Reservation $r) => $r->pax_max,
             'Menu' => fn (Reservation $r) => $r->menus
                 ->map(fn ($menu) => $menu->name.' ('.$menu->pivot->pax.')')
                 ->implode(', '),

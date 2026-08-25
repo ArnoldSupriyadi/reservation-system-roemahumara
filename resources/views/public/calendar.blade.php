@@ -145,7 +145,7 @@
                 </div>
                 <div>
                     <dt class="text-[10px] font-black uppercase tracking-widest">Pax</dt>
-                    <dd class="text-sm font-bold">{{ $selected->pax }} orang</dd>
+                    <dd class="text-sm font-bold">{{ $selected->paxLabel() }} orang</dd>
                 </div>
                 <div>
                     <dt class="text-[10px] font-black uppercase tracking-widest">Menu</dt>

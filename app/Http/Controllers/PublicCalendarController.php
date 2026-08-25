@@ -62,6 +62,14 @@ class PublicCalendarController extends Controller
      *   kembali, cukup hapus ketiganya dari select() di bawah — Blade akan
      *   menampilkan nilai kosong, bukan error.
      *
+     * `pax_max` sengaja TIDAK ikut, dan itu bukan kelalaian. Kolomnya lahir
+     * 2026-08-25 dan pelonggaran halaman ini selalu atas permintaan eksplisit
+     * pemilik sistem. Akibatnya perlu diketahui: reservasi berjumlah 10–14
+     * terbaca "10 orang" di halaman publik, karena `paxLabel()` membaca
+     * `pax_max` sebagai null pada model yang kolomnya tidak ikut dipilih. Itu
+     * angka yang sudah pasti, bukan angka yang keliru. Menambahkannya cukup
+     * menyisipkan 'pax_max' ke select() di bawah.
+     *
      * @return Collection<int, Reservation>
      */
     private function reservationsIn(string $month): Collection

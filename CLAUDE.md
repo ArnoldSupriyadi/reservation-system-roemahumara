@@ -328,7 +328,33 @@ Sandi bersama itu keadaan sementara: selama belum diganti masing-masing,
     menu mengikuti id kategori (`Menu::scopeInMenuOrder`), sehingga kategori baru
     muncul di bawah.
 
-16. **Jam adalah `App\Support\Jam`, bukan string.** `start_time` dan `end_time`
+16. **Pax boleh berupa rentang.** `pax` wajib dan berarti batas **bawah**;
+    `pax_max` boleh kosong, dan kosong berarti jumlahnya sudah pasti. Batas atas
+    harus lebih besar daripada batas bawah — ditegakkan di form dan di
+    `ReservationWriter`, terhadap keadaan **hasil** perubahan, sehingga menaikkan
+    `pax` saja tanpa menyentuh `pax_max` tetap tertangkap.
+
+    **Porsi menu terisi dari batas ATAS** (`Reservation::paxUntukDapur()`).
+    Dapur menyiapkan untuk jumlah terbanyak yang mungkin datang; kekurangan
+    makanan di tengah acara lebih mahal daripada kelebihan. Tetap bisa diubah per
+    item — minuman kerap dipesan lebih banyak daripada jumlah tamu (aturan #15).
+
+    Tampilannya dirakit `Reservation::paxLabel()` — `"50"` atau `"10–14"`, en
+    dash seperti rentang jam. **Jangan menulis ulang perakitan itu** di tampilan
+    mana pun: tabel, widget, infolist, kalender publik, dan dokumen cetak
+    menampilkan hal yang sama, dan lima salinan akan berangsur berbeda — persis
+    yang terjadi pada jam sebelum `App\Support\Jam` ada.
+
+    Di berkas export ia **dua kolom angka** (`Pax`, `Pax maks`), bukan satu kolom
+    teks: berkas itu dibaca untuk dijumlah dan disaring, dan teks mematikan
+    keduanya.
+
+    `pax_max` **tidak** ikut di halaman publik (aturan #10) — reservasi 10–14
+    terbaca "10 orang" di sana, angka yang sudah pasti dan bukan angka yang
+    keliru. Menambahkannya cukup menyisipkan `'pax_max'` ke `select()` di
+    `PublicCalendarController`, dan itu keputusan pemilik sistem.
+
+17. **Jam adalah `App\Support\Jam`, bukan string.** `start_time` dan `end_time`
     di-cast lewat `App\Casts\JamCast`. Sebelum 2026-08-25 keduanya string mentah
     dari MySQL, dan tujuh tempat menulis `substr((string) $r->start_time, 0, 5)`
     sendiri-sendiri — tujuh salinan aturan "buang detiknya".
@@ -369,10 +395,10 @@ Sandi bersama itu keadaan sementara: selama belum diganti masing-masing,
     Acara yang melewati tengah malam akan membuat `ConflictChecker` menghitung
     jendela terbalik — `end` lebih kecil daripada `start` — sehingga pengecekan
     bentrok untuk baris itu mati tanpa peringatan. Keadaan itu **tidak bisa
-    terbentuk** selama aturan #17 berlaku; kalau jam tutup kelak dihapus atau
+    terbentuk** selama aturan #18 berlaku; kalau jam tutup kelak dihapus atau
     disetel lewat tengah malam, bug ini hidup kembali.
 
-17. **Jam mulai dan jam selesai harus di dalam jam operasional.** Batasnya di
+18. **Jam mulai dan jam selesai harus di dalam jam operasional.** Batasnya di
     `config('reservation.jam_buka')` dan `config('reservation.jam_tutup')`,
     bawaannya **08:00–22:00**, bisa diubah lewat `RESERVATION_OPENING_TIME` dan
     `RESERVATION_CLOSING_TIME` di `.env`. Kedua ujungnya inklusif — "buka 08:00
@@ -381,7 +407,7 @@ Sandi bersama itu keadaan sementara: selama belum diganti masing-masing,
     **Jam mulai ikut dibatasi, bukan hanya jam selesai.** Reservasi tanpa jam
     selesai diasumsikan berdurasi default oleh `ConflictChecker`, jadi jam mulai
     23:00 menghasilkan jendela yang berakhir esok hari — persis keadaan yang
-    batas atas ini ada untuk mencegahnya (lihat aturan #16).
+    batas atas ini ada untuk mencegahnya (lihat aturan #17).
 
     **Dua lapis, dan itu disengaja:** form Filament (pesan ramah, menunjuk
     kolomnya, dan **memeriksa kedua ujung rentang** yang diketik di kolom Jam
@@ -427,7 +453,7 @@ Sandi bersama itu keadaan sementara: selama belum diganti masing-masing,
     dan karena ia menulis lewat `ReservationWriter`, pelanggaran akan
     menghentikan seedernya di tengah jalan.
 
-18. **Menambah status baru butuh migrasi, bukan hanya case enum.** Kolom `status`
+19. **Menambah status baru butuh migrasi, bukan hanya case enum.** Kolom `status`
     bertipe ENUM MySQL. Menambah case di `App\Enums\ReservationStatus` tanpa
     `ALTER TABLE ... MODIFY COLUMN` menghasilkan "Data truncated for column
     'status'" saat menyimpan. Pakai `DB::statement()`, bukan `$table->enum()->change()`

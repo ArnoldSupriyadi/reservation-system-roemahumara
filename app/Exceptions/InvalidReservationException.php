@@ -47,6 +47,16 @@ class InvalidReservationException extends Exception
         ));
     }
 
+    public static function invalidPaxRange(int $bawah, int $atas): self
+    {
+        return new self(sprintf(
+            'Rentang pax %d–%d tidak masuk akal: angka tertinggi harus lebih besar '
+            .'daripada Pax. Kalau jumlahnya sudah pasti, kosongkan pax_max.',
+            $bawah,
+            $atas
+        ));
+    }
+
     /** @param  Collection<int, Reservation>  $conflicts */
     public static function unexplainedConflict(Collection $conflicts): self
     {

@@ -105,7 +105,35 @@ class ReservationForm
                         ->required()
                         ->numeric()
                         ->minValue(1)
-                        ->helperText('Kalau jumlahnya berupa perkiraan, isi angka terendah lalu tulis rentangnya di Remark.'),
+                        ->live(onBlur: true)
+                        ->helperText('Kalau jumlahnya masih perkiraan, isi angka terendah di sini dan angka tertingginya di kolom sebelah.'),
+
+                    /*
+                     * Batas atas, boleh kosong. Kosong berarti jumlahnya pasti.
+                     *
+                     * Sebelum kolom ini ada, rentang ditulis di Remark atas
+                     * petunjuk teks bantuan di atas. Itu membuat rentangnya jadi
+                     * teks bebas yang tidak bisa dijumlah maupun dicari, dan
+                     * tenggelam di antara catatan pembayaran yang juga tinggal
+                     * di Remark.
+                     */
+                    TextInput::make('pax_max')
+                        ->label('Sampai (opsional)')
+                        ->numeric()
+                        ->minValue(1)
+                        ->live(onBlur: true)
+                        ->placeholder('kosongkan kalau sudah pasti')
+                        ->helperText(fn (callable $get) => self::gemaPax($get('pax'), $get('pax_max')))
+                        ->rules([
+                            fn (callable $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                $bawah = (int) $get('pax');
+                                $atas = (int) $value;
+
+                                if ($atas > 0 && $bawah > 0 && $atas <= $bawah) {
+                                    $fail('Angka tertinggi harus lebih besar daripada Pax. Kalau jumlahnya sudah pasti, kosongkan saja kolom ini.');
+                                }
+                            },
+                        ]),
 
                     TextInput::make('start_time')
                         ->label('Jam mulai')
@@ -255,7 +283,18 @@ class ReservationForm
                                 ->required()
                                 ->numeric()
                                 ->minValue(1)
-                                ->default(fn (callable $get) => $get('../../pax')),
+                                /*
+                                 * Batas ATAS jumlah tamu, bukan bawah: dapur
+                                 * menyiapkan untuk jumlah terbanyak yang mungkin
+                                 * datang, karena kekurangan makanan di tengah
+                                 * acara lebih mahal daripada kelebihan. Tetap
+                                 * bisa diubah per item — minuman kerap dipesan
+                                 * lebih banyak daripada jumlah tamu (aturan #15).
+                                 */
+                                ->default(fn (callable $get) => max(
+                                    (int) $get('../../pax'),
+                                    (int) $get('../../pax_max'),
+                                ) ?: null),
 
                             // Catatan per hidangan, terpisah dari Remark
                             // reservasi. Yang ini dibaca dapur saat menyiapkan
@@ -296,6 +335,29 @@ class ReservationForm
      *
      * @return array<string, array<int, string>>
      */
+    /**
+     * Menggemakan rentang pax yang sedang terbentuk, berikut akibatnya di dapur.
+     *
+     * Akibatnya ikut disebut karena itulah yang tidak terlihat dari angkanya:
+     * porsi menu terisi dari batas atas, dan staf yang mengisi 10–40 sambil
+     * mengira porsinya ikut 10 baru menyadarinya saat tagihan dapur datang.
+     */
+    private static function gemaPax(mixed $pax, mixed $paxMax): ?string
+    {
+        $bawah = (int) $pax;
+        $atas = (int) $paxMax;
+
+        if ($atas <= 0) {
+            return 'Kosongkan kalau jumlahnya sudah pasti.';
+        }
+
+        if ($bawah <= 0 || $atas <= $bawah) {
+            return null;
+        }
+
+        return "Rentang {$bawah}–{$atas} tamu. Porsi menu terisi {$atas}.";
+    }
+
     /**
      * Jam operasional venue, jam demi jam, sebagai saran di kotak isian.
      *

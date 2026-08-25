@@ -125,7 +125,7 @@ class UpcomingReservationsWidget extends TableWidget
 
                 TextColumn::make('pax')
                     ->label('Pax')
-                    ->numeric()
+                    ->formatStateUsing(fn (Reservation $record) => $record->paxLabel())
                     ->alignEnd(),
 
                 // Aturan #4 CLAUDE.md: remark selalu penuh.

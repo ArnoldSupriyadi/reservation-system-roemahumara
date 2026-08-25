@@ -157,7 +157,7 @@
         </tr>
         <tr><td class="label">Area</td><td class="nilai">{{ $reservation->area?->name ?? '—' }}</td></tr>
         <tr><td class="label">Jenis acara</td><td class="nilai">{{ $reservation->eventType?->name ?? '—' }}</td></tr>
-        <tr><td class="label">Pax</td><td class="nilai">{{ $reservation->pax }} orang</td></tr>
+        <tr><td class="label">Pax</td><td class="nilai">{{ $reservation->paxLabel() }} orang</td></tr>
     </table>
 </div>
 
