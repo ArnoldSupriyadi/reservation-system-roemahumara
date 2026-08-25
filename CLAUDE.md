@@ -391,6 +391,15 @@ Sandi bersama itu keadaan sementara: selama belum diganti masing-masing,
     berubah daripada struktur tabelnya. Bandingkan dengan `area_id` yang
     `NOT NULL` di aturan #12: yang itu bentuk data.
 
+    **Jamnya selalu 24 jam**, di mana pun tampil: 23:00, tidak pernah "11:00 PM".
+    `Jam::format()` hanya mengenal `H:i` dan `H:i:s` dan **melempar** untuk
+    format lain, jadi 12 jam tidak bisa menyelinap lewat satu pemanggilan di
+    ujung aplikasi. Di berkas export, jam ditulis sebagai **teks**, bukan nilai
+    waktu — sel bertipe waktu akan ditampilkan ulang Excel menurut locale
+    komputer pembacanya, dan 19:00 berubah jadi 7:00 PM tanpa berkasnya berubah.
+    `TwentyFourHourClockTest` memeriksa kelima permukaannya sekaligus dengan jam
+    19:00, dipilih justru karena angkanya berubah di format 12 jam.
+
     Angkanya dibaca lewat `Jam::tutup()`, **jangan mengetiknya ulang** di form
     atau writer — dua salinan aturan yang sama berangsur berbeda, dan yang satu
     akan menolak apa yang diterima yang lain.
