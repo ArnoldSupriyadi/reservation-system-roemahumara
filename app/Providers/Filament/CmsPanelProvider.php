@@ -7,6 +7,7 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationItem;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -45,6 +46,25 @@ class CmsPanelProvider extends PanelProvider
                 'Reservasi',
                 'Master',
                 'Pengaturan',
+            ])
+            /*
+             * Tautan ke kalender publik, halaman yang dilihat tamu.
+             *
+             * Dibuka di TAB BARU, dan itu disengaja: staf membukanya untuk
+             * memeriksa bagaimana sebuah reservasi terbaca dari luar, lalu
+             * kembali bekerja. Membukanya di tab yang sama akan membuang
+             * halaman CMS yang sedang dikerjakan — termasuk formulir yang belum
+             * tersimpan.
+             *
+             * Di grup Reservasi, bukan Pengaturan: yang ditampilkannya adalah
+             * reservasi, dan letaknya persis di sebelah daftar yang mengisinya.
+             */
+            ->navigationItems([
+                NavigationItem::make('Kalender publik')
+                    ->url(fn (): string => route('public.calendar'), shouldOpenInNewTab: true)
+                    ->icon('heroicon-o-globe-alt')
+                    ->group('Reservasi')
+                    ->sort(2),
             ])
             ->colors([
                 'primary' => Color::Amber,

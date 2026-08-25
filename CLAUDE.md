@@ -26,7 +26,13 @@ Panel bernama **`cms`**, bukan `admin`.
 - `->id('cms')` dan `->path('cms')`
 - URL: `/cms`, login di `/cms/login`
 - Nama route: `filament.cms.*` (mis. `filament.cms.auth.login`)
-- `/` diarahkan ke `/cms`
+- `/` adalah **kalender publik**, bukan pengalihan ke `/cms`. Staf masuk lewat
+  `/cms` langsung. Sidebar CMS punya tautan **Kalender publik** ke sana, di grup
+  Reservasi, dibuka di **tab baru** — staf membukanya untuk memeriksa bagaimana
+  sebuah reservasi terbaca dari luar lalu kembali bekerja, dan membukanya di tab
+  yang sama akan membuang formulir yang belum tersimpan. URL-nya dibangun di
+  dalam closure supaya `route()` dipanggil saat sidebar dirender, bukan saat
+  provider boot; kalau tidak, tautannya bisa menunjuk ke localhost di produksi.
 
 Kata `admin` di dalam proyek ini **selalu berarti nama role**, tidak pernah nama panel.
 
