@@ -13,7 +13,6 @@ use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\View\PanelsRenderHook;
 use Filament\Widgets\AccountWidget;
-use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -64,9 +63,14 @@ class CmsPanelProvider extends PanelProvider
                 Dashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
+            /*
+             * FilamentInfoWidget sengaja dilepas: isinya versi Filament dan
+             * tautan dokumentasinya, tidak ada gunanya bagi staf yang membuka
+             * dashboard untuk melihat acara hari ini. Widget milik proyek ini
+             * ditemukan sendiri lewat discoverWidgets di atas.
+             */
             ->widgets([
                 AccountWidget::class,
-                FilamentInfoWidget::class,
             ])
             /*
              * Dokumen cetak reservasi. Di dalam panel, bukan di routes/web.php,
@@ -83,6 +87,9 @@ class CmsPanelProvider extends PanelProvider
             // sebagai <style> karena CSS Filament dibangun terpisah dan tidak
             // memuat kelas Tailwind milik app.css.
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('filament.tabs-full-width'))
+            // Sorotan baris pada tabel widget dashboard. Terpisah dari view di
+            // atas supaya masing-masing tetap menjelaskan satu hal saja.
+            ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('filament.dashboard-hover'))
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

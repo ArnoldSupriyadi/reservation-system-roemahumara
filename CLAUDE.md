@@ -30,6 +30,56 @@ Panel bernama **`cms`**, bukan `admin`.
 
 Kata `admin` di dalam proyek ini **selalu berarti nama role**, tidak pernah nama panel.
 
+## Dashboard
+
+Dua widget di `app/Filament/Widgets/`, ditemukan lewat `discoverWidgets`.
+`FilamentInfoWidget` bawaan sengaja dilepas — isinya versi Filament dan tautan
+dokumentasi, tidak ada gunanya bagi staf.
+
+**`TodayWidget`** — tanggal dan jam berjalan. Jamnya adalah **jam venue**, bukan
+jam komputer yang membukanya: titik awalnya dari server, ditambah selisih yang
+berjalan di peramban, ditampilkan lewat `Intl` dengan `timeZone: 'Asia/Jakarta'`.
+Memakai `Date.now()` telanjang akan menampilkan jam laptop masing-masing orang,
+dan satu laptop yang zonanya keliru membuat stafnya mencatat jam yang salah tanpa
+merasa ada yang aneh. Locale `en-GB`, bukan `id-ID` — yang kedua memisahkan jam
+dengan titik (`10.11.05`).
+
+**`UpcomingReservationsWidget`** — versi ringkas tabel reservasi, enam kolom.
+Punya tiga rentang:
+
+| Rentang | Isi | Batas jumlah |
+|---|---|---|
+| Terdekat (bawaan) | mulai hari ini | 10 baris |
+| Minggu ini | satu minggu penuh, termasuk yang lampau | tidak ada |
+| Bulan ini | satu bulan penuh, termasuk yang lampau | tidak ada |
+
+Minggu dan bulan memuat periode **penuh**, bukan dipotong dari hari ini:
+pertanyaan "bulan ini ada apa saja" hampir selalu berarti seluruh bulannya, dan
+memotongnya membuat "Bulan ini" nyaris kosong setiap akhir bulan. Saringan
+`>= hari ini` karena itu hanya ada di cabang Terdekat — **jangan memindahkannya
+ke query bersama**, di sana ia akan mengosongkan lagi bagian periode yang sudah
+lewat, diam-diam.
+
+Karena tanggal lampau ikut, dua penanda wajib ada dan keduanya punya test:
+pita peringatan di atas tabel (`memuatTanggalLampau()`, bergantung pada RENTANG
+yang dipilih — bukan pada ada tidaknya baris lampau, supaya tidak muncul-hilang
+tergantung data), dan keterangan "sudah lewat" per baris di kolom Tanggal.
+
+Hal lain yang perlu diketahui:
+
+- **Widget mengecek `Ability`**, sama seperti Policy (aturan #3). Tanpa itu, role
+  yang sengaja dibuat tanpa hak lihat reservasi tetap membaca nama tamu dan
+  remark begitu membuka dashboard.
+- **Reservasi `cancelled` tidak ikut**, sejalan dengan aturan #9.
+- **`$isLazy = false`** pada keduanya. Widget Filament lazy secara bawaan; di
+  sini itu membuat dashboard tampil sebagai kotak kosong selama sesaat setiap
+  kali dibuka, dan kotak kosong terbaca sebagai "tidak ada apa-apa".
+- **CSS lewat `<style>`, bukan kelas Tailwind.** Filament membangun CSS-nya
+  sendiri di `public/css/filament`, terpisah dari `app.css`, dan hanya memuat
+  kelas yang dipakai view bawaannya. Alasan yang sama sudah dicatat di
+  `resources/views/filament/tabs-full-width.blade.php`. Sorotan hover dibatasi ke
+  `.fi-wi-table` supaya tabel di halaman resource tidak ikut berubah.
+
 ## Database
 
 Development dan test memakai database **terpisah**:
@@ -100,6 +150,9 @@ Sandi bersama itu keadaan sementara: selama belum diganti masing-masing,
    judul kolom, dan pengguna melaporkan tabelnya tidak terbaca. Diganti 2026-08-22.
    `ReservationsTableTest::test_the_table_keeps_its_header_row` menjaga agar
    komponen layout tidak masuk lagi diam-diam.
+
+   Berlaku juga di **widget dashboard** dan **berkas export** — di keduanya
+   remark tampil utuh, dan masing-masing punya test yang menjaganya.
 
 5. **Penyimpanan reservasi wajib lewat `ReservationWriter`.** Halaman Create dan Edit
    Filament meng-override `handleRecordCreation()` dan `handleRecordUpdate()`. Tanpa
