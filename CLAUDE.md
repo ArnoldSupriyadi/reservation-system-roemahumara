@@ -5,6 +5,9 @@ Volume ± 15 reservasi per bulan, sekitar 8 pengguna, semua internal.
 
 ## Dokumen
 
+- **Progress dan titik lanjut: `claude/PROGRESS.md`** — baca ini lebih dulu.
+  Apa yang sudah selesai, keputusan yang sudah diambil, dan apa yang sedang
+  memblokir pekerjaan berikutnya.
 - Spec: `claude/2026-08-10-reservasi-roemah-umara-design.md`
 - Rencana backend: `claude/2026-08-10-reservasi-roemah-umara-plan.md` (Task 0–11)
 - Rencana UI: `claude/2026-08-10-reservasi-roemah-umara-plan-ui.md` (Task 12–18)
@@ -12,6 +15,8 @@ Volume ± 15 reservasi per bulan, sekitar 8 pengguna, semua internal.
 - Rencana v2: `claude/2026-08-20-kalender-publik-dan-nomor-reservasi-plan.md` (Task 19–24)
 
 Kerjakan berurutan. Jangan melompat. Satu task per sesi review.
+**Task 0–24 seluruhnya sudah selesai**; pekerjaan sesudahnya tercatat di
+`claude/PROGRESS.md`, bukan di kedua dokumen rencana.
 
 ## Stack
 

@@ -13,11 +13,18 @@ reservasi contoh. Tidak perlu dump, tidak perlu ekspor.
 
 | Kebutuhan | Versi | Catatan |
 |---|---|---|
-| PHP | 8.2 atau lebih baru | Mesin lama memakai 8.3.9 dari MAMP |
-| MySQL | 8.0 | **Bukan** SQLite — lihat aturan nomor 1 di CLAUDE.md. Mesin lama memakai 8.0.40 dari MAMP |
+| PHP | 8.2 atau lebih baru | Mesin lama memakai 8.3.1 dari MAMP |
+| MySQL | 5.7.6 atau lebih baru | **Bukan** SQLite — lihat aturan nomor 1 di CLAUDE.md. Mesin lama memakai **5.7.24** dari MAMP |
 | Composer | 2.x | |
 | Node.js | 20 atau lebih baru | |
 | Git | | |
+
+Batas bawahnya 5.7.6, bukan 8.0: `dedupe_key` adalah generated stored column, dan
+fitur itu ada sejak 5.7.6. Seluruh kode sengaja dijaga tetap sah di 5.7 — tidak ada
+CTE (`WITH`), window function (`OVER()`), functional index, maupun `CHECK` constraint,
+semuanya baru ada di MySQL 8. MySQL 8 tetap boleh dipakai di mesin baru dan seluruh
+test akan hijau; yang perlu disadari hanya bahwa mesin dev asalnya 5.7, jadi kode yang
+ditulis di mesin ber-MySQL 8 bisa lolos test di sana tapi gagal di mesin sebelah.
 
 MySQL di mesin lama datang dari **MAMP**, bukan service Windows. Kalau di mesin
 baru memakai MAMP juga, binary-nya ada di `C:\MAMP\bin\mysql\bin\mysqld.exe`.
@@ -96,7 +103,7 @@ Akun staf tidak ikut `db:seed` polos. Kalau memang perlu di mesin lokal:
 php artisan test
 ```
 
-Harus 262 test hijau. Kalau hijau, pemindahan berhasil sepenuhnya.
+Harus **434 test hijau** (1329 assertion, ± 139 detik). Kalau hijau, pemindahan berhasil sepenuhnya.
 
 ## 5. Hal yang menjebak
 
