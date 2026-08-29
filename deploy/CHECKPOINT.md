@@ -25,6 +25,18 @@ server melainkan di router kantor dan di BaliFiber, jadi tidak ada perintah yang
 bisa dijalankan lewat SSH untuk menuntaskannya. Lihat "Yang sedang menunggu
 pihak lain" di bawah.
 
+**Bagian 8 ditunda atas keputusan pemilik sistem (2026-08-27).** Statusnya
+ditinjau hari itu: ketiga hambatan di bawah masih persis seperti 2026-08-24, dan
+belum ada yang ditindaklanjuti ke router maupun ke BaliFiber. Penundaannya
+disengaja, bukan terlupa — sistem tetap melayani kantor lewat
+`http://192.168.88.33` dan deploy otomatis tetap berjalan seperti biasa.
+
+Yang perlu diingat saat bagian ini diambil lagi: **konfigurasi Nginx sudah
+selesai dan tidak perlu disentuh.** `deploy/nginx/roemahumara.conf` sudah memuat
+`reservation.roemahumara.com` di `server_name` sejak awal, berdampingan dengan
+IP privatnya, dan DNS-nya sudah mengarah. Godaan untuk "memperbaiki nginx" saat
+domain belum bisa dibuka akan membuang waktu di tempat yang bukan penyebabnya.
+
 Sebelum bagian 8 dikerjakan, dua hal ini berhenti jadi opsional:
 
 - **Kunci SSH (bagian 1d)** — port 22 yang menghadap internet dipindai bot dalam
@@ -55,7 +67,7 @@ bisa terindeks mesin pencari. Menariknya kembali cukup menghapus kolomnya dari
 | PHP | 8.3.6 di `/usr/bin/php8.3` |
 | Composer | 2.10.2 |
 | User deploy | `ictumara` — sekaligus akun login SSH |
-| Terakhir diperbarui | 2026-08-24 (bagian 12 selesai) |
+| Terakhir diperbarui | 2026-08-27 (bagian 8 ditunda; ketiga hambatan tidak berubah) |
 
 ## Status per bagian
 
@@ -72,7 +84,7 @@ bisa terindeks mesin pencari. Menariknya kembali cukup menghapus kolomnya dari
 | 5 | Composer | ✅ | 2.10.2, terikat ke `/usr/bin/php8.3` |
 | 6 | Direktori aplikasi & `.env` | ✅ | Admin `roemahumara@gmail.com` sudah punya role — uji `can('reservation.delete')` mengembalikan `true` |
 | 7 | Nginx server block | ✅ | `/cms/login` → HTTP 200. `/` sempat HTTP 500 (`Vite manifest not found`) sampai deploy pertama mengisi `public/build` — sekarang 200 |
-| 8 | Domain publik: DNS, port forward, SSL | ⏭️ | DNS ✅ sudah diarahkan. Port forwarding **belum** — menunggu pihak lain, lihat di bawah |
+| 8 | Domain publik: DNS, port forward, SSL | ⏸️ | **Ditunda 2026-08-27** atas keputusan pemilik sistem. DNS ✅ sudah diarahkan, server block ✅ sudah memuat domainnya. Port forwarding **belum**, dan ketiga hambatannya belum ditindaklanjuti — lihat di bawah |
 | 9 | Queue worker | ✅ | `active (running)`, `enabled` — ikut hidup setelah reboot. Diuji 2026-08-24 |
 | 10 | Scheduler cron | ✅ | Dipasang lewat berkas (`crontab -u ictumara /tmp/ru-cron`), bukan editor. Terbukti jalan tiap menit di `/var/log/syslog` |
 | 11 | Sudo terbatas untuk deploy | ✅ | Dipasang lewat berkas + `visudo -cf`, bukan `visudo` interaktif. `sudo -l -U ictumara` memastikan **kedua** perintah tercakup, bukan hanya yang diuji |
@@ -102,7 +114,9 @@ nanti masih mungkin — buat user baru, pindahkan kepemilikan
 
 ## Yang sedang menunggu pihak lain
 
-Ketiganya menghalangi bagian 8, tidak menghalangi 9–12.
+Ketiganya menghalangi bagian 8, tidak menghalangi 9–12. **Ditinjau lagi
+2026-08-27: ketiga kotak di bawah masih kosong** — belum ada yang dihubungi,
+belum ada aturan router yang diubah.
 
 - [ ] **Port 443 sudah dipakai mesin lain.** `https://103.138.40.54/` menjawab
       dengan header `Server: Microsoft-HTTPAPI/2.0` — layanan Windows, bukan VPS
@@ -117,6 +131,22 @@ Ketiganya menghalangi bagian 8, tidak menghalangi 9–12.
 Catatan: hasil pemeriksaan port di atas diambil dari **dalam** jaringan kantor,
 jadi sifatnya petunjuk. Verifikasi yang sahih dilakukan dari HP dengan data
 seluler, WiFi kantor dimatikan.
+
+**Diagnosis dulu, baru sentuh router.** Ketiga kotak di atas adalah pertanyaan,
+bukan pekerjaan — dan dua di antaranya bisa dijawab tanpa mengubah satu pun
+aturan forwarding: uji port 80 dari HP dengan data seluler, dan bandingkan
+`curl -s ifconfig.me` dari VPS dengan `103.138.40.54`. Menjalankan Certbot untuk
+"mengetes apakah sudah jalan" adalah cara yang buruk untuk mencari tahu:
+kegagalannya hanya menyebut domain tidak terverifikasi, tidak pernah menyebut
+mana dari ketiganya yang jadi sebab.
+
+**Kalau BaliFiber ternyata memblokir inbound 80/443, keputusan "port forwarding,
+bukan Cloudflare Tunnel" perlu ditimbang ulang** — keputusan itu diambil
+2026-08-24, sebelum blokir ISP maupun bentrok port 443 terkonfirmasi. Tunnel
+menghapus ketiga hambatan di atas sekaligus (tidak butuh port terbuka, tidak
+butuh 443, tidak butuh IP statis), dengan ongkos memindahkan pengelolaan DNS
+`roemahumara.com` dari Niagahoster ke Cloudflare. Itu keputusan pemilik sistem,
+bukan keputusan teknis yang boleh diambil diam-diam saat pemasangan.
 
 ## Yang sengaja belum dikerjakan
 

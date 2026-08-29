@@ -121,14 +121,14 @@ class ConflictCheckerTest extends TestCase
     }
 
     // ---------------------------------------------------------------------
-    // Area yang saling meliputi. ALL BALLROOM adalah BALLROOM 1-4 dengan sekat
-    // dibuka, jadi memesan salah satunya membuat yang lain ikut terpakai.
+    // Area yang saling meliputi. GRAND BALLROOM adalah BALLROOM 1 dan 2 dengan
+    // sekat dibuka, jadi memesan salah satunya membuat yang lain ikut terpakai.
     // ---------------------------------------------------------------------
 
-    /** @return array{0: Area, 1: Area, 2: Area} ALL BALLROOM, BALLROOM 1, BALLROOM 2 */
+    /** @return array{0: Area, 1: Area, 2: Area} GRAND BALLROOM, BALLROOM 1, BALLROOM 2 */
     private function ballrooms(): array
     {
-        $all = Area::create(['name' => 'ALL BALLROOM']);
+        $all = Area::create(['name' => 'GRAND BALLROOM']);
         $satu = Area::create(['name' => 'BALLROOM 1']);
         $dua = Area::create(['name' => 'BALLROOM 2']);
 

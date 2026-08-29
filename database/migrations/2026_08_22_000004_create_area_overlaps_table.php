@@ -7,12 +7,12 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Area yang secara fisik saling meliputi.
  *
- * ALL BALLROOM adalah BALLROOM 1-4 dengan sekat dibuka. Tanpa tabel ini
- * ConflictChecker membandingkan area_id secara persis, sehingga memesan ALL
+ * GRAND BALLROOM adalah BALLROOM 1 dan 2 dengan sekat dibuka. Tanpa tabel ini
+ * ConflictChecker membandingkan area_id secara persis, sehingga memesan GRAND
  * BALLROOM pada jam yang sama dengan BALLROOM 2 tidak memunculkan bentrok apa
  * pun — sistem diam, padahal ruangannya benar-benar bertabrakan.
  *
- * Pasangannya disimpan DUA ARAH: baris (ALL, B2) dan (B2, ALL). Menyimpan satu
+ * Pasangannya disimpan DUA ARAH: baris (GRAND, B2) dan (B2, GRAND). Menyimpan satu
  * arah saja membuat setiap query harus memeriksa dua kolom, dan cukup satu
  * tempat lupa melakukannya untuk membuat bentrok hanya terdeteksi dari satu
  * sisi. Penulisan dua arah diurus Area::overlapWith().

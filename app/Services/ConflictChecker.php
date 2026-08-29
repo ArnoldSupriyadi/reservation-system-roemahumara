@@ -29,9 +29,10 @@ class ConflictChecker
         [$start, $end] = $this->window($startTime, $endTime);
 
         // Bukan hanya area yang dipilih, tapi juga yang secara fisik meliputinya.
-        // ALL BALLROOM memakai ruang BALLROOM 1-4, jadi memesan salah satunya
-        // membuat yang lain ikut terpakai. Tanpa ini sistem diam saat seluruh
-        // ballroom dipesan di atas acara yang sudah ada di salah satu bagiannya.
+        // GRAND BALLROOM memakai ruang BALLROOM 1 dan 2, jadi memesan salah
+        // satunya membuat yang lain ikut terpakai. Tanpa ini sistem diam saat
+        // seluruh ballroom dipesan di atas acara yang sudah ada di salah satu
+        // bagiannya.
         $areaIds = Area::find($areaId)?->occupiedAreaIds() ?? [$areaId];
 
         return Reservation::query()

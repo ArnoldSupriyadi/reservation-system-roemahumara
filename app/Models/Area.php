@@ -23,8 +23,8 @@ class Area extends Model
     /**
      * Area lain yang secara fisik memakai ruang yang sama.
      *
-     * ALL BALLROOM meliputi BALLROOM 1-4, jadi memesan salah satunya membuat
-     * yang lain ikut terpakai.
+     * GRAND BALLROOM meliputi BALLROOM 1 dan 2, jadi memesan salah satunya
+     * membuat yang lain ikut terpakai.
      */
     public function overlaps(): BelongsToMany
     {

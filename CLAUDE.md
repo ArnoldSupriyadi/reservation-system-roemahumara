@@ -273,13 +273,24 @@ Sandi bersama itu keadaan sementara: selama belum diganti masing-masing,
     membuat tapi tidak saat mengubah. Pemeriksaannya berjalan **sebelum**
     penulisan; `warnAboutConflicts()` sesudahnya.
 
-    **Area bisa saling meliputi.** ALL BALLROOM adalah BALLROOM 1–4 dengan sekat
-    dibuka, dicatat di tabel `area_overlaps` dan dipakai `ConflictChecker` lewat
-    `Area::occupiedAreaIds()`. Relasinya disimpan **dua arah**; selalu memakai
-    `Area::overlapWith()`, jangan `attach()` langsung — kalau hanya satu arah,
-    bentroknya cuma terdeteksi ketika pengguna kebetulan memesan dari sisi yang
-    benar dan diam dari sisi sebaliknya. Dua bagian yang berbeda (BALLROOM 1 dan
-    BALLROOM 2) sengaja TIDAK saling meliputi.
+    **Area bisa saling meliputi.** GRAND BALLROOM adalah BALLROOM 1 dan 2 dengan
+    sekat dibuka, dicatat di tabel `area_overlaps` dan dipakai `ConflictChecker`
+    lewat `Area::occupiedAreaIds()`. Relasinya disimpan **dua arah**; selalu
+    memakai `Area::overlapWith()`, jangan `attach()` langsung — kalau hanya satu
+    arah, bentroknya cuma terdeteksi ketika pengguna kebetulan memesan dari sisi
+    yang benar dan diam dari sisi sebaliknya. Dua bagian yang berbeda (BALLROOM 1
+    dan BALLROOM 2) sengaja TIDAK saling meliputi.
+
+    Pasangannya didaftarkan di konstanta `MasterSeeder::MELIPUTI`, **bukan
+    diketik ulang** di dalam method penghubungnya. Sampai 2026-08-28 nama-nama
+    itu ada di dua tempat, dan ketika daftar master diganti (ALL BALLROOM 1–4
+    jadi GRAND BALLROOM 1–2) methodnya tidak ikut berubah: ia mencari baris yang
+    sudah tidak ada, **keluar tanpa suara**, dan seeder tetap dilaporkan sukses
+    sementara pengecekan bentrok ballroom mati total. Karena itu nama yang tidak
+    ketemu sekarang **melempar**, tidak dilewati.
+    `MasterSeederTest::test_seeder_links_grand_ballroom_to_its_parts_both_ways`
+    menjaga akibatnya, bukan isi tabelnya — dan menguji kedua arah terpisah,
+    karena relasi satu arah lolos kalau hanya diperiksa dari sisi keseluruhan.
 
     Duplikat persis dikecualikan: ia juga terbaca sebagai bentrok area, tapi
     pesan "sudah ada reservasi atas nama X" lebih menolong daripada "isi Remark".
