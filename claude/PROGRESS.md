@@ -11,7 +11,8 @@ ke sini.
 Perbarui berkas ini setiap kali sebuah keputusan diambil atau sebuah task
 selesai — bukan setiap commit.
 
-**Terakhir diperbarui:** 2026-08-29, setelah commit `0856f18`.
+**Terakhir diperbarui:** 2026-09-07 — sistem live di
+<https://reservation.roemahumara.com/>.
 
 ---
 
@@ -20,7 +21,8 @@ selesai — bukan setiap commit.
 | | |
 |---|---|
 | Cabang | `main`, working tree bersih, seluruhnya sudah di-push |
-| Commit terakhir | `0856f18` "update progress" (2026-08-29) |
+| Commit terakhir | `2e4e175` "progress: titik lanjut dipindahkan dari catatan sesi ke repo" (2026-08-29) |
+| Produksi | <https://reservation.roemahumara.com/> — live sejak 2026-09-07 |
 | Test | **434 hijau, 1329 assertion**, ± 139 detik |
 | Mesin dev | PHP 8.3.1, MySQL 5.7.24 (MAMP, port 3306) |
 
@@ -117,16 +119,30 @@ Temuan yang menurunkan ongkos dan layak diingat: `dedupe_key` **tidak** memuat
 `area_id` — isinya hanya tanggal, nama tamu, dan jam mulai — jadi generated
 column MySQL (aturan #1) tidak ikut terguncang oleh perubahan ini.
 
-### Deployment bagian 8 — menunggu pihak lain
+*(Deployment bagian 8 sudah tidak di sini — selesai 2026-09-07, lihat "Sudah
+live" di bawah.)*
 
-Pemasangan server selesai; yang tersisa adalah membuka sistem ke internet, dan
-itu tertahan tiga pertanyaan jaringan sejak 2026-08-27. Rinciannya —
-berikut cara menjawabnya tanpa menyentuh router — ada di
-**`deploy/CHECKPOINT.md`**, dan sengaja tidak disalin ke sini.
+---
 
-Dua di antaranya bisa dijawab tanpa saya: uji port 80 dari HP dengan data
-seluler (WiFi kantor dimatikan), dan bandingkan `curl -s ifconfig.me` di VPS
-dengan `103.138.40.54`.
+## Sudah live
+
+**<https://reservation.roemahumara.com/> — sejak 2026-09-07.** Ketiga hambatan
+jaringan yang menahan bagian 8 sejak 2026-08-24 sudah tidak menghalangi;
+**cara menyelesaikannya akan diisi Arnold menyusul**, jadi jangan menebaknya.
+Statusnya, bukti pemeriksaan dari luar, dan sisa pekerjaan yang lahir karena
+sistem kini menghadap internet ada di **`deploy/CHECKPOINT.md`** — sengaja tidak
+disalin ke sini.
+
+Tiga hal dari daftar itu perlu diketahui juga oleh yang tidak mengurus server,
+karena keputusannya milik pemilik sistem, bukan teknis:
+
+1. `http://` belum dialihkan ke `https://`, dan cookie sesi belum bertanda
+   `secure`.
+2. `robots.txt` mengizinkan kalender publik diindeks mesin pencari — lengkap
+   dengan nama tamu, perusahaan, PIC, dan remark (aturan #10 `CLAUDE.md`).
+   Pelonggaran kolom itu dulu diminta saat sistem masih di jaringan lokal.
+3. Sebelas akun staf masih bersandi sama; selama itu `activity_log` bisa
+   menunjuk orang yang keliru.
 
 ---
 

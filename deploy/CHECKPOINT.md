@@ -11,45 +11,78 @@ keadaan terakhir. **Perbarui setiap kali sebuah bagian selesai**, lalu commit.
 
 ---
 
-# ▶ PEMASANGAN SERVER SELESAI — sisanya di luar server
+# ▶ SISTEM SUDAH LIVE DI INTERNET
 
-Bagian 0–12 selesai dan sudah diuji. Sistem berjalan di
-`http://192.168.88.33`, deploy otomatis sudah terbukti (Success, 46 detik,
-2026-08-24). Setiap push ke `main` sekarang memicu deploy sendiri.
+Bagian 0–12 selesai dan sudah diuji. Sistem melayani publik di
+**<https://reservation.roemahumara.com/>** sejak **2026-09-07**, dan tetap
+terjangkau lewat `http://192.168.88.33` dari jaringan kantor. Deploy otomatis
+sudah terbukti (Success, 46 detik, 2026-08-24); setiap push ke `main` memicu
+deploy sendiri.
 
 Bagian 13 bukan langkah pemasangan — itu prosedur cadangan, dibaca hanya kalau
 runner mati dan Anda perlu merilis dengan tangan.
 
-**Yang tersisa hanya bagian 8: membuka sistem ke internet.** Kerjanya bukan di
-server melainkan di router kantor dan di BaliFiber, jadi tidak ada perintah yang
-bisa dijalankan lewat SSH untuk menuntaskannya. Lihat "Yang sedang menunggu
-pihak lain" di bawah.
+**Bagian 8 tuntas 2026-09-07.** Ketiga hambatan yang menahannya sejak 2026-08-24
+— port 443 dipakai mesin lain, port 80 belum di-forward, dan status IP publik —
+sudah tidak menghalangi. **Cara menyelesaikannya akan diisi Arnold menyusul**;
+sampai itu masuk, jangan menebaknya dari berkas ini dan jangan menyalin ulang
+langkahnya ke RUNBOOK.
 
-**Bagian 8 ditunda atas keputusan pemilik sistem (2026-08-27).** Statusnya
-ditinjau hari itu: ketiga hambatan di bawah masih persis seperti 2026-08-24, dan
-belum ada yang ditindaklanjuti ke router maupun ke BaliFiber. Penundaannya
-disengaja, bukan terlupa — sistem tetap melayani kantor lewat
-`http://192.168.88.33` dan deploy otomatis tetap berjalan seperti biasa.
+Yang **teramati dari luar** pada 2026-09-07 (dicatat sebagai bukti, bukan
+sebagai rancangan yang sudah disepakati):
 
-Yang perlu diingat saat bagian ini diambil lagi: **konfigurasi Nginx sudah
-selesai dan tidak perlu disentuh.** `deploy/nginx/roemahumara.conf` sudah memuat
-`reservation.roemahumara.com` di `server_name` sejak awal, berdampingan dengan
-IP privatnya, dan DNS-nya sudah mengarah. Godaan untuk "memperbaiki nginx" saat
-domain belum bisa dibuka akan membuang waktu di tempat yang bukan penyebabnya.
+| Diperiksa | Hasil |
+|---|---|
+| `https://reservation.roemahumara.com/` | HTTP 200, kalender publik terbaca — `<title>` "Jadwal September 2026 — Roemah Umara" |
+| `https://reservation.roemahumara.com/cms/login` | HTTP 200 |
+| Tautan dan aset di halaman | sudah `https://reservation.roemahumara.com/...` — artinya `APP_URL` di server **sudah** diganti |
+| Header balasan | `Server: Microsoft-IIS/10.0` + `X-Powered-By: ARR/3.0` |
 
-Sebelum bagian 8 dikerjakan, dua hal ini berhenti jadi opsional:
+Baris terakhir itu berarti trafik masuk **lewat reverse proxy IIS**, bukan
+langsung ke Nginx di VPS — mesin Windows yang dulu tercatat "memakai port 443"
+tampaknya kini yang meneruskan permintaannya. Cookie `roemah-umara-reservation-session`
+tetap muncul di balasannya, jadi yang dilayani memang aplikasi ini. Konsekuensi
+praktisnya: **kalau suatu saat domainnya bermasalah, penyebabnya bisa ada di
+mesin IIS itu, bukan hanya di Nginx VPS.**
+
+## ⚠️ Tiga hal yang jadi mendesak justru karena sudah live
+
+Ketiganya terpantau 2026-09-07 dan **belum** dikerjakan:
+
+1. **`http://` (tanpa S) menjawab HTTP 200, tidak dialihkan ke `https://`.**
+   Selama begitu, ada jalur yang melewatkan sesi staf dalam keadaan terbuka.
+   Yang benar: port 80 mengalihkan permanen ke 443. Karena masuknya lewat IIS,
+   pengalihan ini kemungkinan besar disetel **di IIS**, bukan di
+   `deploy/nginx/roemahumara.conf`.
+2. **`SESSION_SECURE_COOKIE` masih `false`.** Cookie sesi pada balasan HTTPS
+   datang tanpa tanda `secure`. Wajib jadi `true` — lihat "Yang sengaja belum
+   dikerjakan" di bawah. Aplikasi di balik reverse proxy juga perlu memercayai
+   proxy-nya (`TrustProxies`), kalau tidak Laravel bisa mengira koneksinya
+   `http` dan menolak menyetel cookie `secure`.
+3. **`robots.txt` masih `Disallow:` kosong — mengizinkan semua.** Halaman `/`
+   menampilkan nama tamu, perusahaan, PIC, dan remark **tanpa login**, sedangkan
+   remark di sistem ini terbiasa memuat keterangan pembayaran. Di jaringan lokal
+   itu hanya terbaca orang kantor; sekarang terbaca siapa saja **dan boleh
+   diindeks mesin pencari**. Ini keputusan pemilik sistem, bukan keputusan
+   teknis — aturan #10 `CLAUDE.md` mencatat pelonggaran kolomnya memang atas
+   permintaan eksplisit Arnold, tapi permintaan itu diberikan saat sistem masih
+   di jaringan lokal. Menariknya kembali cukup menghapus kolomnya dari
+   `select()` di `PublicCalendarController`.
+
+Dan dua hal yang sejak awal ditandai "berhenti jadi opsional begitu server
+menghadap internet" — sekarang saatnya:
 
 - **Kunci SSH (bagian 1d)** — port 22 yang menghadap internet dipindai bot dalam
-  hitungan menit. Selama SSH tidak ikut di-forward di router, ia memang belum
-  terjangkau; tapi jangan mengandalkan itu.
-- **Sandi awal sebelas akun staf** masih sama semua.
+  hitungan menit. Perlu dipastikan port 22 memang tidak ikut diteruskan dari
+  luar; jangan mengandalkan asumsi.
+- **Sandi awal sebelas akun staf** masih sama semua. Selama belum diganti
+  masing-masing, `activity_log` bisa menunjuk orang yang keliru.
 
-Dan satu keputusan yang perlu diambil sadar, bukan dilewati: halaman `/`
-menampilkan nama tamu, perusahaan, PIC, dan remark **tanpa login**, sedangkan
-remark di sistem ini terbiasa memuat keterangan pembayaran. Di jaringan lokal
-itu hanya terbaca orang kantor. Begitu port 80 dibuka, terbaca siapa saja dan
-bisa terindeks mesin pencari. Menariknya kembali cukup menghapus kolomnya dari
-`select()` di `PublicCalendarController`.
+Catatan yang masih berlaku: **konfigurasi Nginx sudah selesai dan tidak perlu
+disentuh.** `deploy/nginx/roemahumara.conf` sudah memuat
+`reservation.roemahumara.com` di `server_name` sejak awal, berdampingan dengan
+IP privatnya. Godaan untuk "memperbaiki nginx" saat domain bermasalah akan
+membuang waktu di tempat yang bukan penyebabnya.
 
 ---
 
@@ -58,8 +91,8 @@ bisa terindeks mesin pencari. Menariknya kembali cukup menghapus kolomnya dari
 | | |
 |---|---|
 | IP privat | `192.168.88.33` (hanya dari VPN kantor) |
-| IP publik kantor | `103.138.40.54` (`ip-40-54.balifiber.id`) — **belum diketahui statis atau dinamis** |
-| Domain | `reservation.roemahumara.com` → `103.138.40.54` — **A record sudah ada**, tinggal port forwarding |
+| IP publik kantor | `103.138.40.54` (`ip-40-54.balifiber.id`) — statis atau dinamis **belum dikonfirmasi**; kalau dinamis, domainnya akan menunjuk ke pelanggan lain begitu IP berganti |
+| Domain | **`https://reservation.roemahumara.com/` — LIVE sejak 2026-09-07**, HTTP 200 dari luar jaringan kantor |
 | DNS dikelola di | panel Niagahoster (`ns1/ns2.niagahoster.com`) |
 | OS | Ubuntu 24.04.4 LTS |
 | Hostname | `cms-ru-reservation` |
@@ -67,7 +100,7 @@ bisa terindeks mesin pencari. Menariknya kembali cukup menghapus kolomnya dari
 | PHP | 8.3.6 di `/usr/bin/php8.3` |
 | Composer | 2.10.2 |
 | User deploy | `ictumara` — sekaligus akun login SSH |
-| Terakhir diperbarui | 2026-08-27 (bagian 8 ditunda; ketiga hambatan tidak berubah) |
+| Terakhir diperbarui | 2026-09-07 (bagian 8 selesai — sistem live di domain publik) |
 
 ## Status per bagian
 
@@ -84,7 +117,7 @@ bisa terindeks mesin pencari. Menariknya kembali cukup menghapus kolomnya dari
 | 5 | Composer | ✅ | 2.10.2, terikat ke `/usr/bin/php8.3` |
 | 6 | Direktori aplikasi & `.env` | ✅ | Admin `roemahumara@gmail.com` sudah punya role — uji `can('reservation.delete')` mengembalikan `true` |
 | 7 | Nginx server block | ✅ | `/cms/login` → HTTP 200. `/` sempat HTTP 500 (`Vite manifest not found`) sampai deploy pertama mengisi `public/build` — sekarang 200 |
-| 8 | Domain publik: DNS, port forward, SSL | ⏸️ | **Ditunda 2026-08-27** atas keputusan pemilik sistem. DNS ✅ sudah diarahkan, server block ✅ sudah memuat domainnya. Port forwarding **belum**, dan ketiga hambatannya belum ditindaklanjuti — lihat di bawah |
+| 8 | Domain publik: DNS, port forward, SSL | ✅ | **Selesai 2026-09-07.** `https://reservation.roemahumara.com/` menjawab 200 dari luar; `APP_URL` sudah ikut diganti. Trafik masuk lewat reverse proxy IIS. Cara ketiga hambatannya diselesaikan **akan diisi Arnold menyusul**. Sisa pekerjaan yang lahir dari ini (redirect 80→443, `SESSION_SECURE_COOKIE`, `robots.txt`) ada di blok ⚠️ paling atas |
 | 9 | Queue worker | ✅ | `active (running)`, `enabled` — ikut hidup setelah reboot. Diuji 2026-08-24 |
 | 10 | Scheduler cron | ✅ | Dipasang lewat berkas (`crontab -u ictumara /tmp/ru-cron`), bukan editor. Terbukti jalan tiap menit di `/var/log/syslog` |
 | 11 | Sudo terbatas untuk deploy | ✅ | Dipasang lewat berkas + `visudo -cf`, bukan `visudo` interaktif. `sudo -l -U ictumara` memastikan **kedua** perintah tercakup, bukan hanya yang diuji |
@@ -112,48 +145,45 @@ pada 2026-08-24 memastikan akun ini memang `(ALL : ALL) ALL`. Memisahkannya
 nanti masih mungkin — buat user baru, pindahkan kepemilikan
 `/var/www/roemahumara`, daftarkan ulang runner.
 
-## Yang sedang menunggu pihak lain
+## Hambatan bagian 8 — riwayatnya
 
-Ketiganya menghalangi bagian 8, tidak menghalangi 9–12. **Ditinjau lagi
-2026-08-27: ketiga kotak di bawah masih kosong** — belum ada yang dihubungi,
-belum ada aturan router yang diubah.
+Ketiganya menahan bagian 8 dari 2026-08-24 sampai 2026-09-06. **Sejak 2026-09-07
+tidak ada lagi yang menghalangi** — domainnya sudah menjawab dari luar. Riwayat
+ini disimpan, bukan dihapus, supaya kalau domainnya suatu saat mati, yang
+membaca tahu apa saja yang dulu jadi soal.
 
-- [ ] **Port 443 sudah dipakai mesin lain.** `https://103.138.40.54/` menjawab
-      dengan header `Server: Microsoft-HTTPAPI/2.0` — layanan Windows, bukan VPS
-      ini. Perlu diketahui itu apa dan milik siapa sebelum aturan forwarding
-      diubah; mengarahkan 443 ke VPS akan mematikannya.
-- [ ] **Port 80 belum terbuka.** Perlu aturan forwarding di router kantor,
-      dan perlu dipastikan BaliFiber tidak memblokir inbound 80/443.
-- [ ] **Status IP `103.138.40.54`: statis atau dinamis?** Tanyakan ke BaliFiber.
-      Kalau dinamis, perlu DDNS — domainnya akan menunjuk ke pelanggan lain
-      begitu IP-nya berganti.
+- [x] **Port 443 sudah dipakai mesin lain.** `https://103.138.40.54/` dulu
+      menjawab dengan header `Server: Microsoft-HTTPAPI/2.0` — layanan Windows,
+      bukan VPS ini. Balasan domainnya sekarang menyebut `Microsoft-IIS/10.0`
+      dan `ARR/3.0`, jadi kemungkinan besar mesin itu **tidak digusur melainkan
+      dijadikan reverse proxy** ke VPS. Belum dikonfirmasi Arnold.
+- [x] **Port 80 belum terbuka.** Sekarang terbuka — `http://` menjawab 200 dari
+      luar. Justru itu masalah barunya: ia **tidak** dialihkan ke `https://`
+      (lihat blok ⚠️ di atas).
+- [ ] **Status IP `103.138.40.54`: statis atau dinamis? — MASIH TERBUKA.**
+      Domainnya jalan hari ini, dan itu tidak menjawab pertanyaannya: IP dinamis
+      juga jalan sampai ia berganti. Kalau dinamis, perlu DDNS — kalau tidak,
+      domainnya akan menunjuk ke pelanggan lain begitu IP-nya berganti, dan
+      gejalanya muncul mendadak tanpa ada yang menyentuh sistem. Tanyakan ke
+      BaliFiber.
 
-Catatan: hasil pemeriksaan port di atas diambil dari **dalam** jaringan kantor,
-jadi sifatnya petunjuk. Verifikasi yang sahih dilakukan dari HP dengan data
-seluler, WiFi kantor dimatikan.
-
-**Diagnosis dulu, baru sentuh router.** Ketiga kotak di atas adalah pertanyaan,
-bukan pekerjaan — dan dua di antaranya bisa dijawab tanpa mengubah satu pun
-aturan forwarding: uji port 80 dari HP dengan data seluler, dan bandingkan
-`curl -s ifconfig.me` dari VPS dengan `103.138.40.54`. Menjalankan Certbot untuk
-"mengetes apakah sudah jalan" adalah cara yang buruk untuk mencari tahu:
-kegagalannya hanya menyebut domain tidak terverifikasi, tidak pernah menyebut
-mana dari ketiganya yang jadi sebab.
-
-**Kalau BaliFiber ternyata memblokir inbound 80/443, keputusan "port forwarding,
-bukan Cloudflare Tunnel" perlu ditimbang ulang** — keputusan itu diambil
-2026-08-24, sebelum blokir ISP maupun bentrok port 443 terkonfirmasi. Tunnel
-menghapus ketiga hambatan di atas sekaligus (tidak butuh port terbuka, tidak
-butuh 443, tidak butuh IP statis), dengan ongkos memindahkan pengelolaan DNS
-`roemahumara.com` dari Niagahoster ke Cloudflare. Itu keputusan pemilik sistem,
-bukan keputusan teknis yang boleh diambil diam-diam saat pemasangan.
+**Cara ketiganya diselesaikan belum tercatat** — Arnold akan mengisinya
+menyusul. Sampai itu masuk, RUNBOOK bagian 8 masih memuat rencana lama (port
+forwarding + Certbot langsung ke VPS), yang **tidak** cocok dengan apa yang
+teramati sekarang. Jangan mengikutinya mentah-mentah untuk memasang ulang.
 
 ## Yang sengaja belum dikerjakan
 
 Dicatat di sini supaya tidak hilang; rinciannya di RUNBOOK bagian 8.
 
-- `SESSION_SECURE_COOKIE` masih `false` — **wajib** jadi `true` begitu HTTPS aktif
-- `APP_URL` masih `http://192.168.88.33` — ikut diganti saat HTTPS aktif, termasuk secret di GitHub
+- `SESSION_SECURE_COOKIE` masih `false` — **sudah jatuh tempo**: HTTPS aktif
+  sejak 2026-09-07 dan cookie sesi masih datang tanpa tanda `secure`
+- ~~`APP_URL` masih `http://192.168.88.33`~~ — **selesai**: tautan dan aset di
+  halaman publik sudah `https://reservation.roemahumara.com/...` (2026-09-07).
+  Pastikan secret `APP_URL` di GitHub ikut berubah, kalau belum
+- Redirect `http://` → `https://` belum ada — port 80 masih menjawab 200
+- `robots.txt` masih mengizinkan seluruh halaman diindeks, termasuk kalender
+  publik berisi nama tamu dan remark
 - Login SSH dengan sandi masih terbuka (bagian 1d)
 - Sepuluh akun staf **belum dibuat** — jalankan `db:seed --class=StaffSeeder`
   setelah `INITIAL_USER_PASSWORD` diisi. Sesudahnya sebelas akun memakai sandi
