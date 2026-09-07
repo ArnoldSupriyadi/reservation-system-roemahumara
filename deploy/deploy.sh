@@ -75,9 +75,29 @@ log "Membangun ulang cache"
 # storage/fonts ikut disebut: dompdf menulis font olahannya ke sana saat membuat
 # PDF reservasi. Kalau tidak bisa ditulis, pembuatan PDF gagal dengan TypeError
 # dari fwrite() yang tidak menyebut direktori sama sekali.
+#
+# Yang di-chmod HANYA berkas milik user deploy — itu inti baris `-user` di
+# bawah, jangan dihapus. Sampai 2026-09-07 baris ini `chmod -R ug+rw storage
+# bootstrap/cache`, dan deploy berjalan mulus berminggu-minggu sampai ada orang
+# pertama yang mencetak PDF di produksi. Saat itu dompdf membuat
+# storage/fonts/nunito_*.ttf|ufm|json **sebagai www-data**, dan chmod atas
+# berkas milik user lain selalu ditolak kernel: "Operation not permitted".
+# Itu bukan soal sudo — hanya pemilik berkas (atau root) yang boleh mengubah
+# mode sebuah berkas, seberapa pun besar hak yang dipunya user lain.
+#
+# Melewatinya aman justru karena yang membuat berkas itu adalah proses yang
+# perlu menulisinya: www-data sudah jadi pemiliknya, jadi ia sudah bisa
+# menulis. Yang perlu dipastikan skrip ini hanyalah berkas yang IA sendiri
+# buat — hasil rsync dan cache Laravel — dan itu semua miliknya.
+#
+# Akibat kegagalannya dulu tidak berhenti di pesan merah: `set -e` menghentikan
+# skrip di sini, sebelum langkah 7 dan 8, sehingga kode baru sudah terpasang
+# tapi PHP-FPM belum di-reload (opcache masih menyajikan kode lama) dan queue
+# worker belum direstart. Situsnya sendiri tetap hidup karena trap on_error
+# memanggil `artisan up`.
 log "Menyesuaikan permission storage & cache"
 mkdir -p storage/fonts
-chmod -R ug+rw storage bootstrap/cache
+find storage bootstrap/cache -user "$(id -un)" -exec chmod ug+rw {} +
 
 # --- 7. Restart service ------------------------------------------------------
 # queue:restart memberi sinyal graceful ke worker; systemd restart sebagai jaring

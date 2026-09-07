@@ -885,22 +885,48 @@ sudo tail -50 /var/log/nginx/roemahumara-error.log
 
 ## Rollback
 
-Deploy ini **bukan** zero-downtime (tidak ada folder `releases/`), jadi rollback = deploy ulang commit lama:
+Deploy ini **bukan** zero-downtime (tidak ada folder `releases/`), jadi rollback
+= deploy ulang commit lama.
+
+**Opsi A — revert lalu push.** Jalur normal, dan yang paling sedikit kejutannya:
 
 ```bash
-# Opsi A - revert commit lalu push; workflow menjalankan deploy sendiri.
-
-# Opsi B - langsung di server (darurat, lebih cepat):
-cd /var/www/roemahumara
-sudo -u ictumara php8.3 artisan down
-sudo -u ictumara git checkout <COMMIT_LAMA>
-sudo -u ictumara composer install --no-dev --optimize-autoloader
-sudo -u ictumara php8.3 artisan optimize:clear && sudo -u ictumara php8.3 artisan config:cache
-sudo systemctl reload php8.3-fpm
-sudo -u ictumara php8.3 artisan up
+git revert <COMMIT_BURUK>
+git push origin main
 ```
 
-> **Peringatan:** `git checkout` mundur **tidak** membatalkan migration yang sudah jalan.
+**Opsi B — jalankan workflow pada commit lama** (kalau revert tidak diinginkan,
+misalnya perlu mundur beberapa commit sekaligus):
+
+```bash
+git push origin <COMMIT_LAMA>:refs/heads/rollback
+# lalu di GitHub: Actions → "Deploy ke VPS" → Run workflow → branch: rollback
+```
+
+Ini menempuh jalur yang sama persis dengan deploy biasa — aset tetap dibangun di
+runner GitHub, bukan di VPS. Membangun `npm run build` di VPS bukan pilihan:
+RAM-nya 1,9 GiB dan prosesnya kena OOM-kill di tengah jalan, meninggalkan
+`public/build` rusak (lihat komentar di `.github/workflows/deploy.yml`).
+
+> **Jangan rollback dengan `git checkout` di dalam `/var/www/roemahumara`.**
+> Cara itu pernah tertulis di sini sampai 2026-09-07 dan **tidak pernah bisa
+> jalan**. Deploy mengirim kode lewat `rsync` yang meng-exclude `.git`, jadi
+> `.git` di server masih berisi commit dari `git clone` saat pemasangan dan
+> tidak pernah ikut diperbarui sekali pun. Akibatnya:
+>
+> - commit yang lebih baru daripada clone itu **tidak ada** di sana, jadi
+>   `git checkout <COMMIT_LAMA>` gagal begitu saja;
+> - `git status` di server melaporkan banyak berkas sebagai "Changes not staged
+>   for commit". Itu **bukan** tanda ada yang menyunting di server — itu selisih
+>   antara kode hasil rsync yang baru dan commit lama yang dipegang `.git`;
+> - checkout yang kebetulan berhasil justru **menimpa** kode hasil rsync dengan
+>   versi lama, diam-diam.
+>
+> `.git` di server boleh dihapus (`rm -rf /var/www/roemahumara/.git`) — tidak
+> ada satu pun langkah deploy yang memakainya. Menghapusnya menghilangkan alarm
+> palsu itu untuk selamanya.
+
+> **Peringatan:** rollback kode **tidak** membatalkan migration yang sudah jalan.
 > Kalau deploy yang gagal mengandung migration destruktif (drop/rename kolom), rollback kode saja tidak cukup.
 > Ambil backup DB sebelum deploy yang mengandung migration berisiko:
 > ```bash

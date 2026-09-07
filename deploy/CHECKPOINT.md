@@ -126,6 +126,49 @@ membuang waktu di tempat yang bukan penyebabnya.
 
 Keterangan: ✅ selesai · ⏭️ sedang dikerjakan · ⏸️ ditunda sengaja · ⬜ belum
 
+## Insiden 2026-09-07 — deploy gagal di langkah permission
+
+Gejalanya: setiap push memicu workflow, tapi jobnya berakhir
+`[deploy][ERROR] Deploy gagal di baris 80` dengan
+`chmod: changing permissions of 'storage/fonts/nunito_*': Operation not permitted`.
+
+**Akar masalahnya bukan hak akses `ictumara` yang kurang.** dompdf menulis cache
+fontnya ke `storage/fonts` **saat ada yang mencetak PDF**, dan itu berjalan
+sebagai `www-data`. `chmod` hanya boleh dilakukan pemilik berkas atau root —
+seberapa pun besar sudo yang dipunya user lain. Jadi deploy berjalan mulus sejak
+2026-08-24 dan baru pecah pada cetakan PDF pertama di produksi, di berkas yang
+belum ada saat `deploy.sh` ditulis.
+
+Diperbaiki di `deploy/deploy.sh`: yang di-chmod hanya berkas milik user deploy
+(`find ... -user "$(id -un)"`). Berkas milik `www-data` memang tidak perlu
+disentuh — yang membuatnya adalah proses yang perlu menulisinya.
+
+Yang perlu diketahui soal dampaknya: kegagalan itu terjadi **setelah** migrasi
+dan cache dibangun, tapi **sebelum** PHP-FPM di-reload dan queue worker
+direstart. Jadi selama masa itu kode baru sudah terpasang sementara opcache
+masih menyajikan kode lama. Gejala khasnya: "sudah saya deploy tapi
+perubahannya tidak muncul".
+
+## `.git` di `/var/www/roemahumara` basi — dan itu normal
+
+Deploy mengirim kode lewat **`rsync`, bukan `git pull`**, dan rsync meng-exclude
+`.git`. Jadi `.git` di server berhenti di commit hasil `git clone` saat
+pemasangan dan tidak pernah diperbarui.
+
+`git status` di sana karena itu melaporkan banyak berkas sebagai "Changes not
+staged for commit" **tanpa ada seorang pun yang menyunting di server**. Itu
+selisih antara kode baru hasil rsync dan commit lama yang dipegang `.git`, bukan
+tanda kerusakan.
+
+Yang benar-benar rusak karena ini cuma satu: prosedur rollback "Opsi B" di
+RUNBOOK yang menyuruh `git checkout` di direktori itu. Sudah diganti 2026-09-07.
+
+`.git` di server boleh dihapus — tidak ada langkah deploy yang memakainya:
+
+```bash
+rm -rf /var/www/roemahumara/.git
+```
+
 ## Keputusan yang sudah diambil
 
 **Sistem dibuka ke internet lewat port forwarding** (2026-08-24). Bukan
