@@ -50,22 +50,34 @@ class AreaPhotoSeeder extends Seeder
     /** Folder tujuan di dalam disk `public`. */
     private const TUJUAN = 'area';
 
+    /**
+     * Diperiksa seluruhnya dulu, baru ditulis.
+     *
+     * Versi pertama memeriksa sambil menulis, dan itu terbukti buruk begitu
+     * dijalankan sungguhan di database yang daftar areanya versi lama: ia
+     * menulis dua foto, berhenti di nama ketiga, dan hanya menyebut nama itu —
+     * padahal empat nama meleset sekaligus. Akibatnya dua hal yang keduanya
+     * merugikan: database tertinggal setengah terisi, dan pemakainya menempuh
+     * empat putaran jalankan–gagal–betulkan untuk masalah yang sudah diketahui
+     * seluruhnya sejak awal.
+     */
     public function run(): void
     {
+        $siapDitulis = [];
+        $masalah = [];
+
         foreach (self::FOTO as $namaArea => $namaBerkas) {
             $area = Area::where('name', $namaArea)->first();
 
-            // Melempar, tidak melewati. Area yang tidak ketemu berarti daftar
-            // master sudah berubah tanpa daftar di atas ikut berubah, dan
-            // seeder yang diam dalam keadaan itu akan dilaporkan sukses
-            // sementara sebagian area tidak pernah dapat foto.
             if ($area === null) {
-                throw new RuntimeException(
-                    "Area \"{$namaArea}\" tidak ada di database. ".
-                    'Daftar AreaPhotoSeeder::FOTO tidak lagi cocok dengan MasterSeeder.'
-                );
+                $masalah[] = "area \"{$namaArea}\" tidak ada di database";
+
+                continue;
             }
 
+            // Area yang sudah punya foto tidak diusik — kalau tidak,
+            // menjalankan seeder ini sekali lagi akan menimpa foto yang baru
+            // diunggah staf dengan foto bawaan, tanpa ada yang meminta.
             if ($area->photo_path !== null) {
                 continue;
             }
@@ -73,11 +85,24 @@ class AreaPhotoSeeder extends Seeder
             $sumber = public_path('img/area/'.$namaBerkas);
 
             if (! is_file($sumber)) {
-                throw new RuntimeException(
-                    "Berkas foto \"{$namaBerkas}\" tidak ada di public/img/area/."
-                );
+                $masalah[] = "berkas \"{$namaBerkas}\" tidak ada di public/img/area/";
+
+                continue;
             }
 
+            $siapDitulis[] = [$area, $namaBerkas, $sumber];
+        }
+
+        if ($masalah !== []) {
+            throw new RuntimeException(
+                "AreaPhotoSeeder berhenti tanpa menulis apa pun.\n- ".
+                implode("\n- ", $masalah).
+                "\n\nDaftar AreaPhotoSeeder::FOTO tidak lagi cocok dengan isi database. ".
+                'Samakan dulu nama areanya, baru jalankan lagi.'
+            );
+        }
+
+        foreach ($siapDitulis as [$area, $namaBerkas, $sumber]) {
             $tujuan = self::TUJUAN.'/'.$namaBerkas;
             Storage::disk('public')->put($tujuan, file_get_contents($sumber));
 

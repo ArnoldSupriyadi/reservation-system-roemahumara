@@ -75,6 +75,59 @@ class AreaPhotoTest extends TestCase
     }
 
     /**
+     * Pesannya menyebut SELURUH nama yang meleset, bukan yang pertama saja.
+     *
+     * Ditemukan saat menjalankannya sungguhan di database dev yang daftar
+     * areanya versi lama: empat nama meleset, tapi seeder berhenti di yang
+     * pertama. Memperbaikinya berarti empat putaran jalankan–gagal–betulkan,
+     * padahal keempatnya sudah diketahui sejak awal.
+     */
+    public function test_the_error_names_every_area_that_is_missing(): void
+    {
+        Storage::fake('public');
+        $this->seed(MasterSeeder::class);
+        Area::whereIn('name', ['FOYE', 'SOFA', 'GRAND BALLROOM'])->delete();
+
+        try {
+            $this->seed(AreaPhotoSeeder::class);
+            $this->fail('Seeder seharusnya melempar.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('FOYE', $e->getMessage());
+            $this->assertStringContainsString('SOFA', $e->getMessage());
+            $this->assertStringContainsString('GRAND BALLROOM', $e->getMessage());
+        }
+    }
+
+    /**
+     * Gagal berarti TIDAK ADA yang ditulis, bukan sebagian.
+     *
+     * Sebelum perbaikan ini seeder menulis foto sampai nama yang meleset lalu
+     * berhenti, meninggalkan database setengah terisi — keadaan yang tidak
+     * pernah diminta siapa pun dan tidak terlihat dari pesan errornya.
+     */
+    public function test_nothing_is_written_when_any_area_is_missing(): void
+    {
+        Storage::fake('public');
+        $this->seed(MasterSeeder::class);
+
+        // VIP 1 ada di urutan pertama daftar FOTO, jadi tanpa pemeriksaan di
+        // muka ia sudah terlanjur dapat foto sebelum FOYE bikin gagal.
+        Area::where('name', 'FOYE')->delete();
+
+        try {
+            $this->seed(AreaPhotoSeeder::class);
+        } catch (\RuntimeException) {
+            // Diharapkan.
+        }
+
+        $this->assertSame(
+            0,
+            Area::whereNotNull('photo_path')->count(),
+            'Seeder menulis sebagian foto padahal ada nama yang meleset.'
+        );
+    }
+
+    /**
      * Area tanpa foto mengembalikan null, bukan URL yang menunjuk entah ke mana.
      *
      * Nilai itulah yang dipakai form untuk memutuskan menyembunyikan
