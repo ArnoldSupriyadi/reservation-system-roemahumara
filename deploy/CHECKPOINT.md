@@ -149,26 +149,37 @@ direstart. Jadi selama masa itu kode baru sudah terpasang sementara opcache
 masih menyajikan kode lama. Gejala khasnya: "sudah saya deploy tapi
 perubahannya tidak muncul".
 
-## `.git` di `/var/www/roemahumara` basi — dan itu normal
+**Terkonfirmasi di server 2026-09-08.** `ls -ln storage/fonts` menunjukkan
+seluruh berkas font milik **UID/GID 33 — `www-data` di Ubuntu** — bertanggal
+**26 Agustus**, dua hari setelah deploy sukses terakhir. Di situlah cetakan PDF
+pertama di produksi terjadi, dan sejak detik itu setiap deploy gagal di baris
+yang sama. Pakai `ls -ln` (numerik), bukan `ls -l`: yang kedua menampilkan nama
+user dan menyamarkan bahwa pemiliknya user yang berbeda.
+
+## `.git` di `/var/www/roemahumara` — sudah dihapus 2026-09-08
 
 Deploy mengirim kode lewat **`rsync`, bukan `git pull`**, dan rsync meng-exclude
-`.git`. Jadi `.git` di server berhenti di commit hasil `git clone` saat
-pemasangan dan tidak pernah diperbarui.
+`.git` — dan **exclude itu benar, jangan dihapus**: riwayat proyek tidak perlu
+ikut ke server. Akibatnya `.git` di server berhenti di commit hasil `git clone`
+saat pemasangan dan tidak pernah diperbarui sekali pun.
 
-`git status` di sana karena itu melaporkan banyak berkas sebagai "Changes not
-staged for commit" **tanpa ada seorang pun yang menyunting di server**. Itu
-selisih antara kode baru hasil rsync dan commit lama yang dipegang `.git`, bukan
-tanda kerusakan.
+**Angkanya, sebelum dihapus:** `.git` di sana memegang `e019187` (2026-08-23),
+sedangkan `main` sudah 30 commit di depannya. Tiga puluh commit itulah yang
+selama ini dilaporkan `git status` sebagai "Changes not staged for commit" —
+**tanpa ada seorang pun yang menyunting di server**. Itu selisih antara kode
+baru hasil rsync dan commit lama yang dipegang `.git`, bukan tanda kerusakan.
 
 Yang benar-benar rusak karena ini cuma satu: prosedur rollback "Opsi B" di
-RUNBOOK yang menyuruh `git checkout` di direktori itu. Sudah diganti 2026-09-07.
+RUNBOOK yang menyuruh `git checkout` di direktori itu — ia tidak pernah bisa
+jalan sejak ditulis, dan satu-satunya saat orang membukanya adalah saat produksi
+bermasalah. Sudah diganti 2026-09-07.
 
-`.git` di server boleh dihapus — tidak ada langkah deploy yang memakainya:
-
-```bash
-rm -rf /var/www/roemahumara/.git
-```
-
+`.git`-nya dihapus 2026-09-08. Sejak itu `git status` di sana menjawab
+`fatal: not a git repository`, dan **itu jawaban yang benar** — direktori itu
+memang bukan repo git. Tidak ada langkah deploy yang memakainya; sudah diperiksa
+bahwa tidak satu pun kode aplikasi membacanya. Kalau server kelak dipasang
+ulang, `git clone` di RUNBOOK bagian 6 tetap jalur bootstrap yang benar —
+yang keliru dulu adalah membiarkan sisanya lalu memercayainya.
 ## Keputusan yang sudah diambil
 
 **Sistem dibuka ke internet lewat port forwarding** (2026-08-24). Bukan
