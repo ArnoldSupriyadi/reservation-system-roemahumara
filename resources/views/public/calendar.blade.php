@@ -9,7 +9,7 @@
         <a href="{{ route('public.calendar', ['bulan' => $previousMonth]) }}" rel="nofollow" class="brut-btn">‹ Sebelumnya</a>
         <a href="{{ route('public.calendar', ['bulan' => $nextMonth]) }}" rel="nofollow" class="brut-btn">Berikutnya ›</a>
 
-        <p class="brut-count ms-auto">{{ $total }} Booking Cuy</p>
+        <p class="brut-count ms-auto">{{ $total }} Booking</p>
     </section>
 
     <div class="brut-box overflow-x-auto">
