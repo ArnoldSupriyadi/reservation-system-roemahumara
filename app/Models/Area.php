@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\Storage;
 
 class Area extends Model
 {
-    protected $fillable = ['name', 'is_active'];
+    protected $fillable = ['name', 'photo_path', 'is_active'];
 
     protected function casts(): array
     {
@@ -18,6 +19,27 @@ class Area extends Model
     public function scopeActive(Builder $query): void
     {
         $query->where($query->qualifyColumn('is_active'), true);
+    }
+
+    /**
+     * URL foto panduan area, atau null kalau belum ada fotonya.
+     *
+     * Null adalah keadaan yang sah, bukan kesalahan: area yang baru ditambah
+     * belum sempat difoto. Form CMS memakai nilai ini untuk memutuskan
+     * menyembunyikan pratinjaunya sama sekali — mengembalikan string kosong
+     * akan menghasilkan ikon gambar rusak, yang lebih buruk daripada tidak
+     * menampilkan apa-apa.
+     *
+     * URL-nya dibangun di sini, bukan disimpan di database. Kolomnya menyimpan
+     * path relatif, sehingga foto tetap benar setelah APP_URL berganti.
+     */
+    public function photoUrl(): ?string
+    {
+        if ($this->photo_path === null) {
+            return null;
+        }
+
+        return Storage::disk('public')->url($this->photo_path);
     }
 
     /**

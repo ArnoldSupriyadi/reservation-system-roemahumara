@@ -20,7 +20,9 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Image;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Str;
 
@@ -95,10 +97,39 @@ class ReservationForm
                     // Wajib. Area yang kosong membuat ConflictChecker melewati
                     // baris ini sepenuhnya, sehingga kewajiban menjelaskan bentrok
                     // di Remark bisa dihindari hanya dengan tidak mengisi area.
+                    //
+                    // ->live() ada demi pratinjau foto di bawahnya: tanpa itu
+                    // fotonya baru berganti setelah form dikirim, yang berarti
+                    // tidak pernah berguna sebagai panduan saat memilih.
                     Select::make('area_id')
                         ->label('Area')
                         ->required()
+                        ->live()
                         ->options(fn () => Area::query()->active()->orderBy('id')->pluck('name', 'id')),
+
+                    /*
+                     * Panduan visual, bukan isian.
+                     *
+                     * Staf yang belum hafal ruangan sering ragu antara FOYE dan
+                     * KORIDOR; fotonya menjawab itu tanpa harus meninggalkan
+                     * form. Sengaja hanya di CMS — kalender publik tidak
+                     * menampilkannya sama sekali (aturan #10).
+                     *
+                     * Disembunyikan total kalau areanya belum punya foto.
+                     * Merender <img> dengan src kosong tetap menghasilkan ikon
+                     * gambar rusak di peramban, dan staf membacanya sebagai
+                     * "sistemnya error", bukan "areanya belum difoto".
+                     *
+                     * Tingginya dipatok supaya foto potret tidak mendorong
+                     * tombol Simpan jauh ke bawah layar.
+                     */
+                    Image::make(
+                        fn (Get $get): string => self::fotoArea($get('area_id')) ?? '',
+                        'Foto panduan area',
+                    )
+                        ->imageHeight(180)
+                        ->visible(fn (Get $get): bool => self::fotoArea($get('area_id')) !== null)
+                        ->columnSpanFull(),
 
                     TextInput::make('pax')
                         ->label('Pax')
@@ -492,5 +523,26 @@ class ReservationForm
         $options[ReservationStatus::Cancelled->value] = 'CANCEL';
 
         return $options;
+    }
+
+    /**
+     * URL foto panduan sebuah area, atau null kalau belum ada fotonya.
+     *
+     * Dipanggil dua kali per render — sekali oleh visible(), sekali oleh url().
+     * Keduanya lookup primary key, bukan query yang tumbuh mengikuti jumlah
+     * baris. Menyimpannya ke properti statis akan menahan foto lama setelah
+     * staf menggantinya di tab sebelah, dengan penghematan yang tidak sepadan.
+     *
+     * Menerima id apa adanya dari state form: Livewire mengirimnya sebagai
+     * string, dan kosongnya bisa berupa null maupun ''. blank() memperlakukan
+     * keduanya sama — "belum memilih area".
+     */
+    private static function fotoArea(mixed $areaId): ?string
+    {
+        if (blank($areaId)) {
+            return null;
+        }
+
+        return Area::find($areaId)?->photoUrl();
     }
 }

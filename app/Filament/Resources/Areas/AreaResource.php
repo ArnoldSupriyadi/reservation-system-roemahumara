@@ -7,12 +7,14 @@ use App\Models\Area;
 use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\QueryException;
@@ -40,6 +42,33 @@ class AreaResource extends Resource
                 ->unique(ignoreRecord: true)
                 ->dehydrateStateUsing(fn (string $state) => mb_strtoupper(trim($state))),
 
+            /*
+             * Foto panduan, muncul di form reservasi saat area ini dipilih.
+             *
+             * Boleh kosong; area tanpa foto hanya membuat pratinjaunya tidak
+             * ditampilkan, bukan membuat form rusak.
+             *
+             * Diperkecil DI PERAMBAN sebelum diunggah (imageResize*), bukan di
+             * server. Foto langsung dari HP rutin 3–5 MB, dan sepuluh berkas
+             * sebesar itu membuat form reservasi berat justru di bagian yang
+             * seharusnya hanya membantu. Mengecilkannya di server menuntut
+             * ekstensi gambar terpasang di VPS; di peramban tidak menuntut apa
+             * pun.
+             *
+             * 'contain' bukan 'cover': ruangan yang terpotong demi menyamakan
+             * rasio justru menghilangkan bagian yang mau ditunjukkan.
+             */
+            FileUpload::make('photo_path')
+                ->label('Foto panduan')
+                ->image()
+                ->disk('public')
+                ->directory('area')
+                ->imageResizeMode('contain')
+                ->imageResizeTargetWidth('1600')
+                ->imageResizeTargetHeight('1600')
+                ->maxSize(8192)
+                ->helperText('Muncul di form reservasi sebagai panduan staf. Tidak pernah tampil di kalender publik.'),
+
             Toggle::make('is_active')
                 ->label('Aktif')
                 ->default(true)
@@ -63,6 +92,16 @@ class AreaResource extends Resource
                     // width:1% membuat kolom menyempit sampai selebar isinya.
                     // Tanpa itu tiga kolom berbagi rata lebar tabel dan angkanya
                     // terdorong jauh dari nama.
+                    ->extraHeaderAttributes(['style' => 'width:1%; white-space:nowrap'])
+                    ->extraCellAttributes(['style' => 'width:1%; white-space:nowrap']),
+
+                // Menyempit seperti kolom Aktif, supaya Nama tetap yang
+                // mengambil sisa lebar tabel. Ada di sini bukan sebagai hiasan:
+                // sekali lihat ketahuan area mana yang belum sempat difoto,
+                // tanpa membuka satu per satu.
+                ImageColumn::make('photo_path')
+                    ->label('Foto')
+                    ->disk('public')
                     ->extraHeaderAttributes(['style' => 'width:1%; white-space:nowrap'])
                     ->extraCellAttributes(['style' => 'width:1%; white-space:nowrap']),
 

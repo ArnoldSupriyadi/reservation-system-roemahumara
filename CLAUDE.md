@@ -133,6 +133,45 @@ terkirim dengan status 200 dan content-type yang benar — yang ketahuan hanya s
 Excel menolaknya. Pembacanya menyalakan `SHOULD_PRESERVE_EMPTY_ROWS` supaya baris
 kosong pemisah judul ikut terlihat.
 
+## Foto panduan area
+
+Kolom `areas.photo_path` (nullable). Muncul sebagai pratinjau di form reservasi
+begitu areanya dipilih, dan sebagai thumbnail di daftar `/cms/areas`. Tujuannya
+satu: staf yang belum hafal ruangan sering ragu antara FOYE dan KORIDOR.
+
+- **Hanya di CMS.** Tidak pernah dirender kalender publik, dokumen PDF, atau
+  berkas export. Menambahkannya ke halaman publik berarti menambah `photo_path`
+  ke `select()` di `PublicCalendarController`, dan itu tunduk pada aturan #10.
+- **Kolomnya menyimpan path relatif, bukan URL.** URL dibangun saat dirender
+  lewat `Area::photoUrl()`. Menyimpan URL penuh akan membekukan `APP_URL` lama
+  ke dalam baris database — kesalahan yang sudah pernah dibayar pada tautan
+  kalender publik di sidebar.
+- **Kosong itu sah.** Area tanpa foto membuat pratinjaunya disembunyikan
+  seluruhnya, bukan merender `<img>` bersrc kosong. Peramban menampilkan yang
+  terakhir itu sebagai ikon gambar rusak, dan staf membacanya sebagai "sistemnya
+  error", bukan "areanya belum difoto". `ImageColumn` di tabel kebetulan
+  bersikap sama: ia mengecek keberadaan berkas dan tidak merender apa pun kalau
+  tidak ketemu.
+- **Diperkecil di peramban sebelum diunggah**, bukan di server — foto dari HP
+  rutin 3–5 MB, dan mengecilkannya di server menuntut ekstensi gambar terpasang
+  di VPS.
+
+**Foto unggahan TIDAK ikut git.** Ia di `storage/app/public/area/`, dan rsync
+deploy meng-exclude `storage/` — jadi unggahan staf selamat dari setiap deploy,
+tapi hilang kalau server dipasang ulang. Sepuluh foto bawaan di
+`public/img/area/` ada justru untuk itu, dan `AreaPhotoSeeder` menyalinnya masuk:
+
+```
+php artisan db:seed --class=AreaPhotoSeeder
+```
+
+Seeder itu tidak ikut `db:seed` polos (sama seperti `ReservationDemoSeeder`) dan
+**tidak menimpa foto yang sudah ada** — kalau tidak, menjalankannya ulang setelah
+menambah area baru akan diam-diam mengembalikan foto yang baru diunggah staf ke
+foto bawaan. Nama area → nama berkas didaftarkan tegas di `AreaPhotoSeeder::FOTO`
+dan nama yang tidak ketemu **melempar**, tidak dilewati — pelajaran yang sama
+dengan `MasterSeeder::MELIPUTI` di aturan #12.
+
 ## Database
 
 Development dan test memakai database **terpisah**:
