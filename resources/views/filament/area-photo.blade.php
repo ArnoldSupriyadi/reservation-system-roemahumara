@@ -11,8 +11,7 @@
 
     Pembesarnya memakai <dialog> bawaan peramban, bukan overlay buatan sendiri:
     latar gelap, Esc untuk menutup, dan jebakan fokus sudah benar sejak awal,
-    termasuk bagi yang memakai keyboard saja. Alpine hanya dipakai dua baris,
-    dan ia sudah ada di panel ini (lihat widgets/today.blade.php).
+    termasuk bagi yang memakai keyboard saja.
 
     Placeholder sengaja TIDAK ikut cabang ini: tidak ada yang bisa diperbesar
     dari tulisan "No image", dan kursor zoom-in di atasnya menjanjikan sesuatu
@@ -28,23 +27,77 @@
                 cursor: zoom-in;
             }
 
+            /*
+             * Dialog bawaan memusatkan dirinya sendiri lewat margin auto. Yang
+             * ditambahkan di sini hanya jarak amannya: tanpa itu foto lanskap
+             * yang lebar menempel ke tepi layar, dan tombol tutup di pojoknya
+             * ikut tertekan keluar pandangan.
+             */
             dialog.ru-area-photo-dialog {
                 border: 0;
                 padding: 0;
                 background: transparent;
-                max-width: 92vw;
-                max-height: 92vh;
+                overflow: visible;
+                max-width: none;
+                max-height: none;
+                margin: auto;
             }
 
             dialog.ru-area-photo-dialog::backdrop {
                 background: rgb(0 0 0 / 0.75);
             }
 
-            dialog.ru-area-photo-dialog img {
+            /*
+             * Pembungkusnya yang dibatasi, bukan gambarnya — tombol tutup
+             * berpaut ke sudut pembungkus ini, jadi ia mengikuti tepi foto
+             * seberapa pun ukuran fotonya. Batas 88vw/88vh menyisakan jarak ke
+             * tepi layar di keempat sisi.
+             */
+            .ru-area-photo-frame {
+                position: relative;
+                display: inline-block;
+                max-width: 88vw;
+                max-height: 88vh;
+            }
+
+            .ru-area-photo-frame img {
                 display: block;
-                max-width: 92vw;
-                max-height: 92vh;
+                max-width: 88vw;
+                max-height: 88vh;
                 border-radius: 0.5rem;
+            }
+
+            /*
+             * Sengaja mencolok. Tombol tutup yang menyatu dengan gambar di
+             * belakangnya sama saja dengan tidak ada — dan foto area ini
+             * berlatar apa saja, terang maupun gelap. Lingkaran putih pekat
+             * dengan garis gelap terbaca di atas keduanya.
+             *
+             * Letaknya menggantung sedikit di luar sudut foto supaya ia tidak
+             * pernah menutupi bagian gambar yang justru ingin dilihat.
+             */
+            .ru-area-photo-close {
+                position: absolute;
+                top: -0.75rem;
+                right: -0.75rem;
+                width: 2.5rem;
+                height: 2.5rem;
+                border-radius: 9999px;
+                border: 2px solid #111827;
+                background: #ffffff;
+                color: #111827;
+                font-size: 1.25rem;
+                line-height: 1;
+                font-weight: 700;
+                cursor: pointer;
+                box-shadow: 0 2px 10px rgb(0 0 0 / 0.5);
+            }
+
+            .ru-area-photo-close:hover,
+            .ru-area-photo-close:focus-visible {
+                background: #111827;
+                color: #ffffff;
+                outline: 3px solid #ffffff;
             }
         </style>
 
@@ -57,16 +110,28 @@
 
         {{--
             Klik pada latar menutup: pada <dialog>, klik di area gelap
-            menargetkan elemen dialog itu sendiri, sedangkan klik pada fotonya
-            menargetkan <img> — jadi perbandingan ini menutup saat latar diklik
-            dan membiarkannya terbuka saat fotonya yang diklik.
+            menargetkan elemen dialog itu sendiri, sedangkan klik pada isinya
+            menargetkan gambar atau tombol — jadi perbandingan ini menutup saat
+            latar diklik dan membiarkannya terbuka saat fotonya yang diklik.
         --}}
         <dialog
             class="ru-area-photo-dialog"
             x-ref="besar"
             x-on:click="$event.target === $el && $el.close()"
         >
-            <img src="{{ $url }}" alt="Foto panduan area">
+            <div class="ru-area-photo-frame">
+                <img src="{{ $url }}" alt="Foto panduan area">
+
+                {{--
+                    <form method="dialog"> menutup dialognya tanpa satu baris
+                    JavaScript pun — perilaku bawaan peramban. Autofocus supaya
+                    yang memakai keyboard langsung berdiri di tombol tutup
+                    begitu fotonya terbuka.
+                --}}
+                <form method="dialog">
+                    <button class="ru-area-photo-close" type="submit" aria-label="Tutup" autofocus>&times;</button>
+                </form>
+            </div>
         </dialog>
     </div>
 @else

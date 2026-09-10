@@ -28,6 +28,9 @@ class AreaPhotoTest extends TestCase
     /** Penanda markup pembesar foto; ada hanya kalau fotonya bisa diklik. */
     private const PEMBESAR = 'ru-area-photo-dialog';
 
+    /** Tombol tutup pada foto yang sedang diperbesar. */
+    private const TOMBOL_TUTUP = 'ru-area-photo-close';
+
     public function test_seeder_gives_every_master_area_a_photo(): void
     {
         Storage::fake('public');
@@ -302,6 +305,27 @@ class AreaPhotoTest extends TestCase
             ->fillForm(['area_id' => $area->id])
             ->assertSee(self::PEMBESAR)
             ->assertSee($area->photoUrl());
+    }
+
+    /**
+     * Foto yang diperbesar punya tombol tutup yang terlihat.
+     *
+     * Esc dan klik-latar tetap bekerja, tapi keduanya tidak terlihat: yang
+     * belum pernah memakainya tidak tahu keduanya ada, dan yang membuka lewat
+     * layar sentuh tidak punya Esc sama sekali. Tombolnya sengaja mencolok —
+     * lingkaran putih bergaris di pojok fotonya — karena tombol tutup yang
+     * menyatu dengan gambar di belakangnya sama saja dengan tidak ada.
+     */
+    public function test_the_enlarged_photo_has_a_visible_close_button(): void
+    {
+        Storage::fake('public');
+        $this->masukSebagaiStaf();
+        Storage::disk('public')->put('area/OUTDOOR.jpg', 'isi-gambar');
+        $area = Area::create(['name' => 'OUTDOOR', 'photo_path' => 'area/OUTDOOR.jpg']);
+
+        Livewire::test(CreateReservation::class)
+            ->fillForm(['area_id' => $area->id])
+            ->assertSee(self::TOMBOL_TUTUP);
     }
 
     /**

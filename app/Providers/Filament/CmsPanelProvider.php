@@ -60,7 +60,7 @@ class CmsPanelProvider extends PanelProvider
              * reservasi, dan letaknya persis di sebelah daftar yang mengisinya.
              */
             ->navigationItems([
-                NavigationItem::make('Kalender')
+                NavigationItem::make('Kalender publik')
                     ->url(fn (): string => route('public.calendar'), shouldOpenInNewTab: true)
                     ->icon('heroicon-o-globe-alt')
                     ->group('Reservasi')

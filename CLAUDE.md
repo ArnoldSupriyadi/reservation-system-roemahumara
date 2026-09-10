@@ -180,6 +180,18 @@ satu: staf yang belum hafal ruangan sering ragu antara FOYE dan KORIDOR.
   ketiganya ulang. Alpine dipakai dua baris saja, dan ia memang sudah ada di
   panel ini.
 
+  Foto yang terbuka **tetap di tengah layar** dengan jarak aman ke keempat
+  tepinya (88vw/88vh pada pembungkusnya, bukan pada gambarnya — tombol tutup
+  berpaut ke sudut pembungkus itu, jadi ia mengikuti tepi foto seberapa pun
+  ukurannya). Tombol tutupnya **sengaja mencolok**: lingkaran putih bergaris
+  gelap, menggantung sedikit di luar sudut foto. Foto area berlatar apa saja,
+  terang maupun gelap, dan tombol tutup yang menyatu dengan gambar di
+  belakangnya sama saja dengan tidak ada. Ia dipasang lewat
+  `<form method="dialog">` — menutup tanpa satu baris JavaScript pun — dan
+  `autofocus`, supaya yang memakai keyboard langsung berdiri di sana. Esc dan
+  klik-latar tetap bekerja, tapi keduanya tidak terlihat, dan layar sentuh
+  tidak punya Esc sama sekali.
+
   Seluruh markup pembesarnya — **termasuk aturan CSS-nya** — hanya dirender
   kalau fotonya benar-benar ada. Bukan kerapian: kursor `zoom-in` di atas
   tulisan "No image" menjanjikan sesuatu yang tidak ada, dan staf yang
