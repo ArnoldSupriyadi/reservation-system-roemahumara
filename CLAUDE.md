@@ -146,12 +146,52 @@ satu: staf yang belum hafal ruangan sering ragu antara FOYE dan KORIDOR.
   lewat `Area::photoUrl()`. Menyimpan URL penuh akan membekukan `APP_URL` lama
   ke dalam baris database — kesalahan yang sudah pernah dibayar pada tautan
   kalender publik di sidebar.
-- **Kosong itu sah.** Area tanpa foto membuat pratinjaunya disembunyikan
-  seluruhnya, bukan merender `<img>` bersrc kosong. Peramban menampilkan yang
-  terakhir itu sebagai ikon gambar rusak, dan staf membacanya sebagai "sistemnya
-  error", bukan "areanya belum difoto". `ImageColumn` di tabel kebetulan
-  bersikap sama: ia mengecek keberadaan berkas dan tidak merender apa pun kalau
-  tidak ketemu.
+- **Kosong itu sah, dan dikatakan.** Area yang sudah dipilih tapi belum difoto
+  menampilkan placeholder `public/img/no-image.svg` — bukan ruang kosong, dan
+  yang paling penting bukan `<img>` bersrc kosong atau bersrc yang menunjuk
+  berkas hilang. Peramban menampilkan kedua yang terakhir sebagai ikon gambar
+  rusak, dan staf membacanya sebagai "sistemnya error", bukan "areanya belum
+  difoto".
+
+  Sampai 2026-09-10 pratinjaunya disembunyikan seluruhnya. Diganti atas
+  permintaan pemilik sistem; alasan aslinya tidak dibuang, justru itu yang
+  menentukan bentuk placeholder-nya — ia **bertulisan**, sehingga mengatakan
+  keadaannya alih-alih menyisakan ruang kosong yang juga bisa dibaca sebagai
+  form yang belum selesai memuat.
+
+  Placeholder-nya tinggal di `public/`, **bukan** di `storage/`: yang kedua
+  di-exclude dari rsync deploy, jadi ia akan hilang saat server dipasang ulang
+  dan berubah jadi ikon gambar rusak yang ia ada untuk mencegahnya. Sebelum ada
+  area yang dipilih tidak ada apa-apa yang dirender — placeholder menjawab
+  "mana fotonya?", dan pertanyaan itu belum ada.
+
+- **`Area::photoUrl()` mengembalikan null kalau berkasnya tidak ada**, bukan
+  hanya kalau kolomnya kosong. Kolom terisi belum berarti berkasnya ada: foto
+  unggahan tinggal di `storage/`, yang tidak ikut git dan tidak ikut deploy,
+  sehingga server yang dipasang ulang datang dengan baris database utuh dan
+  folder fotonya kosong. Itulah yang membuat form jatuh ke placeholder alih-alih
+  menunjuk 404. `ImageColumn` di tabel sudah bersikap begitu sejak awal: ia
+  mengecek keberadaan berkas dan tidak merender apa pun kalau tidak ketemu.
+- **Fotonya bisa diklik untuk diperbesar; placeholder tidak.** Thumbnail 180px
+  cukup untuk membedakan FOYE dari KORIDOR, tapi tidak untuk melihat penataan
+  meja. Klik membuka `<dialog>` bawaan peramban — dipilih justru karena latar
+  gelap, Esc-untuk-menutup, dan jebakan fokusnya sudah benar sejak awal, juga
+  bagi yang memakai keyboard saja; overlay buatan sendiri harus mengerjakan
+  ketiganya ulang. Alpine dipakai dua baris saja, dan ia memang sudah ada di
+  panel ini.
+
+  Seluruh markup pembesarnya — **termasuk aturan CSS-nya** — hanya dirender
+  kalau fotonya benar-benar ada. Bukan kerapian: kursor `zoom-in` di atas
+  tulisan "No image" menjanjikan sesuatu yang tidak ada, dan staf yang
+  mengkliknya lalu tidak mendapat apa-apa akan mengira sistemnya menggantung.
+  Testnya memeriksa persis itu lewat ketiadaan penanda `ru-area-photo-dialog`,
+  jadi menaruh CSS-nya di luar percabangan akan membuat test itu merah.
+
+  Berlaku di halaman **Create dan Edit** sekaligus, karena `ReservationForm`
+  adalah satu skema yang dipakai bersama keduanya — sama seperti
+  `Concerns\ChecksAreaConflicts` di aturan #12. **Jangan membelahnya jadi
+  perilaku per halaman**; ada test yang menjaga halaman Edit tetap ikut.
+
 - **Diperkecil di peramban sebelum diunggah**, bukan di server — foto dari HP
   rutin 3–5 MB, dan mengecilkannya di server menuntut ekstensi gambar terpasang
   di VPS.
@@ -203,18 +243,33 @@ Seeder itu sengaja tidak ikut `db:seed` polos, supaya sistem yang baru dipasang 
 berisi tamu palsu. Aman dijalankan berulang: penulisannya lewat `ReservationWriter`,
 jadi idempotency-nya mencegah data kembar.
 
-**Akun.** `db:seed` hanya membuat satu akun: admin `roemahumara@gmail.com`, sandinya
-dari `INITIAL_USER_PASSWORD` di `.env`. Kalau nilai itu kosong atau masih placeholder,
-`DatabaseSeeder` **berhenti** — bukan memakai nilai cadangan. Cadangan `'password'`
-dihapus 2026-08-24 setelah pemasangan VPS lahir bersandi placeholder tanpa satu pun
-tanda, dan login ditolak dengan pesan yang sama persis untuk email tidak terdaftar,
-sandi salah, dan akun nonaktif (Filament menyamakan ketiganya dengan sengaja),
-sehingga penyebabnya mustahil dibedakan dari layar. `firstOrCreate` tidak pernah
-memperbaiki akun yang terlanjur jadi. Sepuluh akun staf ada di `StaffSeeder` (tidak
-ikut `db:seed` polos), memakai sandi dan penjaga yang sama lewat trait
-`Concerns\ReadsInitialPassword` — jangan menyalin penjaganya ke masing-masing seeder.
+**Akun.** `db:seed` hanya membuat satu akun: admin `roemahumara@gmail.com`. Sandi
+awalnya **`Umara2026!`**, ditulis tegas sebagai konstanta `SANDI_BAWAAN` di trait
+`Concerns\ReadsInitialPassword`. `INITIAL_USER_PASSWORD` di `.env` masih dibaca dan
+**menimpa** nilai itu kalau diisi; kosong atau masih placeholder berarti "pakai yang
+bawaan".
+
+Sampai 2026-09-10 nilai kosong membuat seeder **berhenti melempar**. Penjagaan itu
+lahir dari pemasangan VPS 2026-08-24 — akun admin lahir bersandi placeholder tanpa
+satu pun tanda, lalu login ditolak dengan pesan yang sama persis untuk email tidak
+terdaftar, sandi salah, dan akun nonaktif (Filament menyamakan ketiganya dengan
+sengaja), sehingga penyebabnya mustahil dibedakan dari layar. Masalah itu tetap
+tertutup dengan cara lain: sandi yang terbentuk sekarang selalu **diketahui**, bukan
+tebakan. Yang hilang adalah ongkosnya — `db:seed` di mesin yang `.env`-nya belum
+disunting tidak lagi gagal, termasuk saat yang dibutuhkan cuma tabel master.
+
+Dua hal yang harus tetap disadari. `Umara2026!` ada di dalam repositori dan riwayat git,
+jadi ia sandi **awal**, bukan sandi tetap: di server yang terbuka ke internet isi
+`INITIAL_USER_PASSWORD` **sebelum** seeder pertama kali dijalankan. Dan
+`firstOrCreate` tidak pernah memperbaiki akun yang terlanjur jadi — mengganti sandi
+sesudahnya hanya bisa lewat panel, satu per satu.
+
+Sepuluh akun staf ada di `StaffSeeder` (tidak ikut `db:seed` polos), memakai sandi
+dan trait yang sama — jangan menyalin pembacaan sandinya ke masing-masing seeder.
 Sandi bersama itu keadaan sementara: selama belum diganti masing-masing,
-`activity_log` bisa menunjuk orang yang keliru.
+`activity_log` bisa menunjuk orang yang keliru. Nilai harfiah `Umara2026!` dijaga
+`DatabaseSeederTest` dan `StaffSeederTest`, jadi mengganti konstantanya tanpa
+memperbarui berkas ini akan membuat test berbunyi.
 
 ## Aturan yang tidak boleh dilanggar
 

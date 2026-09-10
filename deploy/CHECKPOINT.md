@@ -100,7 +100,7 @@ membuang waktu di tempat yang bukan penyebabnya.
 | PHP | 8.3.6 di `/usr/bin/php8.3` |
 | Composer | 2.10.2 |
 | User deploy | `ictumara` — sekaligus akun login SSH |
-| Terakhir diperbarui | 2026-09-07 (bagian 8 selesai — sistem live di domain publik) |
+| Terakhir diperbarui | 2026-09-10 (foto area dan penyeragaman nama area sampai ke produksi) |
 
 ## Status per bagian
 
@@ -243,3 +243,67 @@ Dicatat di sini supaya tidak hilang; rinciannya di RUNBOOK bagian 8.
   setelah `INITIAL_USER_PASSWORD` diisi. Sesudahnya sebelas akun memakai sandi
   yang sama sampai masing-masing menggantinya sendiri
 - Halaman publik menampilkan nama tamu, perusahaan, dan remark tanpa login
+
+---
+
+## 2026-09-10 — foto area: seeder manual, bukan bagian deploy
+
+Deploy `9b1214c` membawa migrasi `2026_09_08_000002` (nama area disamakan dengan
+`MasterSeeder`) dan kolom `areas.photo_path`. Fotonya sendiri **tidak ikut**, dan
+itu bukan kelalaian: `storage/` di-exclude dari rsync supaya unggahan staf selamat
+tiap deploy, dan `deploy.sh` menjalankan `migrate` tapi **tidak pernah** `db:seed`.
+
+Jadi setiap kali server dipasang ulang — atau kalau kelak ada area baru yang
+perlu foto bawaan — langkahnya manual, dan urutannya mengikat:
+
+```bash
+# 1. migrate sudah dijalankan deploy.sh
+# 2. lalu, sebagai user ictumara:
+php artisan db:seed --class=AreaPhotoSeeder
+```
+
+Kalau seedernya melempar dengan "area X tidak ada di database", itu **bukan
+kerusakan**: ia memeriksa seluruh daftar dulu dan berhenti sebelum menulis satu
+berkas pun, jadi tidak ada yang tertinggal setengah jalan. Artinya migrasinya
+belum kena; jalankan ulang setelah itu beres.
+
+**Cara memeriksanya dari luar, tanpa login dan tanpa SSH:**
+
+```bash
+curl -s -o /dev/null -w "%{http_code} %{size_download}\n" \
+  https://reservation.roemahumara.com/storage/area/FOYE.jpg
+```
+
+`200` dengan ukuran yang sama persis dengan `public/img/area/FOYE.jpg` di repo
+berarti seedernya sudah jalan; `404` berarti belum — atau `public/storage` di
+server menunjuk ke path rilis yang sudah terhapus, karena `storage:link` hanya
+membuat symlink kalau belum ada dan tidak memeriksa yang lama masih sah.
+
+---
+
+## 2026-09-10 — sandi seeder tidak lagi wajib dari `.env`
+
+`db:seed` dulu **berhenti** kalau `INITIAL_USER_PASSWORD` kosong. Sekarang ia
+jatuh ke sandi bawaan `Umara2026!` (konstanta `SANDI_BAWAAN` di trait
+`Database\Seeders\Concerns\ReadsInitialPassword`). `.env` yang terisi tetap
+menang.
+
+**Yang berubah untuk server ini:** kelalaian mengisi `.env` tidak lagi ketahuan
+saat itu juga. Sandi bawaannya ada di repositori publik, jadi akun admin yang
+lahir tanpa `.env` terisi bisa dimasuki siapa saja yang membaca kodenya. Seeder
+memakai `firstOrCreate` dan **tidak pernah** memperbaiki akun yang terlanjur
+jadi — pembetulannya hanya lewat panel, satu per satu.
+
+Karena itu, sebelum `db:seed --force` atau `db:seed --class=StaffSeeder --force`
+dijalankan di VPS:
+
+```bash
+grep '^INITIAL_USER_PASSWORD=' /var/www/roemahumara/.env
+```
+
+Baris itu harus berisi sandi sungguhan. Kalau kosong, isi dulu lalu
+`php8.3 artisan config:clear`.
+
+Akun admin di server ini sudah ada sejak 2026-08-24 dan sandinya sudah diganti
+lewat panel, jadi perubahan ini **tidak menyentuhnya**. Yang belum ada: sepuluh
+akun staf (lihat "Yang sengaja belum dikerjakan").

@@ -22,12 +22,13 @@ use Spatie\Permission\PermissionRegistrar;
  * mengganti sandinya sendiri, menjalankan seeder ini lagi tidak mengembalikannya ke
  * sandi awal.
  *
- * SANDI AWALNYA SAMA UNTUK SEPULUH ORANG, dibaca dari INITIAL_USER_PASSWORD di .env.
- * Nilainya sengaja TIDAK ditulis di sini: repositori ini publik, dan sandi sungguhan
- * yang masuk ke kode akan terbit ke internet secara permanen — riwayat git
- * menyimpannya meski barisnya nanti dihapus. Sejak 2026-08-25 seeder ini BERHENTI
- * kalau nilainya kosong atau masih placeholder (lihat trait ReadsInitialPassword),
- * jadi lupa mengisinya tidak lagi menghasilkan sepuluh akun yang tidak bisa dimasuki.
+ * SANDI AWALNYA SAMA UNTUK SEPULUH ORANG: sandi bawaan di trait
+ * ReadsInitialPassword, atau nilai INITIAL_USER_PASSWORD di .env kalau berkas itu
+ * diisi. Sejak 2026-09-10 nilai .env yang kosong tidak lagi menghentikan seeder —
+ * ia jatuh ke sandi bawaan, yang tercatat di CLAUDE.md dan karena itu selalu
+ * diketahui. Alasannya ada di trait; yang perlu disadari di sini: sandi bawaan itu
+ * ikut git, jadi di server yang terbuka ke internet isi .env dulu sebelum
+ * menjalankan seeder ini pertama kali.
  *
  * Sandi bersama tetap punya konsekuensi yang perlu diketahui: satu orang yang tahu
  * sandinya bisa masuk sebagai siapa saja, memakai nama rekannya sebagai PIC, dan
@@ -60,9 +61,9 @@ class StaffSeeder extends Seeder
             return;
         }
 
-        // Dibaca sekali di luar perulangan: kalau nilainya belum diisi, seeder
-        // harus berhenti SEBELUM satu pun akun terbentuk. Memanggilnya di dalam
-        // perulangan akan meninggalkan sebagian akun jadi dan sebagian belum.
+        // Dibaca sekali di luar perulangan, bukan di dalamnya: sepuluh akun ini
+        // harus lahir dengan sandi yang sama persis, dan config bisa saja diubah
+        // di tengah jalan oleh kode lain yang berjalan sesudahnya.
         $password = $this->initialPassword();
 
         foreach (self::STAFF as $name => $email) {
@@ -86,8 +87,9 @@ class StaffSeeder extends Seeder
 
         $this->command?->info('Akun staf: '.count(self::STAFF).' orang.');
         $this->command?->warn(
-            'Sandi awalnya diambil dari INITIAL_USER_PASSWORD di .env dan sama untuk semua orang. '
-            .'Minta setiap orang menggantinya sendiri.'
+            'Sandi awalnya sama untuk semua orang — sandi bawaan seeder, atau '
+            .'INITIAL_USER_PASSWORD di .env kalau diisi. Minta setiap orang '
+            .'menggantinya sendiri lewat menu profil.'
         );
     }
 }

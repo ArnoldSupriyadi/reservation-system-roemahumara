@@ -39,6 +39,17 @@ class Area extends Model
             return null;
         }
 
+        // Kolomnya terisi belum berarti berkasnya ada. Foto unggahan tinggal
+        // di storage/, yang tidak ikut git dan di-exclude dari rsync deploy —
+        // server yang dipasang ulang datang dengan baris database utuh dan
+        // folder fotonya kosong. Tanpa pemeriksaan ini, keadaan itu
+        // menghasilkan <img> yang menunjuk 404, dan peramban merendernya
+        // sebagai ikon gambar rusak. Null membuat pemanggilnya jatuh ke
+        // placeholder, yang mengatakan keadaannya alih-alih menakut-nakuti.
+        if (! Storage::disk('public')->exists($this->photo_path)) {
+            return null;
+        }
+
         return Storage::disk('public')->url($this->photo_path);
     }
 

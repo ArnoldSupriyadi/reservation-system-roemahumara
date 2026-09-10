@@ -8,7 +8,6 @@ use Database\Seeders\StaffSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use PHPUnit\Framework\Attributes\DataProvider;
-use RuntimeException;
 use Tests\TestCase;
 
 class StaffSeederTest extends TestCase
@@ -103,25 +102,32 @@ class StaffSeederTest extends TestCase
     }
 
     /**
-     * Penjaga yang lahir dari kejadian 2026-08-24 pada akun admin.
+     * .env kosong atau berisi placeholder jatuh ke sandi bawaan, tidak melempar.
      *
-     * Di sini taruhannya sepuluh kali lipat: satu kali jalan dengan .env yang
-     * belum diisi akan menghasilkan sepuluh akun bersandi placeholder sekaligus,
-     * dan firstOrCreate tidak akan memperbaiki satu pun dari mereka.
+     * Sampai 2026-09-10 keadaan ini menghentikan seeder — lihat alasan lengkapnya
+     * di DatabaseSeederTest. Di sini yang dijaga akibatnya untuk sepuluh orang
+     * sekaligus: mereka semua lahir dengan sandi yang sama dan diketahui, bukan
+     * dengan placeholder yang tidak bisa dipakai masuk.
      *
-     * @param  string  $password  nilai .env yang tidak boleh diterima
+     * @param  string  $password  nilai .env yang tidak boleh dipakai apa adanya
      */
     #[DataProvider('placeholderPasswords')]
-    public function test_it_refuses_a_placeholder_password(string $password): void
+    public function test_a_blank_or_placeholder_env_falls_back_to_the_built_in_password(string $password): void
     {
         $this->seed(RolePermissionSeeder::class);
 
         config(['reservation.initial_password' => $password]);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('INITIAL_USER_PASSWORD');
-
         $this->seed(StaffSeeder::class);
+
+        $this->assertSame(10, User::count(), 'Sepuluh akun staf harus tetap terbentuk.');
+
+        foreach (User::all() as $user) {
+            $this->assertTrue(
+                Hash::check('Umara2026!', $user->password),
+                "Sandi {$user->email} harus sandi bawaan seeder."
+            );
+        }
     }
 
     /** @return array<string, array{string}> */
@@ -136,25 +142,25 @@ class StaffSeederTest extends TestCase
     }
 
     /**
-     * Berhenti SEBELUM satu pun akun terbentuk, bukan di tengah perulangan.
+     * Sepuluh akun lahir dengan sandi yang sama persis, bukan sebagian.
      *
-     * Kalau initialPassword() dipanggil di dalam foreach, akun pertama sudah
-     * terlanjur jadi saat penjaganya berbunyi — meninggalkan database separuh
-     * terisi yang lebih membingungkan daripada tidak terisi sama sekali.
+     * initialPassword() dibaca sekali di luar foreach justru untuk ini. Kalau ia
+     * pindah ke dalam perulangan, perubahan config di tengah jalan akan membelah
+     * sepuluh akun jadi dua kelompok bersandi berbeda — tanpa satu pun error.
      */
-    public function test_refusing_leaves_no_half_created_accounts(): void
+    public function test_every_account_gets_the_same_password(): void
     {
         $this->seed(RolePermissionSeeder::class);
 
-        config(['reservation.initial_password' => 'CHANGE_ME_INITIAL_PASSWORD']);
+        config(['reservation.initial_password' => 'sandi-produksi-yang-lain']);
 
-        try {
-            $this->seed(StaffSeeder::class);
-        } catch (RuntimeException) {
-            // Yang diperiksa keadaan database sesudahnya, bukan pesannya.
+        $this->seed(StaffSeeder::class);
+
+        $this->assertSame(10, User::count());
+
+        foreach (User::all() as $user) {
+            $this->assertTrue(Hash::check('sandi-produksi-yang-lain', $user->password));
         }
-
-        $this->assertSame(0, User::count(), 'Tidak boleh ada akun yang terlanjur dibuat.');
     }
 
     /**

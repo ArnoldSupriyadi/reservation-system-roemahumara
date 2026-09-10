@@ -10,22 +10,17 @@ return [
     'default_duration_minutes' => (int) env('RESERVATION_DEFAULT_DURATION', 120),
 
     /*
-     * Sandi akun admin pertama, dipakai HANYA oleh DatabaseSeeder saat akun itu
-     * belum ada. Akun staf tidak lagi lahir dari seeder — dibuat lewat
-     * /cms/users, masing-masing dengan sandinya sendiri.
+     * Penimpa sandi awal akun seeder, opsional.
      *
-     * Dibaca dari .env, TIDAK ditulis di sini. Repositori ini publik, dan sandi
-     * sungguhan yang masuk ke kode akan terbit ke internet secara permanen —
+     * Sandinya sendiri TIDAK di sini — ia konstanta SANDI_BAWAAN di trait
+     * Database\Seeders\Concerns\ReadsInitialPassword, supaya `db:seed` di mesin
+     * yang .env-nya belum disunting tetap jalan. Isi nilai ini hanya kalau
+     * memang ingin sandi lain, misalnya di server yang terbuka ke internet;
+     * kosong berarti "pakai yang bawaan", bukan lagi "berhenti".
+     *
+     * Kosongkan juga kalau ragu: sandi sungguhan yang masuk ke .env aman (berkas
+     * itu tidak ikut git), tapi sandi yang masuk ke KODE terbit permanen —
      * riwayat git menyimpannya meski barisnya nanti dihapus.
-     *
-     * TIDAK ADA nilai cadangan, dan itu disengaja. Sebelumnya cadangannya
-     * 'password' dengan alasan "jelas terlihat placeholder". Alasan itu keliru:
-     * yang terjadi pada pemasangan 2026-08-24 adalah akun admin lahir bersandi
-     * placeholder tanpa satu pun tanda, lalu login ditolak dengan pesan
-     * "Kredensial yang diberikan tidak dapat ditemukan" — pesan yang sama
-     * persis dengan email tidak terdaftar dan akun nonaktif, sehingga
-     * penyebabnya tidak bisa dibedakan dari layar. Tanpa cadangan,
-     * DatabaseSeeder berhenti dengan pesan yang menyebut penyebabnya.
      */
     'initial_password' => env('INITIAL_USER_PASSWORD'),
 

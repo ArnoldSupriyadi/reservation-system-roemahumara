@@ -295,7 +295,7 @@ Isi yang wajib disesuaikan sekarang:
 | `APP_URL` | `http://192.168.88.33` |
 | `SESSION_SECURE_COOKIE` | `false` — **wajib**, selama masih HTTP |
 | `DB_PASSWORD` | sandi MySQL dari bagian 3 |
-| `INITIAL_USER_PASSWORD` | sandi akun admin pertama; isi **sebelum** seeder dijalankan. Seeder berhenti kalau masih kosong |
+| `INITIAL_USER_PASSWORD` | sandi akun admin pertama; isi **sebelum** seeder dijalankan. Kosong berarti seeder memakai sandi bawaan yang ada di dalam repositori |
 
 ```bash
 sudo -u ictumara cp .env.production.example .env
@@ -364,10 +364,11 @@ di bawah, `/cms/login` terbuka tapi tidak ada satu pun akun yang bisa masuk, dan
 form reservasi tidak punya pilihan area maupun jenis acara. Anda terkunci di luar
 sistem sendiri.
 
-> **Setel `INITIAL_USER_PASSWORD` di `.env` LEBIH DULU.** Sandi akun admin
-> diambil dari sana. Sejak 2026-08-24 seeder **berhenti dengan pesan jelas**
-> kalau nilainya masih kosong atau masih placeholder, jadi kelalaian ini
-> ketahuan saat itu juga — bukan berhari-hari kemudian di layar login.
+> **Setel `INITIAL_USER_PASSWORD` di `.env` LEBIH DULU.** Kalau nilainya kosong,
+> seeder tidak berhenti — sejak 2026-09-10 ia memakai sandi bawaan yang ada di
+> dalam repositori dan bisa dibaca siapa saja. Di server yang terbuka ke
+> internet itu berarti akun admin dengan sandi publik, dan seeder tidak akan
+> memperbaikinya nanti.
 
 Dua perintah:
 
@@ -385,10 +386,9 @@ hanya diperlukan kalau kelak ingin menambah admin kedua, dan perintah itu
 tombol tertutup.
 
 Kedua seeder aman diulang, dan tidak pernah mengembalikan sandi yang sudah
-diganti sendiri oleh penggunanya — keduanya memakai `firstOrCreate`. Khusus
-`db:seed` polos: kalau akun admin sudah ada, pemeriksaan `INITIAL_USER_PASSWORD`
-ikut dilewati, karena di server yang sudah berjalan sandinya sudah diganti lewat
-panel dan `.env` tidak lagi relevan.
+diganti sendiri oleh penggunanya — keduanya memakai `firstOrCreate`. Konsekuensi
+sisi lainnya: akun yang terlanjur lahir dengan sandi bawaan **tidak** diperbaiki
+dengan menjalankan seeder ulang sesudah `.env` diisi — gantinya lewat panel.
 
 ### Akun staf
 
@@ -399,11 +399,11 @@ sudo -u ictumara php8.3 artisan db:seed --class=StaffSeeder --force
 Sepuluh akun: Denry, Jimmy, Difa, Agus Maulana, Ivo, Cassie, Joesoef (Pak Ucup),
 Ira Arifin, Thea Harun, UCR — semuanya `@roemahumara.com`, berperan `staff`.
 
-Sandinya sama untuk kesepuluhnya, dari `INITIAL_USER_PASSWORD` yang sama dengan
-akun admin. Seeder ini juga **berhenti** kalau nilai itu belum diisi — di sini
-taruhannya sepuluh kali lipat: satu kali jalan dengan `.env` yang salah
-menghasilkan sepuluh akun yang tidak bisa dimasuki sekaligus, dan `firstOrCreate`
-tidak akan memperbaiki satu pun dari mereka.
+Sandinya sama untuk kesepuluhnya, sumbernya sama dengan akun admin:
+`INITIAL_USER_PASSWORD` kalau `.env` diisi, kalau tidak sandi bawaan seeder. Di
+server ini taruhannya sepuluh kali lipat — sandi bawaan itu bisa dibaca siapa
+saja di repositori, dan `firstOrCreate` tidak akan memperbaiki satu pun dari
+sepuluh akun yang terlanjur memakainya. Isi `.env` dulu.
 
 > **Sandi bersama itu keadaan sementara, bukan keadaan akhir.** Selama belum
 > diganti, satu orang yang tahu sandinya bisa masuk sebagai siapa saja, memakai
@@ -605,8 +605,9 @@ domain publik aktif, semuanya jadi wajib:
       `OpenSSH` yang terbuka untuk semua. Catatan: selama SSH tidak ikut
       di-forward di router, dari internet ia memang sudah tidak terjangkau.
 - [ ] **Ganti sandi awal semua akun.** Sebelas akun (admin + sepuluh staf) lahir
-      dengan sandi yang sama dari `INITIAL_USER_PASSWORD`. Selama belum diganti,
-      `activity_log` tidak bisa dipercaya menunjuk orang yang benar.
+      dengan sandi yang sama — `INITIAL_USER_PASSWORD` kalau `.env` diisi, kalau
+      tidak sandi bawaan seeder yang ada di dalam repositori. Selama belum
+      diganti, `activity_log` tidak bisa dipercaya menunjuk orang yang benar.
 - [ ] **Timbang ulang data tamu di halaman publik** — lihat catatan di bawah.
 
 Setelah HTTPS aktif, **tiga hal wajib ikut diubah**:

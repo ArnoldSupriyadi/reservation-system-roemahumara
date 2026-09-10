@@ -83,16 +83,18 @@ php artisan serve
 
 - Halaman publik: <http://localhost:8000/>
 - Panel staf: <http://localhost:8000/cms>
-- Masuk dengan `roemahumara@gmail.com`, sandinya sesuai `INITIAL_USER_PASSWORD`
-  di `.env`
+- Masuk dengan `roemahumara@gmail.com`, sandinya `Umara2026!`
 
 Akun itu dibuat seeder dan berperan `admin`.
 
-`INITIAL_USER_PASSWORD` sengaja kosong di `.env.example` — repositori ini publik,
-jadi sandi yang masuk ke kode akan terbit permanen di riwayat git. Isi sendiri di
-`.env` mesin barumu **sebelum** menjalankan `db:seed`. Kalau dibiarkan kosong,
-seeder berhenti dengan pesan yang menyebut penyebabnya; ia tidak akan membuat
-akun bersandi placeholder.
+`Umara2026!` adalah sandi bawaan seeder, konstanta `SANDI_BAWAAN` di trait
+`Database\Seeders\Concerns\ReadsInitialPassword`. Di mesin lokal tidak ada yang
+perlu disiapkan — `.env` boleh dibiarkan apa adanya.
+
+Untuk server yang terbuka ke internet, sandi itu tidak boleh dipakai: ia ada di
+dalam repositori. Isi `INITIAL_USER_PASSWORD` di `.env` sana **sebelum**
+menjalankan `db:seed`; nilainya menimpa sandi bawaan. Sesudah akunnya jadi,
+seeder tidak pernah lagi menyentuhnya — pembetulannya cuma lewat panel.
 
 Akun staf tidak ikut `db:seed` polos. Kalau memang perlu di mesin lokal:
 `php artisan db:seed --class=StaffSeeder`.

@@ -11,8 +11,8 @@ ke sini.
 Perbarui berkas ini setiap kali sebuah keputusan diambil atau sebuah task
 selesai — bukan setiap commit.
 
-**Terakhir diperbarui:** 2026-09-07 — sistem live di
-<https://reservation.roemahumara.com/>.
+**Terakhir diperbarui:** 2026-09-10 — sandi awal seeder pindah ke kode (`Umara2026!`),
+`.env` jadi penimpa opsional.
 
 ---
 
@@ -21,9 +21,9 @@ selesai — bukan setiap commit.
 | | |
 |---|---|
 | Cabang | `main`, working tree bersih, seluruhnya sudah di-push |
-| Commit terakhir | `2e4e175` "progress: titik lanjut dipindahkan dari catatan sesi ke repo" (2026-08-29) |
+| Commit terakhir | `9b1214c` "migrasi: samakan nama area server lama dengan MasterSeeder" (2026-09-08, di-push 2026-09-09) |
 | Produksi | <https://reservation.roemahumara.com/> — live sejak 2026-09-07 |
-| Test | **434 hijau, 1329 assertion**, ± 139 detik |
+| Test | **456 hijau, 1413 assertion**, ± 3–5 menit |
 | Mesin dev | PHP 8.3.1, MySQL 5.7.24 (MAMP, port 3306) |
 
 Tidak ada pekerjaan yang tergantung setengah jalan. Tidak ada branch lain, tidak
@@ -46,10 +46,21 @@ Setelah Task 24, pekerjaan berjalan di luar dokumen rencana. Berurutan:
 | `959b9e0`…`03f07e4` | Jam jadi value object `App\Support\Jam`; jam operasional 08:00–22:00 |
 | `0d589fe` | Pax boleh berupa rentang (`10–14`) |
 | `0856f18` | `MasterSeeder::MELIPUTI` jadi sumber tunggal pasangan area yang saling meliputi |
+| `76f31d9`, `fdea24c` | Foto panduan area: kolom `areas.photo_path`, pratinjau di form reservasi, thumbnail di `/cms/areas`, `AreaPhotoSeeder` |
+| `9b1214c` | Migrasi data: nama area di server lama disamakan dengan `MasterSeeder` |
 
 Masing-masing sudah punya aturannya sendiri di `CLAUDE.md` (nomor 15–18 dan
 bagian Dashboard/Export). Baca dari sana, bukan dari sini — di sini hanya
 urutannya.
+
+**Belum di-commit (2026-09-10):** sandi awal seeder tidak lagi wajib datang dari
+`INITIAL_USER_PASSWORD` di `.env`. Nilai kosong dulu membuat `db:seed` melempar;
+sekarang ia jatuh ke konstanta `SANDI_BAWAAN` = `Umara2026!` di trait
+`Concerns\ReadsInitialPassword`, dan `.env` yang terisi tetap menimpanya.
+Diminta Arnold karena penjagaan lama menghentikan seeder di mesin baru bahkan
+ketika yang dibutuhkan cuma tabel master. Ongkosnya dicatat di `CLAUDE.md`
+bagian **Akun** dan di `deploy/CHECKPOINT.md`: sandi itu ada di repositori, jadi
+server produksi **wajib** mengisi `.env` sebelum seeder pertama kali dijalankan.
 
 ---
 
@@ -143,6 +154,27 @@ karena keputusannya milik pemilik sistem, bukan teknis:
    Pelonggaran kolom itu dulu diminta saat sistem masih di jaringan lokal.
 3. Sebelas akun staf masih bersandi sama; selama itu `activity_log` bisa
    menunjuk orang yang keliru.
+
+**2026-09-10 — foto area dan nama area sampai ke produksi.** Kesepuluh foto
+bawaan tersaji di `/storage/area/*.jpg` dengan ukuran byte yang sama persis
+dengan berkas di repo, dan migrasi `2026_09_08_000002` ikut jalan di sana.
+
+Yang kedua terbukti tanpa membuka server: `AreaPhotoSeeder` mengumpulkan seluruh
+masalah dulu lalu **melempar sebelum menulis satu berkas pun**, dan daftarnya
+memuat GRAND BALLROOM, FOYE, INDOOR, dan SOFA — nama-nama yang baru ada setelah
+migrasi itu. Kesepuluh berkas benar-benar tertulis, jadi keempat nama itu pasti
+sudah ada di database server.
+
+Dua langkah itu **harus berurutan dan seedernya manual**: `deploy.sh` menjalankan
+`migrate`, tidak pernah `db:seed`, dan `storage/` di-exclude dari rsync — jadi
+foto tidak akan pernah ikut terbawa deploy sendirian.
+
+BALLROOM 3 dan 4 sudah **terhapus**, diperiksa Arnold di `/cms/areas` produksi
+2026-09-10. Terhapus, bukan sekadar dinonaktifkan: halaman itu tidak menyaring
+baris nonaktif — `is_active` cuma kolom ikon di sana — jadi baris yang
+dinonaktifkan tetap akan terlihat. Dan migrasi hanya menghapus area yang tidak
+ditunjuk satu reservasi pun, jadi di server memang tidak ada reservasi yang
+memakai keduanya.
 
 ---
 

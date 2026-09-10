@@ -20,14 +20,24 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Schemas\Components\Image;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Str;
 
 class ReservationForm
 {
+    /**
+     * Gambar yang dirender saat areanya sudah dipilih tapi belum difoto.
+     *
+     * Tinggal di public/, bukan di storage/: storage/ di-exclude dari rsync
+     * deploy, jadi placeholder yang tinggal di sana akan hilang saat server
+     * dipasang ulang — dan berubah jadi ikon gambar rusak yang ia ada untuk
+     * mencegahnya.
+     */
+    private const PLACEHOLDER = 'img/no-image.svg';
+
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
@@ -115,20 +125,27 @@ class ReservationForm
                      * form. Sengaja hanya di CMS — kalender publik tidak
                      * menampilkannya sama sekali (aturan #10).
                      *
-                     * Disembunyikan total kalau areanya belum punya foto.
-                     * Merender <img> dengan src kosong tetap menghasilkan ikon
-                     * gambar rusak di peramban, dan staf membacanya sebagai
-                     * "sistemnya error", bukan "areanya belum difoto".
+                     * Areanya sudah dipilih tapi belum ada fotonya: yang
+                     * muncul placeholder bertulisan "No image", bukan ruang
+                     * kosong. Yang TIDAK boleh terjadi adalah merender <img>
+                     * dengan src kosong atau src yang menunjuk berkas hilang —
+                     * peramban menampilkan keduanya sebagai ikon gambar rusak,
+                     * dan staf membacanya sebagai "sistemnya error", bukan
+                     * "areanya belum difoto". Placeholder mengatakannya.
+                     *
+                     * Sebelum ada area yang dipilih, tidak ada apa-apa sama
+                     * sekali: placeholder menjawab "mana fotonya?", dan
+                     * pertanyaan itu belum ada.
                      *
                      * Tingginya dipatok supaya foto potret tidak mendorong
                      * tombol Simpan jauh ke bawah layar.
                      */
-                    Image::make(
-                        fn (Get $get): string => self::fotoArea($get('area_id')) ?? '',
-                        'Foto panduan area',
-                    )
-                        ->imageHeight(180)
-                        ->visible(fn (Get $get): bool => self::fotoArea($get('area_id')) !== null)
+                    View::make('filament.area-photo')
+                        ->viewData(fn (Get $get): array => [
+                            'url' => self::fotoArea($get('area_id')) ?? asset(self::PLACEHOLDER),
+                            'adaFoto' => self::fotoArea($get('area_id')) !== null,
+                        ])
+                        ->visible(fn (Get $get): bool => filled($get('area_id')))
                         ->columnSpanFull(),
 
                     TextInput::make('pax')

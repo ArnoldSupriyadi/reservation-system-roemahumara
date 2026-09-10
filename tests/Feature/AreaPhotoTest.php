@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Filament\Resources\Areas\Pages\ManageAreas;
 use App\Filament\Resources\Reservations\Pages\CreateReservation;
+use App\Filament\Resources\Reservations\Pages\EditReservation;
 use App\Models\Area;
+use App\Models\Reservation;
 use App\Models\User;
 use Database\Seeders\AreaPhotoSeeder;
 use Database\Seeders\MasterSeeder;
@@ -19,6 +21,12 @@ use Tests\TestCase;
 class AreaPhotoTest extends TestCase
 {
     use RefreshDatabase;
+
+    /** Berkas yang dirender saat areanya belum punya foto. */
+    private const PLACEHOLDER = 'img/no-image.svg';
+
+    /** Penanda markup pembesar foto; ada hanya kalau fotonya bisa diklik. */
+    private const PEMBESAR = 'ru-area-photo-dialog';
 
     public function test_seeder_gives_every_master_area_a_photo(): void
     {
@@ -145,9 +153,26 @@ class AreaPhotoTest extends TestCase
     public function test_the_photo_url_points_at_the_stored_file(): void
     {
         Storage::fake('public');
+        Storage::disk('public')->put('area/OUTDOOR.jpg', 'isi-gambar');
         $area = Area::create(['name' => 'DENGAN FOTO', 'photo_path' => 'area/OUTDOOR.jpg']);
 
         $this->assertStringContainsString('area/OUTDOOR.jpg', $area->photoUrl());
+    }
+
+    /**
+     * Kolomnya terisi, berkasnya tidak ada: null, bukan URL yang menunjuk ke
+     * berkas yang sudah hilang.
+     *
+     * photoUrl() yang hanya memeriksa kolomnya akan mengembalikan URL yang sah
+     * secara bentuk tapi menunjuk 404, dan peramban merendernya sebagai ikon
+     * gambar rusak. Null-lah yang membuat form jatuh ke placeholder.
+     */
+    public function test_the_photo_url_is_null_when_the_file_is_gone(): void
+    {
+        Storage::fake('public');
+        $area = Area::create(['name' => 'FOTONYA HILANG', 'photo_path' => 'area/HILANG.jpg']);
+
+        $this->assertNull($area->photoUrl());
     }
 
     /**
@@ -186,6 +211,7 @@ class AreaPhotoTest extends TestCase
     {
         Storage::fake('public');
         $this->masukSebagaiStaf();
+        Storage::disk('public')->put('area/OUTDOOR.jpg', 'isi-gambar');
         $area = Area::create(['name' => 'OUTDOOR', 'photo_path' => 'area/OUTDOOR.jpg']);
 
         Livewire::test(CreateReservation::class)
@@ -194,14 +220,17 @@ class AreaPhotoTest extends TestCase
     }
 
     /**
-     * Area tanpa foto tidak boleh meninggalkan bekas apa pun di form.
+     * Area tanpa foto menampilkan placeholder, bukan ruang kosong.
      *
-     * Yang dijaga di sini bukan kerapian, melainkan ikon gambar rusak: sebuah
-     * <img> dengan src kosong tetap dirender peramban sebagai gambar gagal, dan
-     * staf akan membacanya sebagai "sistemnya error", bukan "areanya belum
-     * difoto".
+     * Sampai 2026-09-10 pratinjaunya disembunyikan seluruhnya. Yang dijaga
+     * waktu itu adalah ikon gambar rusak: sebuah <img> dengan src kosong tetap
+     * dirender peramban sebagai gambar gagal, dan staf membacanya sebagai
+     * "sistemnya error", bukan "areanya belum difoto". Placeholder bertulisan
+     * menjawab kekhawatiran yang sama dengan lebih baik — ia mengatakannya,
+     * alih-alih menyisakan ruang kosong yang juga bisa dibaca sebagai form
+     * yang belum selesai memuat.
      */
-    public function test_the_reservation_form_shows_nothing_when_the_area_has_no_photo(): void
+    public function test_the_reservation_form_shows_a_placeholder_when_the_area_has_no_photo(): void
     {
         Storage::fake('public');
         $this->masukSebagaiStaf();
@@ -209,7 +238,111 @@ class AreaPhotoTest extends TestCase
 
         Livewire::test(CreateReservation::class)
             ->fillForm(['area_id' => $area->id])
+            ->assertSee(self::PLACEHOLDER)
             ->assertDontSee('/storage/area/');
+    }
+
+    /**
+     * Selama areanya belum dipilih, tidak ada pratinjau sama sekali — juga
+     * bukan placeholder.
+     *
+     * Placeholder menjawab pertanyaan "mana fotonya?", dan pertanyaan itu baru
+     * ada setelah staf memilih area. Memunculkannya lebih awal membuat form
+     * terbuka dengan kotak yang seolah melaporkan ada sesuatu yang hilang,
+     * padahal belum ada yang diminta.
+     */
+    public function test_the_reservation_form_shows_no_preview_until_an_area_is_chosen(): void
+    {
+        Storage::fake('public');
+        $this->masukSebagaiStaf();
+
+        Livewire::test(CreateReservation::class)
+            ->assertDontSee(self::PLACEHOLDER)
+            ->assertDontSee('/storage/area/');
+    }
+
+    /**
+     * photo_path terisi tapi berkasnya sudah tidak ada: placeholder, bukan
+     * ikon gambar rusak.
+     *
+     * Keadaan ini bukan mengada-ada. Foto unggahan tinggal di storage/, yang
+     * TIDAK ikut git dan di-exclude dari rsync deploy — server yang dipasang
+     * ulang datang dengan baris database utuh dan folder fotonya kosong.
+     * Tanpa penjagaan ini, tepat kasus itulah yang menghasilkan ikon gambar
+     * rusak yang jadi alasan aturan lama.
+     */
+    public function test_a_photo_path_without_its_file_falls_back_to_the_placeholder(): void
+    {
+        Storage::fake('public');
+        $this->masukSebagaiStaf();
+        $area = Area::create(['name' => 'FOTONYA HILANG', 'photo_path' => 'area/HILANG.jpg']);
+
+        Livewire::test(CreateReservation::class)
+            ->fillForm(['area_id' => $area->id])
+            ->assertSee(self::PLACEHOLDER)
+            ->assertDontSee('area/HILANG.jpg');
+    }
+
+    /**
+     * Fotonya bisa dibuka lebih besar dengan mengkliknya.
+     *
+     * Thumbnail 180px cukup untuk membedakan FOYE dari KORIDOR, tapi tidak
+     * untuk melihat penataan meja atau di mana pintunya. Yang diperiksa di sini
+     * markup pembesarnya ikut dirender berikut url fotonya — bukan bahwa
+     * kliknya bekerja, karena itu terjadi di peramban.
+     */
+    public function test_the_photo_of_the_chosen_area_can_be_opened_larger(): void
+    {
+        Storage::fake('public');
+        $this->masukSebagaiStaf();
+        Storage::disk('public')->put('area/OUTDOOR.jpg', 'isi-gambar');
+        $area = Area::create(['name' => 'OUTDOOR', 'photo_path' => 'area/OUTDOOR.jpg']);
+
+        Livewire::test(CreateReservation::class)
+            ->fillForm(['area_id' => $area->id])
+            ->assertSee(self::PEMBESAR)
+            ->assertSee($area->photoUrl());
+    }
+
+    /**
+     * Placeholder TIDAK bisa diklik.
+     *
+     * Tidak ada yang bisa diperbesar dari tulisan "No image", dan kursor
+     * zoom-in di atasnya menjanjikan sesuatu yang tidak ada. Staf yang
+     * mengkliknya lalu tidak mendapat apa-apa akan mengira sistemnya
+     * menggantung.
+     */
+    public function test_the_placeholder_cannot_be_opened_larger(): void
+    {
+        Storage::fake('public');
+        $this->masukSebagaiStaf();
+        $area = Area::create(['name' => 'BELUM DIFOTO']);
+
+        Livewire::test(CreateReservation::class)
+            ->fillForm(['area_id' => $area->id])
+            ->assertSee(self::PLACEHOLDER)
+            ->assertDontSee(self::PEMBESAR);
+    }
+
+    /**
+     * Halaman Edit mendapat perilaku yang sama, dan itu bukan kebetulan:
+     * skemanya satu, dipakai bersama Create dan Edit.
+     *
+     * Test ini menjaga agar skema bersama itu tidak diam-diam bercabang jadi
+     * dua perilaku — jenis pembelahan yang sama dengan yang dilarang aturan #12
+     * CLAUDE.md untuk penjagaan bentrok area.
+     */
+    public function test_the_edit_page_can_open_the_photo_larger_too(): void
+    {
+        Storage::fake('public');
+        $this->masukSebagaiStaf();
+        Storage::disk('public')->put('area/OUTDOOR.jpg', 'isi-gambar');
+        $area = Area::create(['name' => 'OUTDOOR', 'photo_path' => 'area/OUTDOOR.jpg']);
+        $reservasi = Reservation::factory()->create(['area_id' => $area->id]);
+
+        Livewire::test(EditReservation::class, ['record' => $reservasi->getKey()])
+            ->assertSee(self::PEMBESAR)
+            ->assertSee($area->photoUrl());
     }
 
     /**
