@@ -329,6 +329,45 @@ class AreaPhotoTest extends TestCase
     }
 
     /**
+     * Tombol tutup tidak boleh membawa <form> sendiri, dan wajib type="button".
+     *
+     * Skema Filament dirender DI DALAM <form wire:submit="create">. Sebuah
+     * <form> di dalam <form> adalah HTML tidak sah: parser peramban membuang
+     * tag bagian dalam diam-diam, tombolnya jatuh jadi milik form Filament di
+     * luarnya, dan type="submit" membuat kliknya MENCOBA MENYIMPAN RESERVASI
+     * alih-alih menutup dialog. Itu bug sungguhan yang pernah terjadi
+     * (2026-09-10) dan lolos dari test sebelumnya.
+     *
+     * Lolosnya bukan kebetulan: pembuangan itu terjadi di parser peramban,
+     * sedangkan HTML dari server memang berisi form bersarangnya. Test yang
+     * hanya memeriksa keberadaan tombolnya tidak akan pernah menangkap ini —
+     * yang harus diperiksa adalah HTML-nya tidak pernah bersarang sejak awal.
+     */
+    public function test_the_close_button_never_nests_a_form(): void
+    {
+        Storage::fake('public');
+        $this->masukSebagaiStaf();
+        Storage::disk('public')->put('area/OUTDOOR.jpg', 'isi-gambar');
+        $area = Area::create(['name' => 'OUTDOOR', 'photo_path' => 'area/OUTDOOR.jpg']);
+
+        $html = Livewire::test(CreateReservation::class)
+            ->fillForm(['area_id' => $area->id])
+            ->html();
+
+        $this->assertStringNotContainsString(
+            '<form',
+            substr($html, strpos($html, 'ru-area-photo-dialog')),
+            'Markup pembesar foto memuat <form> bersarang di dalam form Filament.'
+        );
+
+        $this->assertStringContainsString(
+            '<button type="button" class="'.self::TOMBOL_TUTUP.'"',
+            $html,
+            'Tombol tutup harus type="button" supaya tidak pernah menyimpan reservasi.'
+        );
+    }
+
+    /**
      * Placeholder TIDAK bisa diklik.
      *
      * Tidak ada yang bisa diperbesar dari tulisan "No image", dan kursor

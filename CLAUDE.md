@@ -186,11 +186,24 @@ satu: staf yang belum hafal ruangan sering ragu antara FOYE dan KORIDOR.
   ukurannya). Tombol tutupnya **sengaja mencolok**: lingkaran putih bergaris
   gelap, menggantung sedikit di luar sudut foto. Foto area berlatar apa saja,
   terang maupun gelap, dan tombol tutup yang menyatu dengan gambar di
-  belakangnya sama saja dengan tidak ada. Ia dipasang lewat
-  `<form method="dialog">` — menutup tanpa satu baris JavaScript pun — dan
-  `autofocus`, supaya yang memakai keyboard langsung berdiri di sana. Esc dan
-  klik-latar tetap bekerja, tapi keduanya tidak terlihat, dan layar sentuh
-  tidak punya Esc sama sekali.
+  belakangnya sama saja dengan tidak ada. Ia diberi `autofocus`, supaya yang
+  memakai keyboard langsung berdiri di sana. Esc dan klik-latar tetap bekerja,
+  tapi keduanya tidak terlihat, dan layar sentuh tidak punya Esc sama sekali.
+
+  **Tombolnya wajib `type="button"`, dan TIDAK boleh dibungkus `<form>`.**
+  Versi pertamanya memakai `<form method="dialog">` — cara bawaan peramban
+  menutup dialog tanpa JavaScript — dan itu bug (2026-09-10). Skema Filament
+  dirender di dalam `<form wire:submit="create">`, dan `<form>` di dalam
+  `<form>` adalah HTML tidak sah: parser peramban membuang tag bagian dalam
+  diam-diam, tombolnya jatuh jadi milik form Filament, dan `type="submit"`
+  membuat kliknya **mencoba menyimpan reservasi** alih-alih menutup foto.
+
+  Yang perlu diingat dari kejadian itu bukan cuma aturannya: **test bisa hijau
+  sepanjang bug itu hidup.** Pembuangan tag terjadi di parser peramban,
+  sedangkan HTML dari server memang berisi form bersarangnya, sehingga test
+  yang memeriksa keberadaan tombolnya tidak menangkap apa pun.
+  `test_the_close_button_never_nests_a_form` karena itu memeriksa **markupnya**
+  — tidak ada `<form>` sesudah penanda dialog, dan tombolnya `type="button"`.
 
   Seluruh markup pembesarnya — **termasuk aturan CSS-nya** — hanya dirender
   kalau fotonya benar-benar ada. Bukan kerapian: kursor `zoom-in` di atas

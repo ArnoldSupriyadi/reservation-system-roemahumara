@@ -123,14 +123,28 @@
                 <img src="{{ $url }}" alt="Foto panduan area">
 
                 {{--
-                    <form method="dialog"> menutup dialognya tanpa satu baris
-                    JavaScript pun — perilaku bawaan peramban. Autofocus supaya
-                    yang memakai keyboard langsung berdiri di tombol tutup
-                    begitu fotonya terbuka.
+                    type="button", dan itu WAJIB, bukan gaya penulisan.
+
+                    Skema ini dirender di dalam <form wire:submit="create">
+                    milik Filament. Versi pertama tombol ini memakai
+                    <form method="dialog"> — cara bawaan peramban menutup dialog
+                    tanpa JavaScript — dan itu bug: <form> di dalam <form> adalah
+                    HTML tidak sah, parser peramban membuang tag bagian dalam
+                    diam-diam, dan tombolnya jatuh jadi milik form Filament.
+                    Dengan type="submit", mengkliknya mencoba MENYIMPAN
+                    RESERVASI alih-alih menutup foto.
+
+                    Karena pembuangan itu terjadi di parser peramban sedangkan
+                    HTML dari server tampak baik-baik saja, test yang hanya
+                    memeriksa keberadaan tombolnya hijau selama bug itu hidup.
+                    AreaPhotoTest::test_the_close_button_never_nests_a_form
+                    memeriksa markupnya, bukan keberadaannya.
+
+                    Autofocus supaya yang memakai keyboard langsung berdiri di
+                    tombol tutup begitu fotonya terbuka.
                 --}}
-                <form method="dialog">
-                    <button class="ru-area-photo-close" type="submit" aria-label="Tutup" autofocus>&times;</button>
-                </form>
+                <button type="button" class="ru-area-photo-close" aria-label="Tutup"
+                        x-on:click="$el.closest('dialog').close()" autofocus>&times;</button>
             </div>
         </dialog>
     </div>
